@@ -1001,7 +1001,7 @@
 			var op1_p  = lcomp getOperator () getPriority ()
 			var op2_p  = rcomp getOperator () getPriority ()
 			if op1_p >= op2_p
-				print ("OP", lcomp getOperator () getName (), op1_p , "vs", lcomp getOperator () getName (), op2_p)
+				# print ("OP", lcomp getOperator () getName (), op1_p , "vs", lcomp getOperator () getName (), op2_p)
 				# (A op1 (B op2 C)) -> ((A op1 B) op2 C)
 				var b = rcomp getLeftOperand () detach ()
 				rcomp detach ()
@@ -1507,6 +1507,7 @@
 		actionscript_plugin addRecognizedExtension("sas")
 		pnuts_plugin        addRecognizedExtension("spnuts")
 		pnuts_plugin        addRecognizedExtension("spnut")
+		self environment addParser (new Parser(self), "sg spy sjs sjava spnuts sas" split())
 		# python_plugin.reader      = grammar.Parser
 		# python_reader             = python_plugin.reader()
 		# python_reader.environment = self.environment
@@ -1516,72 +1517,31 @@
 
 @end
 
-# -----------------------------------------------------------------------------
-#
-# CONVENIENCE FUNCTIONS
-#
-# -----------------------------------------------------------------------------
+@class Parser
 
-@function getGrammar
-	@embed Python
-	|global G
+	@shared  G = createProgramGrammar (new parsing Grammar "Sugar")
+	@property environment
+
+	@constructor environment
+		self environment = environment
 	@end
-	if not G
-		G = createProgramGrammar (new parsing Grammar "Sugar")
-	end
-	return G
+
+	@method parse path, moduleName
+		var input   = open  (path, "rb")
+		var source  = input read ()
+		var tokens  = G parse (source)
+		# FIXME: Why is this tied to a path?
+		var builder   = new LambdaFactoryBuilder (path)
+		var module    = builder build (tokens, G)
+		# FIXME: This should be done by the Command itself
+		environment getProgram () addModule (module)
+		return [source, module]
+	@end
+
 @end
 
-
-# @function parse path
-# | Parses the given file at using the Sugar grammar returned from `getGrammar`
-# 	var f = file (path, "rb")
-# 	var t = f read ()
-# 	return getGrammar () parse (t)
-# @end
-#
-# @function compile path, treebuilder=LambdaFactoryBuilder
-# 	var b = new treebuilder (path)
-# 	return b build (parse (path), getGrammar ())
-# @end
-#
-# @function translate path
-# | Compiles the source at the given `path` and passes it to lambda factory
-# | which returns the translated source.
-# 	# FIXME: This should be handled by a lambdafactory
-# 	# translate (program, targetLanguage, passes=[])
-# 	var language    = "javascript"
-# 	var environment = Environment ()
-# 	environment addPass    (new passes     ExtendJSRuntime ())
-# 	environment addPass    (new passes     Importation     ())
-# 	environment addPass    (new resolution BasicDataFlow   ())
-# 	environment addPass    (new resolution DataFlowBinding ())
-# 	# We set the program run the passes
-# 	var module     = compile (path)
-# 	var program    = environment factory createProgram ()
-# 	program addModule (module)
-# 	environment setProgram (program)
-# 	environment runPasses  ()
-# 	# Load the backend and write the program
-# 	var backend   = environment loadLanguage (language)
-# 	var writer    = backend writer ()
-# 	writer report = environment report
-# 	writer setEnvironment (environment)
-# 	return writer run ()
-# @end
-#
-#
-#
-# # @embed Python
-# # |for source_path in sys.argv[1:]:
-# # |	print source_path #(translate(source_path))
-# # @end
-# var source_path = "pouet.sjs"
-# # print (compile (source_path, YAMLBuilder))
-# print (translate (source_path))
-
 @function run arguments
-	var command = new Command "sugar"
+	var command = new SugarCommand "sugar"
 	command run (arguments or ["--help"])
 @end
 

@@ -1,4 +1,3 @@
-#8< ---[sugar2.py]---
 #!/usr/bin/env python
 import sys
 __module__ = sys.modules[__name__]
@@ -684,7 +683,6 @@ class LambdaFactoryBuilder(TreeBuilder):
 			op1_p=lcomp.getOperator().getPriority()
 			op2_p=rcomp.getOperator().getPriority()
 			if (op1_p >= op2_p):
-				print ('OP', lcomp.getOperator().getName(), op1_p, 'vs', lcomp.getOperator().getName(), op2_p)
 				b=rcomp.getLeftOperand().detach()
 				rcomp.detach()
 				lcomp.setRightOperand(b)
@@ -1023,20 +1021,28 @@ class SugarCommand(Command):
 		actionscript_plugin.addRecognizedExtension('sas')
 		pnuts_plugin.addRecognizedExtension('spnuts')
 		pnuts_plugin.addRecognizedExtension('spnut')
+		self.environment.addParser(Parser(self), 'sg spy sjs sjava spnuts sas'.split())
 	
 
-def getGrammar ():
-	self=__module__
-	global G
+class Parser:
+	G = createProgramGrammar(parsing.Grammar('Sugar'))
+	def __init__ (self, environment):
+		self.environment = None
+		self.environment = environment
 	
-	if (not G):
-		G = createProgramGrammar(parsing.Grammar('Sugar'))
-	return G
-
+	def parse(self, path, moduleName):
+		input=open(path, 'rb')
+		source=input.read()
+		tokens=self.__class__.G.parse(source)
+		builder=LambdaFactoryBuilder(path)
+		module=builder.build(tokens, self.__class__.G)
+		self.environment.getProgram().addModule(module)
+		return [source, module]
+	
 
 def run (arguments):
 	self=__module__
-	command=Command('sugar')
+	command=SugarCommand('sugar')
 	command.run((arguments or ['--help']))
 
 
