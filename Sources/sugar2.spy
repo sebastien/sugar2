@@ -1,0 +1,1593 @@
+#!/usr/bin/env sugar
+# -----------------------------------------------------------------------------
+# Project   : Sugar - Language Parser
+# -----------------------------------------------------------------------------
+# Author    : Sebastien Pierre                            <sebastien@ffctn.com>
+# License   : Revised BSD License
+# -----------------------------------------------------------------------------
+# Creation  : 08-Sep-2007
+# Last mod  : 10-Dec-2013
+# -----------------------------------------------------------------------------
+
+@module  sugar2
+@version 0.9
+@target  Python
+@import  parsing
+@import  sys
+@import  ipdb
+@import  interfaces           from lambdafactory
+@import  Command              from lambdafactory.main
+@import  Factory              from lambdafactory.modelbase
+@import  Environment          from lambdafactory.environment
+@import  FileSplitter         from lambdafactory.splitter
+@import  lambdafactory.passes as passes
+@import  lambdafactory.resolution as resolution
+
+@shared G
+@shared F = new Factory ()
+
+# ----------------------------------------------------------------------------
+#
+# INDENTATION FUNCTIONS
+#
+# ----------------------------------------------------------------------------
+
+@function doIndent context
+	var v = context getVariables () getParent ()
+	var i = v get "requiredIndent" or 0
+	v set ("requiredIndent", i + 1)
+	# sys stderr write ("XXX doIndent: indent=" + str(v get "requiredIndent") + "\n")
+@end
+
+@function doCheckIndent context
+	var v          = context getVariables ()
+	var tab_match  = context getVariables () get "tabs"
+	var tab_indent = len(tab_match group ())
+	var req_indent = v get "requiredIndent" or 0
+	# sys stderr write ("XXX checkIndent tab=" + str(tab_indent) + ", required=" + str(req_indent) + "\n")
+	return  tab_indent == req_indent
+@end
+
+@function doDedent context
+	var v = context getVariables () getParent ()
+	var i = v get "requiredIndent" or 0
+	v set ("requiredIndent", i - 1)
+	# sys stderr write ("XXX doDedent indent=" + str(v get "requiredIndent") + "\n")
+@end
+
+@function doBlockStart context
+	var v = context getVariables () getParent ()
+	v set ("blockVariables", v)
+	# sys stderr write ("XXX block start\n")
+@end
+
+@function doBlockLastSetLine context
+	var v = context getVariables () get "blockVariables"
+	# sys stderr write ("XXX block last set line\n")
+	v set ("blockLast", "line")
+@end
+
+@function doBlockLastSetBody context
+	var v = context getVariables () get "blockVariables"
+	# sys stderr write ("XXX block last set body\n")
+	v set ("blockLast", "body")
+@end
+
+@function doBlockLastIsLine context
+	return context getVariables () get "blockLast" == "line"
+@end
+
+# -----------------------------------------------------------------------------
+#
+# GRAMMAR CONSTRUCTION FUNCTIONS
+#
+# -----------------------------------------------------------------------------
+# NOTE: this group of functions are used to create rules within the grammar
+# that share a similar structure. Another way would be to create new parsing
+# elements for these, but it is simpler and more appropriate here to simply
+# have "creator" patters for the elements.
+
+@function declaration grammar, name, prefix
+	var g = grammar ; var s = g symbols
+	return g rule (name
+		s CheckIndent
+		prefix
+		s NameType _as "name"
+		g arule (
+			g aword "="
+			s Expression
+		) optional () _as "value"
+		s EOL
+		s Documentation optional () _as "documentation"
+	)
+@end
+
+@function function grammar, name, prefix, anonymous=False
+	var g = grammar ; var s = grammar symbols
+	# s Comment   zeroOrMore ()
+	# s EmptyLine zeroOrMore ()
+	#s EmptyLine zeroOrMore ()
+	if anonymous
+		return g rule (name
+			s CheckIndent
+			prefix _as "type"
+			g agroup (
+				s EOL
+				g arule (
+					s ParameterList optional ()
+					s EOL
+				)
+			) _as "parameters"
+			s Documentation optional () _as "documentation"
+			s Body _as "body"
+			s OEnd
+		)
+	else
+		return g rule (name
+			s CheckIndent
+			prefix     _as "type"
+			s NameType _as "name"
+			g agroup (
+				s EOL
+				g arule (
+					s ParameterList optional ()
+					s EOL
+				)
+			) _as "parameters"
+			s Documentation optional () _as "documentation"
+			s Body _as "body"
+			s OEnd
+		)
+	end
+@end
+
+@function abstractFunction grammar, name, prefix
+	var g = grammar ; var s = grammar symbols
+	# NOTE: This is an interesting example of optimizing the grammar,
+	# where we make sure that we prevent from trying too many parses
+	# that will fail. By putting EOL first in the grammar, we'll ensure
+	# the we won't try parameters if we have an EOL
+	return g rule (name
+		s CheckIndent
+		s oabstract
+		prefix bindAs "type"
+		s NameType                  bindAs "name"
+		g agroup (
+			s EOL
+			g arule (
+				s ParameterList optional () bindAs "parameters"
+				s EOL
+			)
+		)
+		s Documentation optional () bindAs "documentation"
+	)
+@end
+
+@function listOf rule, separator, grammar
+| Creates a new list of the given rule, separated by the given separator
+| in the given grammar
+	return grammar arule (
+		grammar arule ( rule, separator ) zeroOrMore ()
+		rule
+	)
+@end
+
+# -----------------------------------------------------------------------------
+#
+# LANGUAGE GRAMMAR
+#
+# -----------------------------------------------------------------------------
+
+@function createProgramGrammar g=(new parsing Grammar "Sugar")
+	var s = g symbols
+	g token     ("SPACE",            "[ ]+")
+	g token     ("TABS",             "\t*")
+	g token     ("EMPTY_LINES",      "([ \t]*\n)+")
+	g token     ("INDENT",           "\t+")
+	g token     ("COMMENT",          "[ \t]*\#[^\n]*")
+	g token     ("EOL",              "[ ]*\n(\s*\n)*")
+	g token     ("NUMBER",           "-?(0x)?[0-9]+(\.[0-9]+)?")
+	g token     ("VARIABLE",         "[\$_A-Za-z]\w*")
+	g token     ("NAME",             "[\$_A-Za-z]\w*")
+	g token     ("KEY",              "[\$_A-Za-z]\w*")
+	g token     ("INFIX_OPERATOR",   "([\-\+\*\/\%]|\<|\<=|\>=|\>|==|\!=|in\s+|and\s+|or\s+|\*\*)")
+	g token     ("PREFIX_OPERATOR",  "(not\s+|\-)")
+	g token     ("NEW_OPERATOR",     "new\s+")
+	g token     ("ASSIGN_OPERATOR",  "[\?\*\+\-\/\%]?=")
+	g token     ("SYMBOLIC",         "None|Undefined|Nothing|Timeout")
+	g token     ("STRING_SQ",        "'(\\\\'|[^'\\n])*'")
+	g token     ("STRING_DQ",        "\"(\\\\\"|[^\"\\n])*\"")
+	g token     ("DOCSTRING",        "\|[^\n]*")
+	g token     ("VERSION",          "[0-9]+(\.[0-9]+)?(\.[0-9]+)?[a-zA-Z_]*")
+	# Punctuation
+	g word      ("LP",               "(")
+	g word      ("RP",               ")")
+	g word      ("LB",               "{")
+	g word      ("RB",               "}")
+	g word      ("LSB",              "[")
+	g word      ("RSB",              "]")
+	g word      ("COMMA",            ",")
+	g word      ("DOT",              ".")
+	g word      ("COLON",            ":")
+	g word      ("SEMICOLON",        ";")
+	g word      ("PIPE",             "|")
+	g word      ("EQUALS",           "=")
+	g word      ("WILDCARD",         "*")
+	g word      ("ITERATOR",         "::")
+	g word      ("BLOCKLINE",        "->")
+	g word      ("ELLIPSIS",         "...")
+	# Keywords
+	g word      ("_var",             "var")
+	g word      ("_if",              "if")
+	g word      ("_elif",            "elif")
+	g word      ("_else",            "else")
+	g word      ("_for",             "for")
+	g word      ("_while",           "while")
+	g word      ("_end",             "end")
+	g word      ("_in",              "in")
+	g word      ("_from",            "from")
+	g word      ("_as",              "as")
+	g word      ("_try",             "try")
+	g word      ("_catch",           "catch")
+	g word      ("oabstract",        "@abstract")
+	g word      ("oimport",          "@import")
+	g word      ("omodule",          "@module")
+	g word      ("otarget",          "@target")
+	g word      ("orequires",        "@requires")
+	g word      ("oversion",         "@version")
+	g word      ("olicense",         "@license")
+	g word      ("ofunction",        "@function")
+	g word      ("oclass",           "@class")
+	g word      ("oproperty",        "@property")
+	g word      ("oshared",          "@shared")
+	g word      ("ooperation",       "@operation")
+	g word      ("oconstructor",     "@constructor")
+	g word      ("omethod",          "@method")
+	g word      ("ogroup",           "@group")
+	g word      ("oend",             "@end")
+
+	# Indentation
+	g procedure ("Indent",           doIndent)
+	g procedure ("Dedent",           doDedent)
+	g rule      ("CheckIndent",      s TABS bindAs "tabs", g acondition (doCheckIndent)) disableMemoize ()
+
+	# Documentation & Comments
+	g rule      ("CommentLine",      s COMMENT,     s EOL)
+	g rule      ("EmptyLines",       s EMPTY_LINES)
+	g rule      ("DocumentationLine",s CheckIndent, s DOCSTRING, s EOL)
+	g rule      ("Documentation",    s DocumentationLine oneOrMore ())
+
+	# Basic types
+	g group     ("String",           s STRING_SQ, s STRING_DQ)
+	g rule      ("Expression")
+	g group     ("Key",              s KEY, s NUMBER, s String, g arule( s LP, s Expression, s RP))
+	g rule      ("KeyValue",         s Key, s COLON, s Expression)
+	# TODO: Add support for comments within lines and blocks
+	g rule      ("KeyValueList",     s KeyValue,   g arule (s COMMA, s KeyValue  ) zeroOrMore ())
+	g rule      ("ExpressionList",   s Expression, g arule (s COMMA, s Expression) zeroOrMore ())
+	g rule      ("ExpressionBlock",  s Indent,     g arule (s EOL,   s CheckIndent, s ExpressionList) oneOrMore (), s Dedent)
+	g rule      ("KeyValueBlock",    s Indent,     g arule (s EOL,   s CheckIndent, s KeyValueList  ) oneOrMore (), s Dedent)
+	g rule      ("Array",            s LSB, s ExpressionList optional (), s ExpressionBlock optional (), g arule (s EOL, s CheckIndent) optional (), s RSB)
+	g rule      ("Map",              s LB,  s KeyValueList   optional (), s KeyValueBlock   optional (), g arule (s EOL, s CheckIndent) optional (), s RB)
+
+	# Declarations
+	g rule      ("Type",             s NAME)
+	g rule      ("NameType",         s NAME,     g arule (s COLON,  s Type)       optional   ())
+	g rule      ("FQName",           s NAME,     g arule (s DOT,    s NAME)       zeroOrMore ())
+	g rule      ("Parameter",        s NameType _as "name", g arule (s EQUALS, s Expression) optional   () _as "value")
+	g rule      ("ParameterList",    s Parameter, g arule(s COMMA, s Parameter) zeroOrMore (), s ELLIPSIS optional ())
+	g rule      ("SymbolList",       s NAME,      g arule(s COMMA, s NAME)      zeroOrMore (), s ELLIPSIS optional ())
+	g rule      ("ArgumentsEmpty",   s LP, s RP)
+	g rule      ("ArgumentsMany",    s LP, s ExpressionList, s RP)
+
+	# Closures
+	g rule      ("ClosureStatement", s Expression)
+	g rule      ("ClosureBody",      s EOL, s Expression)
+	# FIXME: It seems that ClosureBody swallows the last EOL
+	g rule      ("Closure",          s LB, g arule (s ParameterList optional (), s PIPE) optional () _as "params", s ClosureStatement optional () _as "line", s ClosureBody optional () _as "body", g arule (s EOL, s CheckIndent) optional (), s INDENT optional (), s RB)
+
+	# Expression prefixes
+	g group     ("Literal",         s NUMBER, s SYMBOLIC, s String, s Array, s Map, s Closure)
+	g rule      ("Decomposition",    g agroup (s DOT, s SPACE), s NAME, g arule (g agroup (s DOT, s SPACE), s NAME) zeroOrMore ())
+	# FIXME: Decomposition and resolution should be the same, no?
+	#g rule      ("Resolution",       s SPACE, s NAME,  g rule ("ResolutionTail", s SPACE, s NAME) zeroOrMore ())
+	g rule      ("ComputationInfix", s INFIX_OPERATOR, s Expression)
+	g rule      ("Access",           s LSB,            s Expression, s RSB)
+	g rule      ("Slice",            s LSB,            s Expression optional (), s COLON, s Expression optional (), s RSB)
+	g group     ("Invocation",       s ArgumentsEmpty, s ArgumentsMany, s Literal)
+	g group     ("Prefixes"
+		g rule  ("Parentheses",      s LP,    s Expression, s RP)
+		g rule  ("Instanciation",    s NEW_OPERATOR, s FQName _as "name", s Invocation _as "params")
+		g rule  ("ComputationPrefix",s PREFIX_OPERATOR, s Expression)
+		s Literal
+		s NAME
+	)
+	g group     ("Suffixes", s ComputationInfix, s Decomposition, s Access, s Slice, s Invocation)
+	s Expression set (s Prefixes, s Suffixes zeroOrMore ())
+
+	# Operations
+	g rule      ("Assignable", s NAME, g agroup(s Decomposition, s Access, s Slice) zeroOrMore ())
+	g rule      ("Allocation", s _var, s SymbolList _as "target", g arule (s PIPE, s NAME) optional () _as "rest", g arule (s EQUALS, s Expression) optional () _as "value")
+	g rule      ("Assignment"
+		g arule (s Assignable, s COMMA) zeroOrMore () _as "before"
+		s Assignable _as "main"
+		g arule (s PIPE, s Assignable) optional () _as "rest"
+		g arule (s ASSIGN_OPERATOR, s Expression)  _as "op"
+	)
+	g rule       ("Termination", g aword "return", s Expression optional ())
+	g rule       ("IterationLine", s Expression, s ITERATOR, s Expression)
+
+	# Blocks
+	g group     ("Block")
+	g group     ("Code")
+	g rule      ("Comment",          s COMMENT, s EOL)
+	g group     ("Statement",   s Comment, s Block, s Allocation, s Assignment, s Termination, s IterationLine, s Expression)
+	g rule      ("Statements",  s Statement, g arule (s SEMICOLON, s Statement) zeroOrMore ())
+	g rule      ("Line",             s CheckIndent, s Statements optional (), s Comment optional (), s EOL)
+	g rule      ("End",              s CheckIndent, s _end, s EOL)
+	# NOTE: We use procedures and condition to support single line and block versions of the blocks
+	g procedure ("BlockStart",       doBlockStart)
+	g condition ("BlockLastIsLine",  doBlockLastIsLine)
+	g procedure ("BlockLastSetLine", doBlockLastSetLine)
+	g procedure ("BlockLastSetBody", doBlockLastSetBody)
+	g rule      ("BlockLine",        s BLOCKLINE, s Statements, s EOL optional (),    s BlockLastSetLine)
+	g rule      ("BlockBody",        s EOL, s Indent, s Code zeroOrMore (), s Dedent, s BlockLastSetBody)
+	g group     ("BlockEnd",         s BlockLastIsLine, s End) disableMemoize ()
+	# FIXME; Support for {assd|if -> asdsadas ... }
+	g rule      ("IfBranch",         s CheckIndent, s _if,    s Expression, g agroup (s BlockBody, s BlockLine))
+	g rule      ("ElifBranch",       s CheckIndent, s _elif,  s Expression, g agroup (s BlockBody, s BlockLine))
+	g rule      ("ElseBranch",       s CheckIndent, s _else,                g agroup (s BlockBody, s BlockLine))
+	g rule      ("WhileBranch",      s CheckIndent, s _while, s Expression _as "condition", g agroup (s BlockBody, s BlockLine) _as "body")
+	g rule      ("TryBranch",        s CheckIndent, s _try,                 g agroup (s BlockBody, s BlockLine))
+	g rule      ("CatchBranch",      s CheckIndent, s _catch, s Parameter optional (), g agroup (s BlockBody, s BlockLine))
+	g rule      ("ForBranch",        s CheckIndent, s _for,   s ParameterList _as "params", s _in, s Expression _as "expr", g agroup (s BlockBody, s BlockLine) _as "body")
+	g rule      ("Conditional",      s BlockStart, s IfBranch,    s ElifBranch zeroOrMore (), s ElseBranch optional (), s BlockEnd)
+	g rule      ("Try",              s BlockStart, s TryBranch,   s CatchBranch optional  (), s BlockEnd)
+	g rule      ("Repetition",       s BlockStart, s WhileBranch _as "while", s BlockEnd)
+	g rule      ("Iteration",        s BlockStart, s ForBranch   _as "for",   s BlockEnd)
+	s Block set (                    s Conditional, s Repetition, s Iteration, s Try)
+	s Code  set (                    s Comment, s Block, s Line)
+
+	# Program
+	g rule      ("OEnd",             s CheckIndent, s oend,      s EOL)
+	g rule      ("Body",             s Indent, s Code zeroOrMore () bindAs "code", s Dedent)
+	s ClosureStatement set (s Statements)
+	s ClosureBody      set (s EOL, s Body)
+	declaration      (g, "ClassAttribute",    s oshared)
+	declaration      (g, "ModuleAttribute",   s oshared)
+	declaration      (g, "Attribute",         s oproperty)
+	abstractFunction (g, "AbstractFunction",  s ofunction)
+	abstractFunction (g, "AbstractMethod",    s omethod)
+	abstractFunction (g, "AbstractOperation", s ooperation)
+	function         (g, "Function",          s ofunction)
+	function         (g, "Constructor",       s oconstructor, True)
+	function         (g, "Method",            s omethod)
+	function         (g, "Operation",         s ooperation)
+	# NOTE: Group and Rule are already element names
+	g rule  ("CGroup")
+	g group ("Methods",  s Method, s AbstractMethod, s AbstractMethod, s CGroup, s Comment)
+	s CGroup set (s CheckIndent, s ogroup, s NAME _as "name", s EOL, s Documentation optional (), s Indent, s Methods zeroOrMore () _as "methods", s Dedent, s OEnd)
+	g rule  ("Class"
+		g aword "@abstract" optional ()
+		g aword "@class"
+		s NameType _as "name"
+		g arule (s COLON, listOf (s FQName, s COMMA, g)) optional () _as "inherits"
+		s EOL
+		s Documentation optional () _as "documentation"
+		s Indent
+		g agroup (s ClassAttribute, s Attribute) zeroOrMore ()    _as "properties"
+		g agroup (s Operation, s AbstractOperation) zeroOrMore () _as "operations"
+		s Constructor   zeroOrMore ()                             _as "constructor"
+		s Methods       zeroOrMore ()                             _as "methods"
+		s Dedent
+		g aword "@end"
+	)
+	g rule  ("ModuleAnnotation",      s omodule,   s FQName, s EOL)
+	g rule  ("VersionAnnotation",     s oversion,  s VERSION, s EOL)
+	g rule  ("RequiresAnnotation",    s orequires, s FQName, g arule (s COMMA, s FQName) zeroOrMore (), s EOL)
+	g rule  ("TargetAnnotation",      s otarget,   s NAME oneOrMore (), s EOL)
+	g rule  ("ImportSingleSymbol",    s oimport,   s NAME,     s _from, s FQName, g arule (s _as, s NAME) optional (), s EOL)
+	g rule  ("ImportSingleFQSymbol",  s oimport,   s FQName,   g arule (s _as,    s NAME) optional (), s EOL)
+	g rule  ("ImportMultipleSymbols", s oimport,   s NAME,     g arule (s COMMA,  s NAME) zeroOrMore (), s _from, s FQName, s EOL)
+	g rule  ("ImportAllSymbols",      s oimport,   s WILDCARD, s _from, s FQName, s EOL)
+	g group ("ImportOperation"
+		s ImportAllSymbols
+		s ImportMultipleSymbols
+		s ImportSingleFQSymbol
+		s ImportSingleSymbol
+	)
+	g rule ("ModuleDeclaration"
+		s EmptyLines         zeroOrMore ()
+		s Comment            zeroOrMore ()
+		s ModuleAnnotation   optional   ()
+		s VersionAnnotation  optional   ()
+		s RequiresAnnotation optional   ()
+		s TargetAnnotation   optional   ()
+		s ImportOperation    zeroOrMore ()
+	)
+	g group     ("Structure",          s EmptyLines, s Comment, s ModuleAttribute, s Function, s Class)
+	g rule      ("Module",             s ModuleDeclaration,  s Structure zeroOrMore (), s Code zeroOrMore ())
+	# s Program set (s Map)
+	g ignore    (s SPACE, s COMMENT)
+	g axiom   = s Module
+	return g
+@end
+
+# -----------------------------------------------------------------------------
+#
+# TREE BUILDER
+#
+# -----------------------------------------------------------------------------
+
+# FIXME: Get rid of that once LambdaFactory supports Python imports
+@class TreeBuilder
+
+	@property g
+	@property path
+
+	@constructor path=None
+		self path = path
+	@end
+
+	@method build result, grammar
+		g = grammar
+		return on (result)
+	@end
+
+	@method flatten l,r=[]
+		if not (type(l) in [tuple,list])
+			return r
+		else
+			for e in l
+				if type(e) in [tuple,list]
+					flatten (e,r)
+				else
+					r append (e)
+				end
+			end
+		end
+		return r
+	@end
+
+	@method getElements l
+		var res = []
+		for e in flatten(l)
+			if isinstance(e, interfaces IElement )
+				res append (e)
+			end
+		end
+		return res
+	@end
+
+	@method on parsingResult
+	| Expand the given value, so that the ParsingResults are converted to values
+	| expanded by the corresponding `onXXX` methods.
+		# FIXME: We should definitely not use elementDataContext but instead a named tuple
+		if isinstance (parsingResult, parsing ParsingResult)
+			# We got an (Element, Data, Context) triple
+			var element       = parsingResult element
+			var data          = parsingResult data
+			var context       = parsingResult context
+			var element_name  = (element name) or (element __class__ __name__)
+			var method_name   = "on" + (element_name[0] upper () + element_name[1:])
+			if hasattr(self, method_name)
+				# There is a specific handler for the element
+				# print ("RLE " + method_name)
+				var res = getattr (self, method_name)(element, data, context)
+				return res
+			else
+				# There is no handler for the element, so we trigger `onMissing`
+				# print ("dfl " + method_name)
+				var res = _onMissing (element, data, context)
+				# print ("--- ", method_name, res)
+				return res
+			end
+		if type(parsingResult) == list or type(parsingResult) == tuple
+			# We got a list of Element/Data/Context triples [(E,D,C),...]
+			res = []
+			for _ in parsingResult
+				var e = on (_)
+				res append (e)
+			end
+			return res
+		else
+			# We are in a terminal element, so we simply return it as-is. This
+			return parsingResult
+		end
+	@end
+
+	@method _onMissing element, data, context
+		return on (data)
+	@end
+
+@end
+
+
+
+# -----------------------------------------------------------------------------
+#
+# INTERFACE TO LAMBDA FACTORY
+#
+# -----------------------------------------------------------------------------
+
+@class LambdaFactoryBuilder: TreeBuilder
+| Converts a parse tree into a Lambda Factory program model, which can then
+| be translated to one of Lambda Factory's target language.
+|
+| Each `onXXX` should return a corresponding LambdaFactory model, or a list
+| of them. The basic structure for a `onXXX` (where `XXX` is the rule name) is
+| like that:
+|
+| ```
+| @method on<RuleName> element, data, context
+|     # element is the `parsing.Element` subclass
+|     # data is the raw data returned by the element `process` method
+|     # context is the `parsing.ParsingContext` instance
+|     #
+|     # Here, we retrieve the part of the data for the "code" rule. The
+|     # code_data will contain one or more (element, data, context) triples.
+|     var code_data = element resolve ("code", data)
+|     # And we apply the rules for the specific elements, and retrieve a
+|     # lambda factory object
+|     var code      = on (code_data)
+|     # We should then do something with the object...
+|     return code
+| @end
+| ```
+
+	@shared OPERATORS = [
+		["or"]
+		["and"]
+		[">" , ">=" , "<" , "<=" , "!=" , "==" , "is" , "is not" , "in" , "not in"]
+		["+"  , "-"]
+		["not"]
+		["/"  , "*"  , "%" , "//"]
+		["/=", "*=", "%=", "+=" , "-="]
+	]
+
+	@property program
+	@property module
+	@property process   = None
+	@property scopes    = []
+	@property processes = []
+
+	@constructor path=None
+		super (path)
+		program = F createProgram ()
+		scopes append (program)
+		program setFactory (F)
+	@end
+
+	@method getDefaultModuleName
+		return path split "/" [-1] split "." [0] replace ("-", "_")
+	@end
+
+	@method normalizeOperator operator
+		while len(operator) > 0 and operator[-1] == " " or operator[-1] == "\t"
+			operator = operator[0:-1]
+		end
+		return operator
+	@end
+
+	@method getOperatorPriority operator
+		var i = 0
+		for line in OPERATORS
+			if operator in line
+				return i
+			end
+			i += 1
+		end
+		raise (new Exception ("Unknown operator: " + str(operator)))
+	@end
+
+	@method _var name=None, context=(self context)
+	| Lists the variables defined in the given context or gets the
+	| variable with the given name.
+		if not name
+			return context getVariables () keys ()
+		else
+			return context getVariables () get (name)
+		end
+	@end
+
+	@method _bind referanceable
+	| Assigns the given referenceable to the current scope
+		scopes[-1] setSlot (referanceable getName (), referanceable)
+	@end
+
+	@method _onlyWithValue result
+	| Returns only the elements of result that have a value
+		@embed Python
+		|return filter(lambda _:_, result)
+		@end
+	@end
+
+	@method _tryGet list, index, default
+	| Tries to get the `index`th element of `list` or returns `default`
+		if list and len(list) > index
+			return list[index]
+		else
+			return None
+		end
+	@end
+
+	@method _setCode process, code
+		code = code or []
+		for line in (code or [])
+			if type(line) != type([])
+				line = [line]
+			end
+			for statement in (line or [])
+				if isinstance (statement, interfaces IOperation)
+					process addOperation (statement)
+				end
+				#else
+				#	# FIXME: For some reason, comments are converted to regexps
+				#	# print ("ELEMENT NOT SUPPORTED YET:" + repr(statement))
+			end
+		end
+		return process
+	@end
+
+	# =========================================================================
+	# STRUCTURE
+	# =========================================================================
+
+	@method onModule element, data, context
+		# Module should be retrieved either through a parameter/option
+		self context = context
+		# We get the module declaration
+		var data_declaration = element resolve (g symbols ModuleDeclaration, data)
+		annotations = {}
+		for _ in on (data_declaration)
+			if isinstance (_, interfaces IAnnotation)
+				annotations[_ getName ()] = _ getContent ()
+			end
+		end
+		# We create the module
+		module       = F createModule (annotations get "module" or getDefaultModuleName())
+		# A module is a scope, so we add it to the scopes stack
+		program addModule (module)
+		scopes append     (module)
+		# We take care of the version number
+		if annotations get "version"
+			var res = F _moduleattr ("VERSION", None, F _string (annotations get "version"))
+			_bind (res)
+		end
+		# We get the module structure
+		var data_structure = element resolve (g symbols Structure, data)
+		structure          = on (data_structure)
+		# We get the module code and assign it to the main function
+		var data_code      = element resolve (g symbols Code, data)
+		var main_function  = F createFunction (F MainFunction)
+		var code  = on (data_code)
+		_setCode (main_function, code)
+		_bind    (main_function)
+		# We pop the scopes as we're done with the module
+		scopes pop ()
+		return module
+	@end
+
+	@method onModuleAnnotation element, data, context
+		var ref = self on (data[1])
+		return F annotation ("module", ref getReferenceName ())
+	@end
+
+	@method onVersionAnnotation element, data, context
+		return F annotation ("version", on(data)[1] group ())
+	@end
+
+	@method onClass element, data, context
+		# We start by binding the scope
+		var variables   = element variables (data)
+		var name        = getElements (on(variables["name"]))
+		var res         = F createClass (name[0] getName (), name[1:])
+		scopes append (res)
+		var is_abstract = on(data[0])
+		var inherits    = on(variables["inherits"])
+		var doc         = getElements (on(variables["documentation"]))
+		var properties  = on(variables["properties"])   or []
+		var operations  = on(variables["operations"])   or []
+		var methods     = on(variables["methods"])      or []
+		var constructor = on(variables["constructor"])
+		res setDocumentation (doc and doc[0])
+		res setAbstract      (is_abstract and True)
+		scopes pop ()
+		_bind (res)
+		return res
+	@end
+
+	@method onAttribute element, data, context
+		var v     = element variables (data)
+		var name  = getElements (on(v["name"]))
+		var value = getElements (on(v["value"]))
+		var doc   = getElements (on(v["documentation"]))
+		# FIXME: Value is reference, but it should be a resolution if it's a reference, no?
+		var res   = F _attr (name[0] getReferenceName (), None, value and value[0])
+		res setDocumentation (doc and doc[0])
+		_bind (res)
+		return res
+	@end
+
+	@method onClassAttribute element, data, context
+		var v     = element variables (data)
+		var name  = getElements (on(v["name"]))
+		var value = getElements (on(v["value"]))
+		var doc   = getElements (on(v["documentation"]))
+		# FIXME: Value is reference, but it should be a resolution if it's a reference, no?
+		var res   = F _classattr (name[0] getReferenceName (), None, value and value[0])
+		res setDocumentation (doc and doc[0])
+		_bind (res)
+		return res
+	@end
+
+	@method onModuleAttribute element, data, context
+		var data_ref_type  = element resolve ("name",  data)
+		var data_value     = element resolve ("value", data)
+		var data_doc       = element resolve ("documentation",   data)
+		var value          = _tryGet(on(data_value), 1, None)
+		var ref_type       = on (data_ref_type)
+		var res = F _moduleattr (ref_type[0] getReferenceName(), None, value)
+		_bind (res)
+		return res
+	@end
+
+	@method onCGroup element, data, context
+		var data_name    = element resolve ("name",    data)
+		var data_methods = element resolve ("methods", data) or []
+		var methods      = []
+		var group_annotation = F annotation ("as", data_name)
+		for m in on(data_methods)
+			m addAnnotation (group_annotation)
+			methods append (m)
+		end
+		return methods
+	@end
+
+	@method _createCallable factory, element, data, context
+		var data_type   = element resolve ("type",          data)
+		var data_name   = element resolve ("name",          data)
+		var data_params = element resolve ("parameters",    data)
+		var data_doc    = element resolve ("documentation", data)
+		var data_body   = element resolve ("body",          data)
+		var name_type   = on (data_name)
+		# FIXME: Support return type
+		var params      = _tryGet (on (data_params), 0, [])
+		var fun         = None
+		if name_type
+			fun         = factory (name_type[0] getReferenceName (), params)
+		else
+			fun         = factory (params)
+		end
+		fun setDocumentation (on(data_doc))
+		# ipdb set_trace ()
+		scopes append (fun)
+		# TODO: Set documentation
+		_setCode (fun, on(data_body))
+		scopes pop ()
+		_bind    (fun)
+		return fun
+	@end
+
+	@method onOperation element, data, context
+		return _createCallable (F createClassMethod, element, data, context)
+	@end
+
+	@method onAbstractOperation element, data, context
+		var res = _createCallable (F createClassMethod, element, data, context)
+		res setAbstract (True)
+		return res
+	@end
+
+	@method onMethod element, data, context
+		return _createCallable (F createMethod, element, data, context)
+	@end
+
+	@method onConstructor element, data, context
+		return _createCallable (F createConstructor, element, data, context)
+	@end
+
+	@method onAbstractMethod element, data, context
+		return _createCallable (F createAbstractMethod, element, data, context)
+	@end
+
+	@method onFunction element, data, context
+		return _createCallable (F createFunction, element, data, context)
+	@end
+
+	@method onAbstractFunction element, data, context
+		return _createCallable (F createAbstractFunction, element, data, context)
+	@end
+
+	@method onClosure element, data, context
+		var data_params = element resolve ("params", data)
+		var data_line   = element resolve ("line",   data)
+		var data_body   = element resolve ("body",   data)
+		var params      = _tryGet(on(data_params),0,None)
+		var line        = on(data_line) or []
+		var body        = _tryGet(on(data_body),1,None) or []
+		var res         = F createClosure (params)
+		_setCode( res, line + body)
+		return res
+	@end
+
+	# =========================================================================
+	# CODE
+	# =========================================================================
+
+	@method onBody element, data, context
+		return on(element resolve ("code", data))
+	@end
+
+	@method onCode element, data, context
+		var res   = []
+		var value = on(data)
+		if (type(value) is list) or (type(value) is tuple)
+			for _ in (on(data) or [])
+				if (type(_) is list) or (type(_) is tuple)
+					res += _
+				else
+					res append (_)
+				end
+			end
+		else
+			res append (value)
+		end
+		return res
+	@end
+
+	@method onLine element, data, context
+		var data_statements = element resolve (g symbols Statements, data)
+		var data_comment    = element resolve (g symbols Comment,    data)
+		var statements      = on(data_statements)
+		# FIXME: We ignore the comment here but should attach it to statements
+		var comment         = on(data_comment)
+		return statements
+	@end
+
+	@method onStatements element, data, context
+		# model_data is STATEMENT | [STATEMENT]
+		var model_data = on (data)
+		var statements = [model_data[0]] + (model_data[1] or [])
+		var res        = []
+		for _ in statements
+			# A statement can return one or more elements (for instance,
+			# onAllocation will return a list of operations)
+			if (type(_) is list) or (type(_) is tuple)
+				# In this case we have a list of operations
+				# [Allocation, Evalution, etc...]
+				res += _
+			else
+				# Or here we have a single element/operation
+				res append (_)
+			end
+		end
+		return res
+	@end
+
+	@method onStatement element, data, context
+	| Returns an `Element` or a list of `[Element]`. Typically these elements
+	| would be Comments, Blocks or Operations.
+		var res = on (data)
+		return res
+	@end
+
+	# =========================================================================
+	# CONTROL STRUCTURES
+	# =========================================================================
+
+	@method onConditional element, data, context
+		var data_if    = data[1]
+		var data_elifs = data[2]
+		var data_else  = data[3]
+		var _if        = on (data_if)
+		var _elifs     = on (data_elifs) or []
+		var _else      = on (data_else)
+		var res        = F select ()
+		res addRule (F matchProcess (_if[0], _if[1]))
+		for _ in _elifs
+			res addRule (F matchProcess (_[0], _[1]))
+		end
+		if _else
+			# FIXME: Should be "res setFallback"
+			res addRule (F matchProcess (F _ref "True", _else[0]))
+		end
+		return res
+	@end
+
+	@method onIfBranch element, data, context
+		var data_condition = data[-2]
+		var data_body      = data[-1]
+		var block          = F createBlock ()
+		# FIXME: I don't get why I have to use data_body data
+		var code           = on (data_body data)
+		_setCode (block, code)
+		return [on(data_condition), block]
+	@end
+
+	@method onElifBranch element, data, context
+		var data_condition = data[-2]
+		var data_body      = data[-1]
+		var block          = F createBlock ()
+		# FIXME: I don't get why I have to use data_body data
+		_setCode (block, on(data_body data))
+		return [on(data_condition), block]
+	@end
+
+	@method onElseBranch element, data, context
+		var data_body = data[-1]
+		var block          = F createBlock ()
+		# FIXME: I don't get why I have to use data_body data
+		_setCode (block, on(data_body data))
+		return [block]
+	@end
+
+	@method onIteration element, data, context
+		return on (element resolve ("for", data))
+	@end
+
+	@method onRepetition element, data, context
+		return on (element resolve ("while", data))
+	@end
+
+	@method onForBranch element, data, context
+		var params   = on (element resolve ("params", data))
+		var expr     = on (element resolve ("expr",   data))
+		var body     = on (element resolve ("body",   data))
+		var process  = F createClosure (params)
+		_setCode (process, body)
+		return F iterate (expr, process)
+	@end
+
+	@method onWhileBranch element, data, context
+		var condition = on (element resolve ("condition", data))
+		var body      = on (element resolve ("body",   data))
+		var process   = F createBlock ()
+		_setCode (process, body)
+		return F repeat (condition, process)
+	@end
+
+	@method onBlockBody element, data, context
+		# Returns the code contained in the block body
+		return on(data[2])
+	@end
+
+	@method onBlockLine element, data, context
+		# Returns the statements contained in the block line
+		return on(data[1])
+	@end
+
+	# @method onBlock element, data, context
+	# 	return on(data)
+	# @end
+
+	# =========================================================================
+	# EXPRESSIONS
+	# =========================================================================
+
+	@method onExpression element, data, context
+		var prefix_suffixes = on (data)
+		# Prefix is the current value of the expression, and suffixes is
+		# a sequence of operations on the value (invocation, resolution, etc).
+		# Suffixes is because we wanted to avoid recursive grammars, which
+		# is not well supported in PEG parsers.
+		var prefix,suffixes = prefix_suffixes
+		var current = None
+		# NOTE: This should be abstracted
+		if isinstance(prefix, interfaces ILiteral) or isinstance(prefix, interfaces IValue) or isinstance(prefix, interfaces IClosure)
+			current  = prefix
+		if isinstance(prefix, interfaces IComputation) or isinstance(prefix, interfaces IResolution) or isinstance(prefix, interfaces IInvocation) or isinstance (prefix, interfaces IInstanciation)
+			current  = prefix
+		if isinstance(prefix, interfaces IReference)
+			current  = F resolve (prefix)
+		else
+			ipdb set_trace ()
+			raise Exception("Prefix not supported yet: " + str(current))
+		end
+		current = _applySuffixes (current, suffixes)
+		if isinstance (current, interfaces IComputation)
+			current = _reorderComputation (current)
+		end
+		return current
+	@end
+
+	@method _reorderComputation value
+	| Reorders a sequence of computations according to operators priorities
+		# When we have: A op1 (B op2 C)
+		# FIXME: Not working!
+		var lcomp = value
+		var rcomp = value getRightOperand ()
+		if isinstance (rcomp, interfaces IComputation)
+			var op1_p  = lcomp getOperator () getPriority ()
+			var op2_p  = rcomp getOperator () getPriority ()
+			if op1_p >= op2_p
+				print ("OP", lcomp getOperator () getName (), op1_p , "vs", lcomp getOperator () getName (), op2_p)
+				# (A op1 (B op2 C)) -> ((A op1 B) op2 C)
+				var b = rcomp getLeftOperand () detach ()
+				rcomp detach ()
+				lcomp setRightOperand (b)
+				rcomp setLeftOperand  (lcomp)
+				return rcomp
+			else
+				return value
+			end
+		else
+			return value
+		end
+	@end
+
+	@method _applySuffixes value, suffixes
+	| Applies the suffixes to the current value, modifying it
+		if suffixes
+			for args in suffixes
+				var name = args[0]
+				if name == "Invocation"
+					if type(args[1]) == list or type(args[1]) == tuple
+						value = F invoke_args (value, args[1])
+					else
+						value = F invoke (value, args[1])
+					end
+				if name == "ComputationInfix"
+					var op = normalizeOperator (args[1])
+					value = F compute (F _op (op, getOperatorPriority(op)), value, args[2])
+				if name == "Decomposition"
+					for _ in args[1]
+						value = F resolve (_, value)
+					end
+				if name == "Access"
+					value = F access (value, args[1])
+				if name == "Slice"
+					value = F slice  (value, args[1], args[2])
+				else
+					ipdb set_trace ()
+					raise new Exception ("Suffix not supported yet: " + str(name))
+				end
+			end
+		end
+		return value
+	@end
+
+	@method onExpressionList element, data, context
+	| Returns a list of expressions [model.Expression]
+		var res  = []
+		var expr = on (data)
+		res append (expr[0])
+		for _ in (expr[1] or [])
+			# We have _ = [offset, <model.Reference>]
+			#              0        1
+			res append (_[1])
+		end
+		return res
+	@end
+
+	@method onExpressionBlock element, data, context
+	| Returns a list of expressions [model.Expression]
+		var res  = []
+		var expr = on (data)
+		for _ in (expr[1] or [])
+			# We have _ = [EOL, Indent, ExpressionList]
+			#              0    1       2
+			res += _[2]
+		end
+		return res
+	@end
+
+	# =========================================================================
+	# PREFIXES
+	# =========================================================================
+
+	@method onPrefixes element, data, context
+		var prefix = on (data)
+		return prefix
+	@end
+
+	@method onComputationPrefix element, data, content
+		var operator = normalizeOperator (on (data[0]) group ())
+		var operand  = on (data[1])
+		return F compute (F _op (operator, getOperatorPriority (operator)), operand)
+	@end
+
+	@method onParentheses element, data, content
+		return on (data[1])
+	@end
+
+	@method onInstanciation element, data, content
+		# Both name and params are suffixes so they're returned as couples,
+		# where we want the second value
+		var name   = on (element resolve ("name",   data))
+		var params = on (element resolve ("params", data))[1]
+		@embed Python
+		|return F.instanciate(name, *(params or []))
+		@end
+	@end
+
+	# =========================================================================
+	# SUFFIXES
+	# =========================================================================
+
+	@method onSuffixes element, data, context
+	| This rule returns the data AS-IS, without modifying it. This is necessary
+	| because suffixes need a prefix to be turned into a proper expression.
+		return on(data)
+	@end
+
+	@method onInvocation element, data, context
+	| Returns ("Invocation", [args])
+		var arguments_or_litteral = on (data)
+		var args = None
+		if isinstance (arguments_or_litteral, interfaces ILiteral)
+			args = [arguments_or_litteral]
+		else
+			args = arguments_or_litteral
+		end
+		res = [element name, args or []]
+		return res
+	@end
+
+
+	@method onComputationInfix element, data, content
+	| Returns ("ComputationInfix", OPERATOR:String, Expression)
+		return [element name, on (data[0]) group (), on (data[1])]
+	@end
+
+	@method onAccess element, data, context
+	| Returns [("Access", INDEX:Element)]
+		var data_key = data[1]
+		return [element name, on(data_key)]
+	@end
+
+	@method onDecomposition element, data, context
+	| Returns [("Decomposition", [ref:Reference])]
+		var all = [on(data[1])]
+		for _ in (on(data[2]) or [])
+			all append (_[1])
+		end
+		var res = [element name, all]
+		return res
+	@end
+
+	@method onSlice element, data, context
+		var start_index = on(data[1])
+		var end_index   = on(data[3])
+		return [element name, start_index, end_index]
+	@end
+
+	# =========================================================================
+	# OPERATIONS
+	# =========================================================================
+
+	@method onAllocation element, data, context
+	| Returns a list of operations. If there's only one operation,
+	| then it is a single allocation, otherwise it will be a mutliple
+	| allocation with an automatic variable name.
+		# We get the individual parts of the parsed data
+		var data_target  = element resolve ("target", data)
+		var data_rest    = element resolve ("rest",   data)
+		var data_value   = element resolve ("value",  data)
+		# We resolve "var SYMBOLS | REST = VALUE"
+		var value        = _tryGet (on (data_value), 1, None)
+		var rest         = _tryGet (on (data_rest),  1, None)
+		var symbols      = on (data_target)
+		var res          = None
+		if (len(symbols) == 1) and (not rest)
+			# This is a single allocation with no rest
+			var slot = F _slot (symbols[0] getReferenceName())
+			res = [F allocate (slot, value)]
+		else
+			# This is a multiple allocation with maybe a rest
+			res = []
+			# We create an intermediate expression to store the result to
+			# be sliced so that we don't evaluate the same code twice
+			var temp_slot  = F _slot ()
+			res append (F allocate (temp_slot, value))
+			var slot_value = F resolve (F _ref (temp_slot getName ()))
+			var i = 0
+			# We create individual allocations for each access
+			for s in symbols
+				var slot      = F _slot  (s getReferenceName ())
+				var sub_value = F access (slot_value copy (), i)
+				res append (F allocate (slot, sub_value))
+				i += 1
+			end
+			# We create a slice for the rest
+			if rest
+				var slot      = F _slot  (rest getReferenceName ())
+				var sub_value = F slice (slot_value copy (), i)
+				res append (F allocate (slot, sub_value))
+			end
+		end
+		return res
+	@end
+
+	@method onAssignment element, data, context
+		var data_before = element resolve ("before", data)
+		var data_main   = element resolve ("main",   data)
+		var data_rest   = element resolve ("rest",   data)
+		var data_op     = element resolve ("op",     data)
+		var lvalue      = on(data_main)
+		var op_value    = on(data_op)
+		var op          = op_value[0] group ()
+		if op == "="
+			return F assign (lvalue, op_value[1])
+		if op == "?="
+			# In this case: A ?= B is the equivalent of
+			# if not (A) -> A = B
+			var predicate  = F compute (F _op "not", lvalue)
+			var assignment = F assign  (lvalue copy (), op_value[1])
+			var match      = F matchExpression (predicate, assignment)
+			var res        = F select ()
+			res addRule (match)
+			return res
+		else
+			# FIXME: Right now the lvalue is copied, but it could be optimized by
+			# ex:
+			# a[0][1][2] += 2
+			# could be
+			# __temp__ = a[0][1]
+			# __temp__[2] = __temp__[2] + 2
+			# instead of
+			# a[0][1][2] = a[0][1][2]
+			var res    = None
+			var sub_op = normalizeOperator(op[0])
+			# ipdb set_trace ()
+			# if isinstance (lvalue, interfaces ISliceOperation) and isinstance (lvalue getOpArgument 0, interface IOperation)
+			# 	res = []
+			# 	res append (F assign ("__temp__", lvalue getOpArgument 0))
+			# 	var mod_lvalue = lvalue copy detach ()
+			# 	mod_lvalue setOpArgument (0, F resolve "__temp__")
+			# 	#res append (mod_lvalue)
+			# 	res append (F compute (F _op (sub_op, getOperatorPriority (sub_op)), F resolve "__temp__", op_value[1]))
+			# 	res append (F assign (mod_lvalue, F resolve "__temp__"))
+			# 	return res
+			# else
+			var c = F compute (F _op (sub_op, getOperatorPriority (sub_op)), lvalue, op_value[1])
+			return F assign (lvalue copy () detach (), c)
+		end
+	@end
+
+	@method onAssignable element, data, context
+		var data_lvalue   = data[0]
+		var data_suffixes = data[1]
+		var lvalue        = on (data_lvalue)
+		var suffixes      = on (data_suffixes)
+		return _applySuffixes (lvalue, suffixes)
+	@end
+
+	@method onIterationLine element, data, context
+		var data_lvalue   = data[0]
+		var data_closure  = data[2]
+		var lvalue        = on (data_lvalue)
+		var closure       = on (data_closure)
+		return F iterate (lvalue, closure)
+	@end
+
+	@method onTermination element, data, context
+		var data_value = data[1]
+		var value      = on (data[1])
+		return F returns (value)
+	@end
+
+	# =========================================================================
+	# SYMBOLS & DECLARATIONS
+	# =========================================================================
+
+	@method onParameter element, data, context
+		var data_name  = element resolve ("name",  data)
+		var data_value = element resolve ("value", data)
+		var name_type  = on (data_name)
+		var value      = _tryGet (on (data_value), 1, None)
+		# FIXME: Support type
+		return F _param (name_type[0] getReferenceName (), None, value)
+	@end
+
+	@method onParameterList element, data, context
+		var res  = []
+		var all  = on (data)
+		res append (all[0])
+		for _ in (all[1] or [])
+			# We have _ = [COMMA, <model.Parameter>]
+			#              0        1
+			res append (_[1])
+		end
+		return res
+	@end
+
+	@method onArgumentsEmpty element, data, context
+		return []
+	@end
+
+	@method onArgumentsMany element, data, context
+		return on(data[1])
+	@end
+
+	@method onSymbolList element, data, context
+	| Returns `[model.Reference]`
+		var res = []
+		var symbols = on (data)
+		res append (symbols[0])
+		for _ in (symbols[1] or [])
+			# We have _ = [offset, <model.Reference>]
+			#              0        1
+			res append (_[1])
+		end
+		var ellispis     = symbols[-1]
+		# FIXME: Check why there would be an ELLIPSIS in SymbolsList
+		assert (not ellispis)
+		return res
+	@end
+
+	@method onNameType element, data, context
+	| Returns a couple (name, type) where type might be None.
+		var name = data[0]
+		var type = data[1]
+		return [on (name), on (type)]
+	@end
+
+	@method onFQName element, data, context
+	| A fully qualified name that will return an absolute reference
+		var res  = []
+		var all  = on (data)
+		res append (all[0] getReferenceName ())
+		for _ in (all[1] or [])
+			# We have _ = [DOT, NAME]
+			#              0        1
+			res append (_[1] getReferenceName ())
+		end
+		var full_name = "." join (res)
+		return F _absref (full_name)
+
+	@end
+
+	# =========================================================================
+	# COMPOUND TYPES (LIST)
+	# =========================================================================
+
+	@method onArray element, data, context
+		var data_list  = element resolve (g symbols ExpressionList,  data)
+		var data_block = element resolve (g symbols ExpressionBlock, data)
+		var elements   = (on(data_list) or []) + (on(data_block) or [])
+		return F _list (elements)
+	@end
+
+	# =========================================================================
+	# COMPOUND TYPES (MAP)
+	# =========================================================================
+
+	@method onMap element, data, context
+		var res        = F _dict ()
+		var data_list  = element resolve (g symbols KeyValueList,  data)
+		var data_block = element resolve (g symbols KeyValueBlock, data)
+		var elements   = (on(data_list) or []) + (on(data_block) or [])
+		for _ in elements
+			if _
+				res setValue (_[0], _[1])
+			end
+		end
+		return res
+	@end
+
+	@method onKeyValueList element, data, context
+		var res  = []
+		var expr = on (data)
+		res append (expr[0])
+		for _ in (expr[1] or [])
+			# We have _ = [COMMA, <model.KeyValue>]
+			#              0       1
+			res append (_[1])
+		end
+		return res
+	@end
+
+	@method onKeyValueBlock element, data, context
+		var res  = []
+		var expr = on (data)
+		res append (expr[0])
+		for _ in (expr[1] or [])
+			# We have _ = [EOL, CheckIndent, KeyValueList]
+			#              0    1            2
+			res += _[2]
+		end
+		return res
+	@end
+
+	@method onKeyValue element, data, context
+		var key   = element resolve (g symbols Key,        data)
+		var value = element resolve (g symbols Expression, data)
+		return [on(key), on(value)]
+	@end
+
+	@method onKey element, data, context
+		var res = on (data)
+		if isinstance(res, interfaces IElement)
+			return res
+		else
+			# We have res = ( EXPRESSION )
+			#               0 1          2
+			return res[1]
+		end
+	@end
+
+	# =========================================================================
+	# LITERALS
+	# =========================================================================
+
+	@method onString element, data, context
+		var raw_string = on (data) group ()
+		# FIXME: Proper string decoding
+		var decoded_string = eval (raw_string)
+		return F _string (decoded_string)
+	@end
+
+	@method onNUMBER element, data, context
+		var raw_number     = on (data) group ()
+		# FIXME: Proper number decoding
+		var decoded_number = eval (raw_number)
+		return F _number (decoded_number)
+	@end
+
+	@method onSYMBOLIC element, data, context
+		var raw_symbol     = on (data) group ()
+		if raw_symbol == "Undefined"
+			return F _symbol (raw_symbol)
+		if raw_symbol == "None"
+			return F _symbol (raw_symbol)
+		if raw_symbol == "Nothing"
+			return F _symbol (raw_symbol)
+		if raw_symbol == "Timeout"
+			return F _symbol (raw_symbol)
+		else
+			raise new Exception("Unknown symbol:" + raw_symbol())
+		end
+	@end
+
+	@method onNAME element, data, context
+		return F _ref (data group ())
+	@end
+
+	@method onKEY element, data, context
+		return F _string (data group ())
+	@end
+
+	# =========================================================================
+	# COMMENTS & DOCUMENTATION
+	# =========================================================================
+
+	@method onDocumentation element, data, context
+		var res = []
+		for line in _onlyWithValue (flatten (on (data)))
+			res append (line group () [1:] strip ())
+		end
+		return F doc ("\n" join (res))
+	@end
+
+	# =========================================================================
+	# AST
+	# =========================================================================
+	# The following methods deal with AST elements that we need to prune
+	# as they're not relevant to the semantic.
+
+	@method onRepeat element, data, context
+	| Converts the given repeat to None, the result (if the repeat is optional),
+	| or an array (zero or more)
+		var result = _onlyWithValue (on (data))
+		if result
+			if element isOptional ()
+				return result[0]
+			else
+				return result
+			end
+		else
+			return None
+		end
+	@end
+
+	@method onCheckIndent element, data, context
+		# We bypass check indent, as it does not contain any valuable or
+		# interesting result
+		return None
+	@end
+
+	@method onEOL element, data, context
+		# We bypass check indent, as it does not contain any valuable or
+		# interesting result
+		return None
+	@end
+
+@end
+
+@class SugarCommand: Command
+
+	@method setupEnvironment
+		var python_plugin       = self environment loadLanguage("python")
+		var javascript_plugin   = self environment loadLanguage("javascript")
+		var actionscript_plugin = self environment loadLanguage("actionscript")
+		var pnuts_plugin        = self environment loadLanguage("pnuts")
+		python_plugin       addRecognizedExtension("spy")
+		javascript_plugin   addRecognizedExtension("sjs")
+		actionscript_plugin addRecognizedExtension("sas")
+		pnuts_plugin        addRecognizedExtension("spnuts")
+		pnuts_plugin        addRecognizedExtension("spnut")
+		# python_plugin.reader      = grammar.Parser
+		# python_reader             = python_plugin.reader()
+		# python_reader.environment = self.environment
+		# python_reader._program = self.environment.getProgram()
+		# self.environment.addParser(python_reader, "sg spy sjs sjava spnuts sas".split())
+	@end
+
+@end
+
+# -----------------------------------------------------------------------------
+#
+# CONVENIENCE FUNCTIONS
+#
+# -----------------------------------------------------------------------------
+
+@function getGrammar
+	@embed Python
+	|global G
+	@end
+	if not G
+		G = createProgramGrammar (new parsing Grammar "Sugar")
+	end
+	return G
+@end
+
+
+# @function parse path
+# | Parses the given file at using the Sugar grammar returned from `getGrammar`
+# 	var f = file (path, "rb")
+# 	var t = f read ()
+# 	return getGrammar () parse (t)
+# @end
+#
+# @function compile path, treebuilder=LambdaFactoryBuilder
+# 	var b = new treebuilder (path)
+# 	return b build (parse (path), getGrammar ())
+# @end
+#
+# @function translate path
+# | Compiles the source at the given `path` and passes it to lambda factory
+# | which returns the translated source.
+# 	# FIXME: This should be handled by a lambdafactory
+# 	# translate (program, targetLanguage, passes=[])
+# 	var language    = "javascript"
+# 	var environment = Environment ()
+# 	environment addPass    (new passes     ExtendJSRuntime ())
+# 	environment addPass    (new passes     Importation     ())
+# 	environment addPass    (new resolution BasicDataFlow   ())
+# 	environment addPass    (new resolution DataFlowBinding ())
+# 	# We set the program run the passes
+# 	var module     = compile (path)
+# 	var program    = environment factory createProgram ()
+# 	program addModule (module)
+# 	environment setProgram (program)
+# 	environment runPasses  ()
+# 	# Load the backend and write the program
+# 	var backend   = environment loadLanguage (language)
+# 	var writer    = backend writer ()
+# 	writer report = environment report
+# 	writer setEnvironment (environment)
+# 	return writer run ()
+# @end
+#
+#
+#
+# # @embed Python
+# # |for source_path in sys.argv[1:]:
+# # |	print source_path #(translate(source_path))
+# # @end
+# var source_path = "pouet.sjs"
+# # print (compile (source_path, YAMLBuilder))
+# print (translate (source_path))
+
+@function run arguments
+	var command = new Command "sugar"
+	command run (arguments or ["--help"])
+@end
+
+@embed Python
+|if __name__ == "__main__":
+|	import sys
+|	run(sys.argv[1:])
+@end
+# EOF
