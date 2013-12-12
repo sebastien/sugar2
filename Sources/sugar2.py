@@ -107,7 +107,7 @@ def createProgramGrammar (g=None):
 	g.token('VARIABLE', '[\\$_A-Za-z]\\w*')
 	g.token('NAME', '[\\$_A-Za-z]\\w*')
 	g.token('KEY', '[\\$_A-Za-z]\\w*')
-	g.token('INFIX_OPERATOR', '([\\-\\+\\*\\/\\%]|\\<|\\<=|\\>=|\\>|==|\\!=|in\\s+|and\\s+|or\\s+|\\*\\*)')
+	g.token('INFIX_OPERATOR', '([\\-\\+\\*\\/\\%]|\\<=|\\>=|\\<|\\>|==|\\!=|in\\s+|and\\s+|or\\s+|\\*\\*)')
 	g.token('PREFIX_OPERATOR', '(not\\s+|\\-)')
 	g.token('NEW_OPERATOR', 'new\\s+')
 	g.token('ASSIGN_OPERATOR', '[\\?\\*\\+\\-\\/\\%]?=')
@@ -115,6 +115,7 @@ def createProgramGrammar (g=None):
 	g.token('STRING_SQ', "'(\\\\'|[^'\\n])*'")
 	g.token('STRING_DQ', '"(\\\\"|[^"\\n])*"')
 	g.token('DOCSTRING', '\\|[^\n]*')
+	g.token('EMBED_LINE', '\\|([^\n]*)')
 	g.token('VERSION', '[0-9]+(\\.[0-9]+)?(\\.[0-9]+)?[a-zA-Z_]*')
 	g.word('LP', '(')
 	g.word('RP', ')')
@@ -160,6 +161,7 @@ def createProgramGrammar (g=None):
 	g.word('omethod', '@method')
 	g.word('ogroup', '@group')
 	g.word('oend', '@end')
+	g.word('oembed', '@embed')
 	g.procedure('Indent', doIndent)
 	g.procedure('Dedent', doDedent)
 	g.rule('CheckIndent', s.TABS.bindAs('tabs'), g.acondition(doCheckIndent)).disableMemoize()
@@ -246,6 +248,9 @@ def createProgramGrammar (g=None):
 	g.rule('CGroup')
 	g.group('Methods', s.Method, s.AbstractMethod, s.AbstractMethod, s.CGroup, s.Comment)
 	s.CGroup.set(s.CheckIndent, s.ogroup, s.NAME._as('name'), s.EOL, s.Documentation.optional(), s.Indent, s.Methods.zeroOrMore()._as('methods'), s.Dedent, s.OEnd)
+	g.rule('EmbedLine', s.CheckIndent, s.EMBED_LINE, s.EOL)
+	g.rule('Embed', s.CheckIndent, s.oembed, s.NAME.optional()._as('language'), s.EOL, s.EmbedLine.zeroOrMore()._as('body'), s.OEnd)
+	s.Block.append(s.Embed)
 	g.rule('Class', g.aword('@abstract').optional(), g.aword('@class'), s.NameType._as('name'), g.arule(s.COLON, listOf(s.FQName, s.COMMA, g)).optional()._as('inherits'), s.EOL, s.Documentation.optional()._as('documentation'), s.Indent, g.agroup(s.ClassAttribute, s.Attribute).zeroOrMore()._as('properties'), g.agroup(s.Operation, s.AbstractOperation).zeroOrMore()._as('operations'), s.Constructor.zeroOrMore()._as('constructor'), s.Methods.zeroOrMore()._as('methods'), s.Dedent, g.aword('@end'))
 	g.rule('ModuleAnnotation', s.omodule, s.FQName, s.EOL)
 	g.rule('VersionAnnotation', s.oversion, s.VERSION, s.EOL)
@@ -655,6 +660,15 @@ class LambdaFactoryBuilder(TreeBuilder):
 	
 	def onBlockLine(self, element, data, context):
 		return self.on(data[1])
+	
+	def onEmbed(self, element, data, context):
+		body=self.on(element.resolve('body', data))
+		language=element.resolve('language', data).data
+		language = 'JavaScript'
+		lines=[]
+		for line in body:
+			lines.append(line[1].group(1))
+		return F.embed(language, '\n'.join(lines))
 	
 	def onExpression(self, element, data, context):
 		prefix_suffixes=self.on(data)

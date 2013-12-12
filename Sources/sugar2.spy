@@ -190,7 +190,7 @@
 	g token     ("VARIABLE",         "[\$_A-Za-z]\w*")
 	g token     ("NAME",             "[\$_A-Za-z]\w*")
 	g token     ("KEY",              "[\$_A-Za-z]\w*")
-	g token     ("INFIX_OPERATOR",   "([\-\+\*\/\%]|\<|\<=|\>=|\>|==|\!=|in\s+|and\s+|or\s+|\*\*)")
+	g token     ("INFIX_OPERATOR",   "([\-\+\*\/\%]|\<=|\>=|\<|\>|==|\!=|in\s+|and\s+|or\s+|\*\*)")
 	g token     ("PREFIX_OPERATOR",  "(not\s+|\-)")
 	g token     ("NEW_OPERATOR",     "new\s+")
 	g token     ("ASSIGN_OPERATOR",  "[\?\*\+\-\/\%]?=")
@@ -198,6 +198,7 @@
 	g token     ("STRING_SQ",        "'(\\\\'|[^'\\n])*'")
 	g token     ("STRING_DQ",        "\"(\\\\\"|[^\"\\n])*\"")
 	g token     ("DOCSTRING",        "\|[^\n]*")
+	g token     ("EMBED_LINE",       "\|([^\n]*)")
 	g token     ("VERSION",          "[0-9]+(\.[0-9]+)?(\.[0-9]+)?[a-zA-Z_]*")
 	# Punctuation
 	g word      ("LP",               "(")
@@ -245,6 +246,7 @@
 	g word      ("omethod",          "@method")
 	g word      ("ogroup",           "@group")
 	g word      ("oend",             "@end")
+	g word      ("oembed",           "@embed")
 
 	# Indentation
 	g procedure ("Indent",           doIndent)
@@ -366,7 +368,10 @@
 	# NOTE: Group and Rule are already element names
 	g rule  ("CGroup")
 	g group ("Methods",  s Method, s AbstractMethod, s AbstractMethod, s CGroup, s Comment)
-	s CGroup set (s CheckIndent, s ogroup, s NAME _as "name", s EOL, s Documentation optional (), s Indent, s Methods zeroOrMore () _as "methods", s Dedent, s OEnd)
+	s CGroup set (s CheckIndent, s ogroup, s NAME _as "name",     s EOL, s Documentation optional (), s Indent, s Methods zeroOrMore () _as "methods", s Dedent, s OEnd)
+	g rule  ("EmbedLine",  s CheckIndent, s EMBED_LINE, s EOL)
+	g rule  ("Embed",      s CheckIndent, s oembed, s NAME optional () _as "language", s EOL, s EmbedLine zeroOrMore () _as "body", s OEnd)
+	s Block append (s Embed)
 	g rule  ("Class"
 		g aword "@abstract" optional ()
 		g aword "@class"
@@ -957,9 +962,20 @@
 		return on(data[1])
 	@end
 
-	# @method onBlock element, data, context
-	# 	return on(data)
-	# @end
+	@method onEmbed element, data, context
+		var body     = on (element resolve ("body", data))
+		var language = element resolve ("language", data) data
+		# FIXME
+		language = "JavaScript"
+		# if language
+		# 	language = language group ()
+		# end
+		var lines    = []
+		for line in body
+			lines append (line[1] group (1))
+		end
+		return F embed (language, "\n" join (lines))
+	@end
 
 	# =========================================================================
 	# EXPRESSIONS
