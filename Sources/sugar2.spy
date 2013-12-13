@@ -187,8 +187,7 @@
 	g token     ("COMMENT",          "[ \t]*\#[^\n]*")
 	g token     ("EOL",              "[ ]*\n(\s*\n)*")
 	g token     ("NUMBER",           "-?(0x)?[0-9]+(\.[0-9]+)?")
-	g token     ("VARIABLE",         "[\$_A-Za-z]\w*")
-	g token     ("NAME",             "[\$_A-Za-z]\w*")
+	g token     ("NAME",             "(\\\?)([\$_A-Za-z]\w*)")
 	g token     ("KEY",              "[\$_A-Za-z]\w*")
 	g token     ("INFIX_OPERATOR",   "([\-\+\*\/\%]|\<=|\>=|\<|\>|==|\!=|in\s+|and\s+|or\s+|\*\*)")
 	g token     ("PREFIX_OPERATOR",  "(not\s+|\-)")
@@ -996,7 +995,7 @@
 		# NOTE: This should be abstracted
 		if isinstance(prefix, interfaces ILiteral) or isinstance(prefix, interfaces IValue) or isinstance(prefix, interfaces IClosure)
 			current  = prefix
-		if isinstance(prefix, interfaces IComputation) or isinstance(prefix, interfaces IResolution) or isinstance(prefix, interfaces IInvocation) or isinstance (prefix, interfaces IInstanciation)
+		if isinstance(prefix, interfaces IComputation) or isinstance(prefix, interfaces IResolution) or isinstance(prefix, interfaces IInvocation) or isinstance (prefix, interfaces IInstanciation) or isinstance (prefix, interfaces IAccessOperation)
 			current  = prefix
 		if isinstance(prefix, interfaces IReference)
 			current  = F resolve (prefix)
@@ -1055,7 +1054,7 @@
 						value = F resolve (_, value)
 					end
 				if name == "Access"
-					value = F access (value, args[1])
+					value = F access (value, F _number (args[1]))
 				if name == "Slice"
 					value = F slice  (value, args[1], args[2])
 				else
@@ -1205,7 +1204,7 @@
 			# We create individual allocations for each access
 			for s in symbols
 				var slot      = F _slot  (s getReferenceName ())
-				var sub_value = F access (slot_value copy (), i)
+				var sub_value = F access (slot_value copy (), F _number(i))
 				res append (F allocate (slot, sub_value))
 				i += 1
 			end
@@ -1461,7 +1460,7 @@
 	@end
 
 	@method onNAME element, data, context
-		return F _ref (data group ())
+		return F _ref (data group (2))
 	@end
 
 	@method onKEY element, data, context

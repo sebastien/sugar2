@@ -104,8 +104,7 @@ def createProgramGrammar (g=None):
 	g.token('COMMENT', '[ \t]*\\#[^\n]*')
 	g.token('EOL', '[ ]*\n(\\s*\n)*')
 	g.token('NUMBER', '-?(0x)?[0-9]+(\\.[0-9]+)?')
-	g.token('VARIABLE', '[\\$_A-Za-z]\\w*')
-	g.token('NAME', '[\\$_A-Za-z]\\w*')
+	g.token('NAME', '(\\\\?)([\\$_A-Za-z]\\w*)')
 	g.token('KEY', '[\\$_A-Za-z]\\w*')
 	g.token('INFIX_OPERATOR', '([\\-\\+\\*\\/\\%]|\\<=|\\>=|\\<|\\>|==|\\!=|in\\s+|and\\s+|or\\s+|\\*\\*)')
 	g.token('PREFIX_OPERATOR', '(not\\s+|\\-)')
@@ -677,7 +676,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 		current=None
 		if ((isinstance(prefix, interfaces.ILiteral) or isinstance(prefix, interfaces.IValue)) or isinstance(prefix, interfaces.IClosure)):
 			current = prefix
-		elif (((isinstance(prefix, interfaces.IComputation) or isinstance(prefix, interfaces.IResolution)) or isinstance(prefix, interfaces.IInvocation)) or isinstance(prefix, interfaces.IInstanciation)):
+		elif ((((isinstance(prefix, interfaces.IComputation) or isinstance(prefix, interfaces.IResolution)) or isinstance(prefix, interfaces.IInvocation)) or isinstance(prefix, interfaces.IInstanciation)) or isinstance(prefix, interfaces.IAccessOperation)):
 			current = prefix
 		elif isinstance(prefix, interfaces.IReference):
 			current = F.resolve(prefix)
@@ -724,7 +723,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 					for _ in args[1]:
 						value = F.resolve(_, value)
 				elif (name == 'Access'):
-					value = F.access(value, args[1])
+					value = F.access(value, F._number(args[1]))
 				elif (name == 'Slice'):
 					value = F.slice(value, args[1], args[2])
 				elif True:
@@ -790,6 +789,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 	def onAccess(self, element, data, context):
 		"""Returns [("Access", INDEX:Element)]"""
 		data_key=data[1]
+		print ('DATA_KEY', self.on(data_key))
 		return [element.name, self.on(data_key)]
 	
 	def onDecomposition(self, element, data, context):
@@ -827,7 +827,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 			i=0
 			for s in symbols:
 				slot=F._slot(s.getReferenceName())
-				sub_value=F.access(slot_value.copy(), i)
+				sub_value=F.access(slot_value.copy(), F._number(i))
 				res.append(F.allocate(slot, sub_value))
 				i = (i + 1)
 			if rest:
@@ -994,7 +994,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 			raise Exception(('Unknown symbol:' + raw_symbol()))
 	
 	def onNAME(self, element, data, context):
-		return F._ref(data.group())
+		return F._ref(data.group(2))
 	
 	def onKEY(self, element, data, context):
 		return F._string(data.group())
