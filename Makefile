@@ -14,7 +14,7 @@ clean:
 	cp $< $@
 
 %.py: %.spy
-	sugar -clpy $< > $@
+	sugar -clpy $< > $@ 
 	sed -i 1d $@
 
 # EOF

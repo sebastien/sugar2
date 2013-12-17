@@ -275,11 +275,11 @@ class TreeBuilder:
 		self.path = None
 		if path is None: path = None
 		self.path = path
-
+	
 	def build(self, result, grammar):
 		self.g = grammar
 		return self.on(result)
-
+	
 	def flatten(self, l, r=None):
 		if r is None: r = []
 		if (not (type(l) in [tuple, list])):
@@ -291,14 +291,14 @@ class TreeBuilder:
 				elif True:
 					r.append(e)
 		return r
-
+	
 	def getElements(self, l):
 		res=[]
 		for e in self.flatten(l):
 			if isinstance(e, interfaces.IElement):
 				res.append(e)
 		return res
-
+	
 	def on(self, parsingResult):
 		"""Expand the given value, so that the ParsingResults are converted to values
 		expanded by the corresponding `onXXX` methods."""
@@ -322,19 +322,19 @@ class TreeBuilder:
 			return res
 		elif True:
 			return parsingResult
-
+	
 	def _onMissing(self, element, data, context):
 		return self.on(data)
-
+	
 
 class LambdaFactoryBuilder(TreeBuilder):
 	"""Converts a parse tree into a Lambda Factory program model, which can then
 	be translated to one of Lambda Factory's target language.
-
+	
 	Each `onXXX` should return a corresponding LambdaFactory model, or a list
 	of them. The basic structure for a `onXXX` (where `XXX` is the rule name) is
 	like that:
-
+	
 	```
 	@method on<RuleName> element, data, context
 	# element is the `parsing.Element` subclass
@@ -353,25 +353,21 @@ class LambdaFactoryBuilder(TreeBuilder):
 	```"""
 	OPERATORS = [['or'], ['and'], ['>', '>=', '<', '<=', '!=', '==', 'is', 'is not', 'in', 'not in'], ['+', '-'], ['not'], ['/', '*', '%', '//'], ['/=', '*=', '%=', '+=', '-=']]
 	def __init__ (self, path=None):
-		self.program = None
 		self.module = None
 		self.process = None
 		self.scopes = []
 		self.processes = []
 		if path is None: path = None
 		TreeBuilder.__init__(self,path)
-		self.program = F.createProgram()
-		self.scopes.append(self.program)
-		self.program.setFactory(F)
-
+	
 	def getDefaultModuleName(self):
 		return self.path.split('/')[-1].split('.')[0].replace('-', '_')
-
+	
 	def normalizeOperator(self, operator):
 		while (((len(operator) > 0) and (operator[-1] == ' ')) or (operator[-1] == '\t')):
 			operator = operator[0:-1]
 		return operator
-
+	
 	def getOperatorPriority(self, operator):
 		i=0
 		for line in self.__class__.OPERATORS:
@@ -379,7 +375,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 				return i
 			i = (i + 1)
 		raise Exception(('Unknown operator: ' + str(operator)))
-
+	
 	def _var(self, name=None, context=None):
 		"""Lists the variables defined in the given context or gets the
 		variable with the given name."""
@@ -389,23 +385,23 @@ class LambdaFactoryBuilder(TreeBuilder):
 			return context.getVariables().keys()
 		elif True:
 			return context.getVariables().get(name)
-
+	
 	def _bind(self, referanceable):
 		"""Assigns the given referenceable to the current scope"""
 		self.scopes[-1].setSlot(referanceable.getName(), referanceable)
-
+	
 	def _onlyWithValue(self, result):
 		"""Returns only the elements of result that have a value"""
 		return filter(lambda _:_, result)
-
-
+		
+	
 	def _tryGet(self, list, index, default):
 		"""Tries to get the `index`th element of `list` or returns `default`"""
 		if (list and (len(list) > index)):
 			return list[index]
 		elif True:
 			return None
-
+	
 	def _setCode(self, process, code):
 		code = (code or [])
 		for line in (code or []):
@@ -415,7 +411,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 				if isinstance(statement, interfaces.IOperation):
 					process.addOperation(statement)
 		return process
-
+	
 	def onModule(self, element, data, context):
 		self.context = context
 		data_declaration=element.resolve(self.g.symbols.ModuleDeclaration, data)
@@ -424,7 +420,6 @@ class LambdaFactoryBuilder(TreeBuilder):
 			if isinstance(_, interfaces.IAnnotation):
 				annotations[_.getName()] = _.getContent()
 		self.module = F.createModule((annotations.get('module') or self.getDefaultModuleName()))
-		self.program.addModule(self.module)
 		self.scopes.append(self.module)
 		if annotations.get('version'):
 			res=F._moduleattr('VERSION', None, F._string(annotations.get('version')))
@@ -438,14 +433,14 @@ class LambdaFactoryBuilder(TreeBuilder):
 		self._bind(main_function)
 		self.scopes.pop()
 		return self.module
-
+	
 	def onModuleAnnotation(self, element, data, context):
 		ref=self.on(data[1])
 		return F.annotation('module', ref.getReferenceName())
-
+	
 	def onVersionAnnotation(self, element, data, context):
 		return F.annotation('version', self.on(data)[1].group())
-
+	
 	def onClass(self, element, data, context):
 		variables=element.variables(data)
 		name=self.getElements(self.on(variables['name']))
@@ -463,7 +458,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 		self.scopes.pop()
 		self._bind(res)
 		return res
-
+	
 	def onAttribute(self, element, data, context):
 		v=element.variables(data)
 		name=self.getElements(self.on(v['name']))
@@ -473,7 +468,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 		res.setDocumentation((doc and doc[0]))
 		self._bind(res)
 		return res
-
+	
 	def onClassAttribute(self, element, data, context):
 		v=element.variables(data)
 		name=self.getElements(self.on(v['name']))
@@ -483,7 +478,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 		res.setDocumentation((doc and doc[0]))
 		self._bind(res)
 		return res
-
+	
 	def onModuleAttribute(self, element, data, context):
 		data_ref_type=element.resolve('name', data)
 		data_value=element.resolve('value', data)
@@ -493,17 +488,17 @@ class LambdaFactoryBuilder(TreeBuilder):
 		res=F._moduleattr(ref_type[0].getReferenceName(), None, value)
 		self._bind(res)
 		return res
-
+	
 	def onCGroup(self, element, data, context):
 		data_name=element.resolve('name', data)
 		data_methods=(element.resolve('methods', data) or [])
 		methods=[]
-		group_annotation=F.annotation('as', data_name)
+		group_annotation=F.annotation('as', self.on(data_name).getReferenceName())
 		for m in self.on(data_methods):
 			m.addAnnotation(group_annotation)
 			methods.append(m)
 		return methods
-
+	
 	def _createCallable(self, factory, element, data, context):
 		data_type=element.resolve('type', data)
 		data_name=element.resolve('name', data)
@@ -523,30 +518,30 @@ class LambdaFactoryBuilder(TreeBuilder):
 		self.scopes.pop()
 		self._bind(fun)
 		return fun
-
+	
 	def onOperation(self, element, data, context):
 		return self._createCallable(F.createClassMethod, element, data, context)
-
+	
 	def onAbstractOperation(self, element, data, context):
 		res=self._createCallable(F.createClassMethod, element, data, context)
 		res.setAbstract(True)
 		return res
-
+	
 	def onMethod(self, element, data, context):
 		return self._createCallable(F.createMethod, element, data, context)
-
+	
 	def onConstructor(self, element, data, context):
 		return self._createCallable(F.createConstructor, element, data, context)
-
+	
 	def onAbstractMethod(self, element, data, context):
 		return self._createCallable(F.createAbstractMethod, element, data, context)
-
+	
 	def onFunction(self, element, data, context):
 		return self._createCallable(F.createFunction, element, data, context)
-
+	
 	def onAbstractFunction(self, element, data, context):
 		return self._createCallable(F.createAbstractFunction, element, data, context)
-
+	
 	def onClosure(self, element, data, context):
 		data_params=element.resolve('params', data)
 		data_line=element.resolve('line', data)
@@ -557,10 +552,10 @@ class LambdaFactoryBuilder(TreeBuilder):
 		res=F.createClosure(params)
 		self._setCode(res, (line + body))
 		return res
-
+	
 	def onBody(self, element, data, context):
 		return self.on(element.resolve('code', data))
-
+	
 	def onCode(self, element, data, context):
 		res=[]
 		value=self.on(data)
@@ -573,14 +568,14 @@ class LambdaFactoryBuilder(TreeBuilder):
 		elif True:
 			res.append(value)
 		return res
-
+	
 	def onLine(self, element, data, context):
 		data_statements=element.resolve(self.g.symbols.Statements, data)
 		data_comment=element.resolve(self.g.symbols.Comment, data)
 		statements=self.on(data_statements)
 		comment=self.on(data_comment)
 		return statements
-
+	
 	def onStatements(self, element, data, context):
 		model_data=self.on(data)
 		statements=([model_data[0]] + (model_data[1] or []))
@@ -591,13 +586,13 @@ class LambdaFactoryBuilder(TreeBuilder):
 			elif True:
 				res.append(_)
 		return res
-
+	
 	def onStatement(self, element, data, context):
 		"""Returns an `Element` or a list of `[Element]`. Typically these elements
 		would be Comments, Blocks or Operations."""
 		res=self.on(data)
 		return res
-
+	
 	def onConditional(self, element, data, context):
 		data_if=data[1]
 		data_elifs=data[2]
@@ -612,7 +607,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 		if _else:
 			res.addRule(F.matchProcess(F._ref('True'), _else[0]))
 		return res
-
+	
 	def onIfBranch(self, element, data, context):
 		data_condition=data[-2]
 		data_body=data[-1]
@@ -620,26 +615,26 @@ class LambdaFactoryBuilder(TreeBuilder):
 		code=self.on(data_body.data)
 		self._setCode(block, code)
 		return [self.on(data_condition), block]
-
+	
 	def onElifBranch(self, element, data, context):
 		data_condition=data[-2]
 		data_body=data[-1]
 		block=F.createBlock()
 		self._setCode(block, self.on(data_body.data))
 		return [self.on(data_condition), block]
-
+	
 	def onElseBranch(self, element, data, context):
 		data_body=data[-1]
 		block=F.createBlock()
 		self._setCode(block, self.on(data_body.data))
 		return [block]
-
+	
 	def onIteration(self, element, data, context):
 		return self.on(element.resolve('for', data))
-
+	
 	def onRepetition(self, element, data, context):
 		return self.on(element.resolve('while', data))
-
+	
 	def onForBranch(self, element, data, context):
 		params=self.on(element.resolve('params', data))
 		expr=self.on(element.resolve('expr', data))
@@ -647,20 +642,20 @@ class LambdaFactoryBuilder(TreeBuilder):
 		process=F.createClosure(params)
 		self._setCode(process, body)
 		return F.iterate(expr, process)
-
+	
 	def onWhileBranch(self, element, data, context):
 		condition=self.on(element.resolve('condition', data))
 		body=self.on(element.resolve('body', data))
 		process=F.createBlock()
 		self._setCode(process, body)
 		return F.repeat(condition, process)
-
+	
 	def onBlockBody(self, element, data, context):
 		return self.on(data[2])
-
+	
 	def onBlockLine(self, element, data, context):
 		return self.on(data[1])
-
+	
 	def onEmbed(self, element, data, context):
 		body=self.on(element.resolve('body', data))
 		language=element.resolve('language', data).data
@@ -669,7 +664,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 		for line in body:
 			lines.append(line[1].group(1))
 		return F.embed(language, '\n'.join(lines))
-
+	
 	def onExpression(self, element, data, context):
 		prefix_suffixes=self.on(data)
 		prefix=prefix_suffixes[0]
@@ -688,7 +683,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 		if isinstance(current, interfaces.IComputation):
 			current = self._reorderComputation(current)
 		return current
-
+	
 	def _reorderComputation(self, value):
 		"""Reorders a sequence of computations according to operators priorities"""
 		lcomp=value
@@ -706,7 +701,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 				return value
 		elif True:
 			return value
-
+	
 	def _applySuffixes(self, value, suffixes):
 		"""Applies the suffixes to the current value, modifying it"""
 		if suffixes:
@@ -731,7 +726,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 					ipdb.set_trace()
 					raise Exception(('Suffix not supported yet: ' + str(name)))
 		return value
-
+	
 	def onExpressionList(self, element, data, context):
 		"""Returns a list of expressions [model.Expression]"""
 		res=[]
@@ -740,7 +735,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 		for _ in (expr[1] or []):
 			res.append(_[1])
 		return res
-
+	
 	def onExpressionBlock(self, element, data, context):
 		"""Returns a list of expressions [model.Expression]"""
 		res=[]
@@ -748,30 +743,30 @@ class LambdaFactoryBuilder(TreeBuilder):
 		for _ in (expr[1] or []):
 			res = (res + _[2])
 		return res
-
+	
 	def onPrefixes(self, element, data, context):
 		prefix=self.on(data)
 		return prefix
-
+	
 	def onComputationPrefix(self, element, data, content):
 		operator=self.normalizeOperator(self.on(data[0]).group())
 		operand=self.on(data[1])
 		return F.compute(F._op(operator, self.getOperatorPriority(operator)), operand)
-
+	
 	def onParentheses(self, element, data, content):
 		return self.on(data[1])
-
+	
 	def onInstanciation(self, element, data, content):
 		name=self.on(element.resolve('name', data))
 		params=self.on(element.resolve('params', data))[1]
 		return F.instanciate(name, *(params or []))
-
-
+		
+	
 	def onSuffixes(self, element, data, context):
 		"""This rule returns the data AS-IS, without modifying it. This is necessary
 		because suffixes need a prefix to be turned into a proper expression."""
 		return self.on(data)
-
+	
 	def onInvocation(self, element, data, context):
 		"""Returns ("Invocation", [args])"""
 		arguments_or_litteral=self.on(data)
@@ -782,16 +777,16 @@ class LambdaFactoryBuilder(TreeBuilder):
 			args = arguments_or_litteral
 		res = [element.name, (args or [])]
 		return res
-
+	
 	def onComputationInfix(self, element, data, content):
 		"""Returns ("ComputationInfix", OPERATOR:String, Expression)"""
 		return [element.name, self.on(data[0]).group(), self.on(data[1])]
-
+	
 	def onAccess(self, element, data, context):
 		"""Returns [("Access", INDEX:Element)]"""
 		data_key=data[1]
 		return [element.name, self.on(data_key)]
-
+	
 	def onDecomposition(self, element, data, context):
 		"""Returns [("Decomposition", [ref:Reference])]"""
 		all=[self.on(data[1])]
@@ -799,12 +794,12 @@ class LambdaFactoryBuilder(TreeBuilder):
 			all.append(_[1])
 		res=[element.name, all]
 		return res
-
+	
 	def onSlice(self, element, data, context):
 		start_index=self.on(data[1])
 		end_index=self.on(data[3])
 		return [element.name, start_index, end_index]
-
+	
 	def onAllocation(self, element, data, context):
 		"""Returns a list of operations. If there's only one operation,
 		then it is a single allocation, otherwise it will be a mutliple
@@ -835,7 +830,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 				sub_value=F.slice(slot_value.copy(), i)
 				res.append(F.allocate(slot, sub_value))
 		return res
-
+	
 	def onAssignment(self, element, data, context):
 		data_before=element.resolve('before', data)
 		data_main=element.resolve('main', data)
@@ -858,33 +853,33 @@ class LambdaFactoryBuilder(TreeBuilder):
 			sub_op=self.normalizeOperator(op[0])
 			c=F.compute(F._op(sub_op, self.getOperatorPriority(sub_op)), lvalue, op_value[1])
 			return F.assign(lvalue.copy().detach(), c)
-
+	
 	def onAssignable(self, element, data, context):
 		data_lvalue=data[0]
 		data_suffixes=data[1]
 		lvalue=self.on(data_lvalue)
 		suffixes=self.on(data_suffixes)
 		return self._applySuffixes(lvalue, suffixes)
-
+	
 	def onIterationLine(self, element, data, context):
 		data_lvalue=data[0]
 		data_closure=data[2]
 		lvalue=self.on(data_lvalue)
 		closure=self.on(data_closure)
 		return F.iterate(lvalue, closure)
-
+	
 	def onTermination(self, element, data, context):
 		data_value=data[1]
 		value=self.on(data[1])
 		return F.returns(value)
-
+	
 	def onParameter(self, element, data, context):
 		data_name=element.resolve('name', data)
 		data_value=element.resolve('value', data)
 		name_type=self.on(data_name)
 		value=self._tryGet(self.on(data_value), 1, None)
 		return F._param(name_type[0].getReferenceName(), None, value)
-
+	
 	def onParameterList(self, element, data, context):
 		res=[]
 		all=self.on(data)
@@ -892,13 +887,13 @@ class LambdaFactoryBuilder(TreeBuilder):
 		for _ in (all[1] or []):
 			res.append(_[1])
 		return res
-
+	
 	def onArgumentsEmpty(self, element, data, context):
 		return []
-
+	
 	def onArgumentsMany(self, element, data, context):
 		return self.on(data[1])
-
+	
 	def onSymbolList(self, element, data, context):
 		"""Returns `[model.Reference]`"""
 		res=[]
@@ -909,13 +904,13 @@ class LambdaFactoryBuilder(TreeBuilder):
 		ellispis=symbols[-1]
 		assert((not ellispis))
 		return res
-
+	
 	def onNameType(self, element, data, context):
 		"""Returns a couple (name, type) where type might be None."""
 		name=data[0]
 		type=data[1]
 		return [self.on(name), self.on(type)]
-
+	
 	def onFQName(self, element, data, context):
 		"""A fully qualified name that will return an absolute reference"""
 		res=[]
@@ -925,13 +920,13 @@ class LambdaFactoryBuilder(TreeBuilder):
 			res.append(_[1].getReferenceName())
 		full_name='.'.join(res)
 		return F._absref(full_name)
-
+	
 	def onArray(self, element, data, context):
 		data_list=element.resolve(self.g.symbols.ExpressionList, data)
 		data_block=element.resolve(self.g.symbols.ExpressionBlock, data)
 		elements=((self.on(data_list) or []) + (self.on(data_block) or []))
 		return F._list(elements)
-
+	
 	def onMap(self, element, data, context):
 		res=F._dict()
 		data_list=element.resolve(self.g.symbols.KeyValueList, data)
@@ -941,7 +936,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 			if _:
 				res.setValue(_[0], _[1])
 		return res
-
+	
 	def onKeyValueList(self, element, data, context):
 		res=[]
 		expr=self.on(data)
@@ -949,7 +944,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 		for _ in (expr[1] or []):
 			res.append(_[1])
 		return res
-
+	
 	def onKeyValueBlock(self, element, data, context):
 		res=[]
 		expr=self.on(data)
@@ -957,29 +952,29 @@ class LambdaFactoryBuilder(TreeBuilder):
 		for _ in (expr[1] or []):
 			res = (res + _[2])
 		return res
-
+	
 	def onKeyValue(self, element, data, context):
 		key=element.resolve(self.g.symbols.Key, data)
 		value=element.resolve(self.g.symbols.Expression, data)
 		return [self.on(key), self.on(value)]
-
+	
 	def onKey(self, element, data, context):
 		res=self.on(data)
 		if isinstance(res, interfaces.IElement):
 			return res
 		elif True:
 			return res[1]
-
+	
 	def onString(self, element, data, context):
 		raw_string=self.on(data).group()
 		decoded_string=eval(raw_string)
 		return F._string(decoded_string)
-
+	
 	def onNUMBER(self, element, data, context):
 		raw_number=self.on(data).group()
 		decoded_number=eval(raw_number)
 		return F._number(decoded_number)
-
+	
 	def onSYMBOLIC(self, element, data, context):
 		raw_symbol=self.on(data).group()
 		if (raw_symbol == 'Undefined'):
@@ -992,19 +987,19 @@ class LambdaFactoryBuilder(TreeBuilder):
 			return F._symbol(raw_symbol)
 		elif True:
 			raise Exception(('Unknown symbol:' + raw_symbol()))
-
+	
 	def onNAME(self, element, data, context):
 		return F._ref(data.group(2))
-
+	
 	def onKEY(self, element, data, context):
 		return F._string(data.group())
-
+	
 	def onDocumentation(self, element, data, context):
 		res=[]
 		for line in self._onlyWithValue(self.flatten(self.on(data))):
 			res.append(line.group()[1:].strip())
 		return F.doc('\n'.join(res))
-
+	
 	def onRepeat(self, element, data, context):
 		"""Converts the given repeat to None, the result (if the repeat is optional),
 		or an array (zero or more)"""
@@ -1016,13 +1011,13 @@ class LambdaFactoryBuilder(TreeBuilder):
 				return result
 		elif True:
 			return None
-
+	
 	def onCheckIndent(self, element, data, context):
 		return None
-
+	
 	def onEOL(self, element, data, context):
 		return None
-
+	
 
 class SugarCommand(Command):
 	def setupEnvironment(self):
@@ -1036,20 +1031,20 @@ class SugarCommand(Command):
 		pnuts_plugin.addRecognizedExtension('spnuts')
 		pnuts_plugin.addRecognizedExtension('spnut')
 		self.environment.addParser(Parser(self), 'sg spy sjs sjava spnuts sas'.split())
+	
 
 class Parser:
 	G = createProgramGrammar(parsing.Grammar('Sugar'))
 	def __init__ (self, environment):
 		self.environment = None
 		self.environment = environment
-
+	
 	def parseString(self, text, path, moduleName):
 		tokens=self.__class__.G.parse(text)
 		builder=LambdaFactoryBuilder(path)
 		module=builder.build(tokens, self.__class__.G)
-		self.environment.getProgram().addModule(module)
 		return [text, module]
-
+	
 
 def run (arguments):
 	self=__module__
@@ -1061,5 +1056,5 @@ def __module_init__():
 	if __name__ == "__main__":
 		import sys
 		run(sys.argv[1:])
-
+	
 __module_init__()

@@ -15,7 +15,6 @@
 @import  parsing
 @import  sys
 @import  ipdb
-# NOTE: This is required by pickle. Don't get why...
 @import  ParsingResult        from parsing
 @import  interfaces           from lambdafactory
 @import  Command              from lambdafactory.main
@@ -745,7 +744,7 @@
 		var data_name    = element resolve ("name",    data)
 		var data_methods = element resolve ("methods", data) or []
 		var methods      = []
-		var group_annotation = F annotation ("as", data_name)
+		var group_annotation = F annotation ("as", on (data_name) getReferenceName ())
 		for m in on(data_methods)
 			m addAnnotation (group_annotation)
 			methods append (m)
@@ -1551,8 +1550,6 @@
 		# FIXME: Why is this tied to a path?
 		var builder   = new LambdaFactoryBuilder (path)
 		var module    = builder build (tokens, G)
-		# FIXME: This should be done by the Command itself
-		environment getProgram () addModule (module)
 		return [text, module]
 	@end
 
