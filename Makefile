@@ -1,13 +1,16 @@
 SOURCES_SUGAR = $(wildcard Sources/*.spy)
-PRODUCT_PYTHON = $(SOURCES_SUGAR:%.spy=%.py)
+PRODUCT_PYTHON = $(SOURCES_SUGAR:%.spy=%.py) #Sources/sugar2.so
 
-all: $(PRODUCT_PYTHON) Sources/sugar2.so
+all: $(PRODUCT_PYTHON)
 	chmod +x Sources/sugar2.py
 	
+clean:
+	rm $(PRODUCT_PYTHON)
+
 %.so: %.pyx
 	python setup.py build_ext --inplace
 
-%.pyx: %.py:
+%.pyx: %.py
 	cp $< $@
 
 %.py: %.spy

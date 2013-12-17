@@ -5,6 +5,6 @@ from Cython.Distutils import build_ext
 setup(
     cmdclass = {'build_ext': build_ext},
     ext_modules = [
-		Extension("sugar2",   ["sugar2.pyx"])
+		Extension("sugar2",   ["Sources/sugar2.pyx"])
 	]
 )
