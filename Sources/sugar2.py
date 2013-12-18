@@ -186,7 +186,8 @@ def createProgramGrammar (g=None):
 	g.rule('ParameterList', s.Parameter, g.arule(s.COMMA, s.Parameter).zeroOrMore(), s.ELLIPSIS.optional())
 	g.rule('SymbolList', s.NAME, g.arule(s.COMMA, s.NAME).zeroOrMore(), s.ELLIPSIS.optional())
 	g.rule('ArgumentsEmpty', s.LP, s.RP)
-	g.rule('ArgumentsMany', s.LP, s.ExpressionList, s.RP)
+	g.rule('ArgumentsBlock', s.EOL, s.Indent, g.arule(s.CheckIndent, s.ExpressionList, s.EOL).zeroOrMore(), s.Dedent, s.EOL.optional())
+	g.rule('ArgumentsMany', s.LP, s.ExpressionList.optional()._as('line'), s.ArgumentsBlock.optional()._as('body'), s.RP)
 	g.rule('ClosureStatement', s.Expression)
 	g.rule('ClosureBody', s.EOL, s.Expression)
 	g.rule('Closure', s.LB, g.arule(s.ParameterList.optional(), s.PIPE).optional()._as('params'), s.ClosureStatement.optional()._as('line'), s.ClosureBody.optional()._as('body'), g.arule(s.EOL, s.CheckIndent).optional(), s.INDENT.optional(), s.RB)
@@ -393,7 +394,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 		"""Assigns the given referenceable to the current scope"""
 		self.scopes[-1].setSlot(referanceable.getName(), referanceable)
 	
-	def _onlyWithValue(self, result):
+	def filterNull(self, result):
 		"""Returns only the elements of result that have a value"""
 		return filter(lambda _:_, result)
 		
@@ -895,7 +896,9 @@ class LambdaFactoryBuilder(TreeBuilder):
 		return []
 	
 	def onArgumentsMany(self, element, data, context):
-		return self.on(data[1])
+		l=self.on(element.resolve('line', data))
+		b=self.on(element.resolve('body', data))
+		return self.filterNull((self.flatten(l) + self.flatten(b)))
 	
 	def onSymbolList(self, element, data, context):
 		"""Returns `[model.Reference]`"""
@@ -999,14 +1002,14 @@ class LambdaFactoryBuilder(TreeBuilder):
 	
 	def onDocumentation(self, element, data, context):
 		res=[]
-		for line in self._onlyWithValue(self.flatten(self.on(data))):
+		for line in self.filterNull(self.flatten(self.on(data))):
 			res.append(line.group()[1:].strip())
 		return F.doc('\n'.join(res))
 	
 	def onRepeat(self, element, data, context):
 		"""Converts the given repeat to None, the result (if the repeat is optional),
 		or an array (zero or more)"""
-		result=self._onlyWithValue(self.on(data))
+		result=self.filterNull(self.on(data))
 		if result:
 			if element.isOptional():
 				return result[0]

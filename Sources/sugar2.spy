@@ -280,7 +280,8 @@
 	g rule      ("ParameterList",    s Parameter, g arule(s COMMA, s Parameter) zeroOrMore (), s ELLIPSIS optional ())
 	g rule      ("SymbolList",       s NAME,      g arule(s COMMA, s NAME)      zeroOrMore (), s ELLIPSIS optional ())
 	g rule      ("ArgumentsEmpty",   s LP, s RP)
-	g rule      ("ArgumentsMany",    s LP, s ExpressionList, s RP)
+	g rule      ("ArgumentsBlock",   s EOL, s Indent, g arule (s CheckIndent, s ExpressionList, s EOL) zeroOrMore (), s Dedent, s EOL optional ())
+	g rule      ("ArgumentsMany",    s LP, s ExpressionList optional () _as "line", s ArgumentsBlock optional () _as "body", s RP)
 
 	# Closures
 	g rule      ("ClosureStatement", s Expression)
@@ -606,7 +607,7 @@
 		scopes[-1] setSlot (referanceable getName (), referanceable)
 	@end
 
-	@method _onlyWithValue result
+	@method filterNull result
 	| Returns only the elements of result that have a value
 		@embed Python
 		|return filter(lambda _:_, result)
@@ -1320,7 +1321,9 @@
 	@end
 
 	@method onArgumentsMany element, data, context
-		return on(data[1])
+		var l = on(element resolve ("line", data))
+		var b = on(element resolve ("body", data))
+		return filterNull (flatten (l) + flatten (b))
 	@end
 
 	@method onSymbolList element, data, context
@@ -1477,7 +1480,7 @@
 
 	@method onDocumentation element, data, context
 		var res = []
-		for line in _onlyWithValue (flatten (on (data)))
+		for line in filterNull (flatten (on (data)))
 			res append (line group () [1:] strip ())
 		end
 		return F doc ("\n" join (res))
@@ -1492,7 +1495,7 @@
 	@method onRepeat element, data, context
 	| Converts the given repeat to None, the result (if the repeat is optional),
 	| or an array (zero or more)
-		var result = _onlyWithValue (on (data))
+		var result = filterNull (on (data))
 		if result
 			if element isOptional ()
 				return result[0]
