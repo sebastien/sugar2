@@ -384,10 +384,7 @@
 		s EOL
 		s Documentation optional () _as "documentation"
 		s Indent
-		g agroup (s ClassAttribute, s Attribute) zeroOrMore ()    _as "properties"
-		g agroup (s Operation, s AbstractOperation) zeroOrMore () _as "operations"
-		s Constructor   zeroOrMore ()                             _as "constructor"
-		s Methods       zeroOrMore ()                             _as "methods"
+		g agroup (s ClassAttribute, s Attribute, s Operation, s AbstractOperation, s Constructor, s Methods) zeroOrMore () _as "body"
 		s Dedent
 		g aword "@end"
 	)
@@ -694,10 +691,7 @@
 		var is_abstract = on(data[0])
 		var inherits    = on(variables["inherits"])
 		var doc         = getElements (on(variables["documentation"]))
-		var properties  = on(variables["properties"])   or []
-		var operations  = on(variables["operations"])   or []
-		var methods     = on(variables["methods"])      or []
-		var constructor = on(variables["constructor"])
+		on(variables["body"])
 		res setDocumentation (doc and doc[0])
 		res setAbstract      (is_abstract and True)
 		scopes pop ()
@@ -1550,6 +1544,7 @@
 		# FIXME: Why is this tied to a path?
 		var builder   = new LambdaFactoryBuilder (path)
 		var module    = builder build (tokens, G)
+		# FIXME: Proper error reporting when parsing fails
 		return [text, module]
 	@end
 
