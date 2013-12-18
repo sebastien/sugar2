@@ -280,9 +280,7 @@
 	g rule      ("ParameterList",    s Parameter, g arule(s COMMA, s Parameter) zeroOrMore (), s ELLIPSIS optional ())
 	g rule      ("SymbolList",       s NAME,      g arule(s COMMA, s NAME)      zeroOrMore (), s ELLIPSIS optional ())
 	g rule      ("ArgumentsEmpty",   s LP, s RP)
-	g rule      ("ArgumentsBlock",   s EOL, s Indent, g arule (s CheckIndent, s ExpressionList, s EOL) zeroOrMore (), s Dedent, s EOL optional ())
-	g rule      ("ArgumentsMany",    s LP, s ExpressionList optional () _as "line", s ArgumentsBlock optional () _as "body", s RP)
-
+	g rule      ("ArgumentsMany",    s LP, s ExpressionList optional () _as "line", s ExpressionBlock optional () _as "body", g agroup (s RP, g arule (s EOL optional (), s CheckIndent, s RP)))
 	# Closures
 	g rule      ("ClosureStatement", s Expression)
 	g rule      ("ClosureBody",      s EOL, s Expression)
