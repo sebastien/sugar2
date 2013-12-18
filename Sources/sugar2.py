@@ -107,7 +107,7 @@ def createProgramGrammar (g=None):
 	g.token('NUMBER', '-?(0x)?[0-9]+(\\.[0-9]+)?')
 	g.token('NAME', '(\\\\?)([\\$_A-Za-z]\\w*)')
 	g.token('KEY', '[\\$_A-Za-z]\\w*')
-	g.token('INFIX_OPERATOR', '([\\-\\+\\*\\/\\%]|\\<=|\\>=|\\<|\\>|==|\\!=|in\\s+|and\\s+|or\\s+|\\*\\*)')
+	g.token('INFIX_OPERATOR', '([\\-\\+\\*\\/\\%]|\\<=|\\>=|\\<|\\>|==|\\!=|\\.\\.|in\\s+|and\\s+|or\\s+|\\*\\*)')
 	g.token('PREFIX_OPERATOR', '(not\\s+|\\-)')
 	g.token('NEW_OPERATOR', 'new\\s+')
 	g.token('ASSIGN_OPERATOR', '[\\?\\*\\+\\-\\/\\%]?=')
@@ -351,7 +351,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 	return code
 	@end
 	```"""
-	OPERATORS = [['or'], ['and'], ['>', '>=', '<', '<=', '!=', '==', 'is', 'is not', 'in', 'not in'], ['+', '-'], ['not'], ['/', '*', '%', '//'], ['/=', '*=', '%=', '+=', '-=']]
+	OPERATORS = [['or'], ['and'], ['>', '>=', '<', '<=', '!=', '==', 'is', 'is not', 'in', 'not in'], ['..'], ['+', '-'], ['not'], ['/', '*', '%', '//'], ['/=', '*=', '%=', '+=', '-=']]
 	def __init__ (self, path=None):
 		self.module = None
 		self.process = None
@@ -361,7 +361,10 @@ class LambdaFactoryBuilder(TreeBuilder):
 		TreeBuilder.__init__(self,path)
 	
 	def getDefaultModuleName(self):
-		return self.path.split('/')[-1].split('.')[0].replace('-', '_')
+		if self.path:
+			self.path.split('/')[-1].split('.')[0].replace('-', '_')
+		elif True:
+			return '__anoymous__module__'
 	
 	def normalizeOperator(self, operator):
 		while (((len(operator) > 0) and (operator[-1] == ' ')) or (operator[-1] == '\t')):
@@ -711,7 +714,10 @@ class LambdaFactoryBuilder(TreeBuilder):
 						value = F.invoke(value, args[1])
 				elif (name == 'ComputationInfix'):
 					op=self.normalizeOperator(args[1])
-					value = F.compute(F._op(op, self.getOperatorPriority(op)), value, args[2])
+					if (op == '..'):
+						value = F.enumerate(value, args[2])
+					elif True:
+						value = F.compute(F._op(op, self.getOperatorPriority(op)), value, args[2])
 				elif (name == 'Decomposition'):
 					for _ in args[1]:
 						value = F.resolve(_, value)

@@ -190,7 +190,7 @@
 	g token     ("NUMBER",           "-?(0x)?[0-9]+(\.[0-9]+)?")
 	g token     ("NAME",             "(\\\?)([\$_A-Za-z]\w*)")
 	g token     ("KEY",              "[\$_A-Za-z]\w*")
-	g token     ("INFIX_OPERATOR",   "([\-\+\*\/\%]|\<=|\>=|\<|\>|==|\!=|in\s+|and\s+|or\s+|\*\*)")
+	g token     ("INFIX_OPERATOR",   "([\-\+\*\/\%]|\<=|\>=|\<|\>|==|\!=|\.\.|in\s+|and\s+|or\s+|\*\*)")
 	g token     ("PREFIX_OPERATOR",  "(not\s+|\-)")
 	g token     ("NEW_OPERATOR",     "new\s+")
 	g token     ("ASSIGN_OPERATOR",  "[\?\*\+\-\/\%]?=")
@@ -545,9 +545,10 @@
 		["or"]
 		["and"]
 		[">" , ">=" , "<" , "<=" , "!=" , "==" , "is" , "is not" , "in" , "not in"]
+		[".."]
 		["+"  , "-"]
 		["not"]
-		["/"  , "*"  , "%" , "//"]
+		["/"  , "*"  , "%" , "//" ]
 		["/=", "*=", "%=", "+=" , "-="]
 	]
 
@@ -564,7 +565,12 @@
 	@end
 
 	@method getDefaultModuleName
-		return path split "/" [-1] split "." [0] replace ("-", "_")
+		# FIXME: This should be done within LambdaFactory, not here
+		if path
+			path split "/" [-1] split "." [0] replace ("-", "_")
+		else
+			return "__anoymous__module__"
+		end
 	@end
 
 	@method normalizeOperator operator
@@ -1042,7 +1048,11 @@
 					end
 				if name == "ComputationInfix"
 					var op = normalizeOperator (args[1])
-					value = F compute (F _op (op, getOperatorPriority(op)), value, args[2])
+					if op == ".."
+						value = F enumerate (value, args[2])
+					else
+						value = F compute (F _op (op, getOperatorPriority(op)), value, args[2])
+					end
 				if name == "Decomposition"
 					for _ in args[1]
 						value = F resolve (_, value)
