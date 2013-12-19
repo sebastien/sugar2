@@ -104,10 +104,10 @@ def createProgramGrammar (g=None):
 	g.token('INDENT', '\t+')
 	g.token('COMMENT', '[ \t]*\\#[^\n]*')
 	g.token('EOL', '[ ]*\n(\\s*\n)*')
-	g.token('NUMBER', '-?(0x)?[0-9]+(\\.[0-9]+)?')
+	g.token('NUMBER', '\\-?(0x)?[0-9]+(\\.[0-9]+)?')
 	g.token('NAME', '(\\\\?)([\\$_A-Za-z]\\w*)')
 	g.token('KEY', '[\\$_A-Za-z]\\w*')
-	g.token('INFIX_OPERATOR', '([\\-\\+\\*\\/\\%]|\\<=|\\>=|\\<|\\>|==|\\!=|\\.\\.|in\\s+|and\\s+|or\\s+|\\*\\*)')
+	g.token('INFIX_OPERATOR', '([\\-\\+\\*\\/\\%]|\\<=|\\>=|\\<|\\>|==|\\!=|\\.\\.|in\\s+|and\\s+|or\\s+|is\\s+|\\*\\*)')
 	g.token('PREFIX_OPERATOR', '(not\\s+|\\-)')
 	g.token('NEW_OPERATOR', 'new\\s+')
 	g.token('ASSIGN_OPERATOR', '[\\?\\*\\+\\-\\/\\%]?=')
@@ -196,7 +196,7 @@ def createProgramGrammar (g=None):
 	g.rule('Access', s.LSB, s.Expression, s.RSB)
 	g.rule('Slice', s.LSB, s.Expression.optional(), s.COLON, s.Expression.optional(), s.RSB)
 	g.group('Invocation', s.ArgumentsEmpty, s.ArgumentsMany, s.Literal)
-	g.group('Prefixes', g.rule('Parentheses', s.LP, s.Expression, s.RP), g.rule('Instanciation', s.NEW_OPERATOR, s.FQName._as('name'), s.Invocation._as('params')), g.rule('ComputationPrefix', s.PREFIX_OPERATOR, s.Expression), s.Literal, s.NAME)
+	g.group('Prefixes', g.rule('Parentheses', s.LP, s.Expression, s.RP), g.rule('Instanciation', s.NEW_OPERATOR, g.agroup(s.FQName, s.Parentheses)._as('target'), s.Invocation._as('params')), g.rule('ComputationPrefix', s.PREFIX_OPERATOR, s.Expression), s.Literal, s.NAME)
 	g.group('Suffixes', s.ComputationInfix, s.Decomposition, s.Access, s.Slice, s.Invocation)
 	s.Expression.set(s.Prefixes, s.Suffixes.zeroOrMore())
 	g.rule('Assignable', s.NAME, g.agroup(s.Decomposition, s.Access, s.Slice).zeroOrMore())
@@ -364,7 +364,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 		if self.path:
 			self.path.split('/')[-1].split('.')[0].replace('-', '_')
 		elif True:
-			return '__anoymous__module__'
+			return '__anonymous__module__'
 	
 	def normalizeOperator(self, operator):
 		while (((len(operator) > 0) and (operator[-1] == ' ')) or (operator[-1] == '\t')):
@@ -722,7 +722,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 					for _ in args[1]:
 						value = F.resolve(_, value)
 				elif (name == 'Access'):
-					value = F.access(value, F._number(args[1]))
+					value = F.access(value, args[1])
 				elif (name == 'Slice'):
 					value = F.slice(value, args[1], args[2])
 				elif True:
@@ -760,7 +760,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 		return self.on(data[1])
 	
 	def onInstanciation(self, element, data, content):
-		name=self.on(element.resolve('name', data))
+		name=self.on(element.resolve('target', data))
 		params=self.on(element.resolve('params', data))[1]
 		return F.instanciate(name, *(params or []))
 		

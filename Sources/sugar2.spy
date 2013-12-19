@@ -187,10 +187,12 @@
 	g token     ("INDENT",           "\t+")
 	g token     ("COMMENT",          "[ \t]*\#[^\n]*")
 	g token     ("EOL",              "[ ]*\n(\s*\n)*")
-	g token     ("NUMBER",           "-?(0x)?[0-9]+(\.[0-9]+)?")
+	# FIXME: Support 0xFFAAEE
+	g token     ("NUMBER",           "\-?(0x)?[0-9]+(\.[0-9]+)?")
 	g token     ("NAME",             "(\\\?)([\$_A-Za-z]\w*)")
 	g token     ("KEY",              "[\$_A-Za-z]\w*")
-	g token     ("INFIX_OPERATOR",   "([\-\+\*\/\%]|\<=|\>=|\<|\>|==|\!=|\.\.|in\s+|and\s+|or\s+|\*\*)")
+	# TODO: Add "not in"
+	g token     ("INFIX_OPERATOR",   "([\-\+\*\/\%]|\<=|\>=|\<|\>|==|\!=|\.\.|in\s+|and\s+|or\s+|is\s+|\*\*)")
 	g token     ("PREFIX_OPERATOR",  "(not\s+|\-)")
 	g token     ("NEW_OPERATOR",     "new\s+")
 	g token     ("ASSIGN_OPERATOR",  "[\?\*\+\-\/\%]?=")
@@ -298,7 +300,7 @@
 	g group     ("Invocation",       s ArgumentsEmpty, s ArgumentsMany, s Literal)
 	g group     ("Prefixes"
 		g rule  ("Parentheses",      s LP,    s Expression, s RP)
-		g rule  ("Instanciation",    s NEW_OPERATOR, s FQName _as "name", s Invocation _as "params")
+		g rule  ("Instanciation",    s NEW_OPERATOR, g agroup (s FQName, s Parentheses) _as "target", s Invocation _as "params")
 		g rule  ("ComputationPrefix",s PREFIX_OPERATOR, s Expression)
 		s Literal
 		s NAME
@@ -568,7 +570,7 @@
 		if path
 			path split "/" [-1] split "." [0] replace ("-", "_")
 		else
-			return "__anoymous__module__"
+			return "__anonymous__module__"
 		end
 	@end
 
@@ -1057,7 +1059,7 @@
 						value = F resolve (_, value)
 					end
 				if name == "Access"
-					value = F access (value, F _number (args[1]))
+					value = F access (value, args[1])
 				if name == "Slice"
 					value = F slice  (value, args[1], args[2])
 				else
@@ -1116,7 +1118,7 @@
 	@method onInstanciation element, data, content
 		# Both name and params are suffixes so they're returned as couples,
 		# where we want the second value
-		var name   = on (element resolve ("name",   data))
+		var name   = on (element resolve ("target",   data))
 		var params = on (element resolve ("params", data))[1]
 		@embed Python
 		|return F.instanciate(name, *(params or []))
