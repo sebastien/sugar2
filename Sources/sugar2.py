@@ -4,6 +4,7 @@ __module__ = sys.modules[__name__]
 import parsing
 import sys
 import ipdb
+from parsing import ParsingResult
 from lambdafactory import interfaces
 from lambdafactory.main import Command
 from lambdafactory.modelbase import Factory
@@ -103,10 +104,10 @@ def createProgramGrammar (g=None):
 	g.token('INDENT', '\t+')
 	g.token('COMMENT', '[ \t]*\\#[^\n]*')
 	g.token('EOL', '[ ]*\n(\\s*\n)*')
-	g.token('NUMBER', '-?(0x)?[0-9]+(\\.[0-9]+)?')
+	g.token('NUMBER', '\\-?(0x)?[0-9]+(\\.[0-9]+)?')
 	g.token('NAME', '(\\\\?)([\\$_A-Za-z]\\w*)')
 	g.token('KEY', '[\\$_A-Za-z]\\w*')
-	g.token('INFIX_OPERATOR', '([\\-\\+\\*\\/\\%]|\\<=|\\>=|\\<|\\>|==|\\!=|in\\s+|and\\s+|or\\s+|\\*\\*)')
+	g.token('INFIX_OPERATOR', '([\\-\\+\\*\\/\\%]|\\<=|\\>=|\\<|\\>|==|\\!=|\\.\\.|in\\s+|and\\s+|or\\s+|is\\s+|\\*\\*)')
 	g.token('PREFIX_OPERATOR', '(not\\s+|\\-)')
 	g.token('NEW_OPERATOR', 'new\\s+')
 	g.token('ASSIGN_OPERATOR', '[\\?\\*\\+\\-\\/\\%]?=')
@@ -185,7 +186,7 @@ def createProgramGrammar (g=None):
 	g.rule('ParameterList', s.Parameter, g.arule(s.COMMA, s.Parameter).zeroOrMore(), s.ELLIPSIS.optional())
 	g.rule('SymbolList', s.NAME, g.arule(s.COMMA, s.NAME).zeroOrMore(), s.ELLIPSIS.optional())
 	g.rule('ArgumentsEmpty', s.LP, s.RP)
-	g.rule('ArgumentsMany', s.LP, s.ExpressionList, s.RP)
+	g.rule('ArgumentsMany', s.LP, s.ExpressionList.optional()._as('line'), s.ExpressionBlock.optional()._as('body'), g.agroup(s.RP, g.arule(s.EOL.optional(), s.CheckIndent, s.RP)))
 	g.rule('ClosureStatement', s.Expression)
 	g.rule('ClosureBody', s.EOL, s.Expression)
 	g.rule('Closure', s.LB, g.arule(s.ParameterList.optional(), s.PIPE).optional()._as('params'), s.ClosureStatement.optional()._as('line'), s.ClosureBody.optional()._as('body'), g.arule(s.EOL, s.CheckIndent).optional(), s.INDENT.optional(), s.RB)
@@ -195,7 +196,7 @@ def createProgramGrammar (g=None):
 	g.rule('Access', s.LSB, s.Expression, s.RSB)
 	g.rule('Slice', s.LSB, s.Expression.optional(), s.COLON, s.Expression.optional(), s.RSB)
 	g.group('Invocation', s.ArgumentsEmpty, s.ArgumentsMany, s.Literal)
-	g.group('Prefixes', g.rule('Parentheses', s.LP, s.Expression, s.RP), g.rule('Instanciation', s.NEW_OPERATOR, s.FQName._as('name'), s.Invocation._as('params')), g.rule('ComputationPrefix', s.PREFIX_OPERATOR, s.Expression), s.Literal, s.NAME)
+	g.group('Prefixes', g.rule('Parentheses', s.LP, s.Expression, s.RP), g.rule('Instanciation', s.NEW_OPERATOR, g.agroup(s.FQName, s.Parentheses)._as('target'), s.Invocation._as('params')), g.rule('ComputationPrefix', s.PREFIX_OPERATOR, s.Expression), s.Literal, s.NAME)
 	g.group('Suffixes', s.ComputationInfix, s.Decomposition, s.Access, s.Slice, s.Invocation)
 	s.Expression.set(s.Prefixes, s.Suffixes.zeroOrMore())
 	g.rule('Assignable', s.NAME, g.agroup(s.Decomposition, s.Access, s.Slice).zeroOrMore())
@@ -250,7 +251,7 @@ def createProgramGrammar (g=None):
 	g.rule('EmbedLine', s.CheckIndent, s.EMBED_LINE, s.EOL)
 	g.rule('Embed', s.CheckIndent, s.oembed, s.NAME.optional()._as('language'), s.EOL, s.EmbedLine.zeroOrMore()._as('body'), s.OEnd)
 	s.Block.append(s.Embed)
-	g.rule('Class', g.aword('@abstract').optional(), g.aword('@class'), s.NameType._as('name'), g.arule(s.COLON, listOf(s.FQName, s.COMMA, g)).optional()._as('inherits'), s.EOL, s.Documentation.optional()._as('documentation'), s.Indent, g.agroup(s.ClassAttribute, s.Attribute).zeroOrMore()._as('properties'), g.agroup(s.Operation, s.AbstractOperation).zeroOrMore()._as('operations'), s.Constructor.zeroOrMore()._as('constructor'), s.Methods.zeroOrMore()._as('methods'), s.Dedent, g.aword('@end'))
+	g.rule('Class', g.aword('@abstract').optional(), g.aword('@class'), s.NameType._as('name'), g.arule(s.COLON, listOf(s.FQName, s.COMMA, g)).optional()._as('inherits'), s.EOL, s.Documentation.optional()._as('documentation'), s.Indent, g.agroup(s.ClassAttribute, s.Attribute, s.Operation, s.AbstractOperation, s.Constructor, s.Methods).zeroOrMore()._as('body'), s.Dedent, g.aword('@end'))
 	g.rule('ModuleAnnotation', s.omodule, s.FQName, s.EOL)
 	g.rule('VersionAnnotation', s.oversion, s.VERSION, s.EOL)
 	g.rule('RequiresAnnotation', s.orequires, s.FQName, g.arule(s.COMMA, s.FQName).zeroOrMore(), s.EOL)
@@ -350,21 +351,20 @@ class LambdaFactoryBuilder(TreeBuilder):
 	return code
 	@end
 	```"""
-	OPERATORS = [['or'], ['and'], ['>', '>=', '<', '<=', '!=', '==', 'is', 'is not', 'in', 'not in'], ['+', '-'], ['not'], ['/', '*', '%', '//'], ['/=', '*=', '%=', '+=', '-=']]
+	OPERATORS = [['or'], ['and'], ['>', '>=', '<', '<=', '!=', '==', 'is', 'is not', 'in', 'not in'], ['..'], ['+', '-'], ['not'], ['/', '*', '%', '//'], ['/=', '*=', '%=', '+=', '-=']]
 	def __init__ (self, path=None):
-		self.program = None
 		self.module = None
 		self.process = None
 		self.scopes = []
 		self.processes = []
 		if path is None: path = None
 		TreeBuilder.__init__(self,path)
-		self.program = F.createProgram()
-		self.scopes.append(self.program)
-		self.program.setFactory(F)
 	
 	def getDefaultModuleName(self):
-		return self.path.split('/')[-1].split('.')[0].replace('-', '_')
+		if self.path:
+			self.path.split('/')[-1].split('.')[0].replace('-', '_')
+		elif True:
+			return '__anonymous__module__'
 	
 	def normalizeOperator(self, operator):
 		while (((len(operator) > 0) and (operator[-1] == ' ')) or (operator[-1] == '\t')):
@@ -393,7 +393,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 		"""Assigns the given referenceable to the current scope"""
 		self.scopes[-1].setSlot(referanceable.getName(), referanceable)
 	
-	def _onlyWithValue(self, result):
+	def filterNull(self, result):
 		"""Returns only the elements of result that have a value"""
 		return filter(lambda _:_, result)
 		
@@ -423,7 +423,6 @@ class LambdaFactoryBuilder(TreeBuilder):
 			if isinstance(_, interfaces.IAnnotation):
 				annotations[_.getName()] = _.getContent()
 		self.module = F.createModule((annotations.get('module') or self.getDefaultModuleName()))
-		self.program.addModule(self.module)
 		self.scopes.append(self.module)
 		if annotations.get('version'):
 			res=F._moduleattr('VERSION', None, F._string(annotations.get('version')))
@@ -453,10 +452,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 		is_abstract=self.on(data[0])
 		inherits=self.on(variables['inherits'])
 		doc=self.getElements(self.on(variables['documentation']))
-		properties=(self.on(variables['properties']) or [])
-		operations=(self.on(variables['operations']) or [])
-		methods=(self.on(variables['methods']) or [])
-		constructor=self.on(variables['constructor'])
+		self.on(variables['body'])
 		res.setDocumentation((doc and doc[0]))
 		res.setAbstract((is_abstract and True))
 		self.scopes.pop()
@@ -497,7 +493,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 		data_name=element.resolve('name', data)
 		data_methods=(element.resolve('methods', data) or [])
 		methods=[]
-		group_annotation=F.annotation('as', data_name)
+		group_annotation=F.annotation('as', self.on(data_name).getReferenceName())
 		for m in self.on(data_methods):
 			m.addAnnotation(group_annotation)
 			methods.append(m)
@@ -718,12 +714,15 @@ class LambdaFactoryBuilder(TreeBuilder):
 						value = F.invoke(value, args[1])
 				elif (name == 'ComputationInfix'):
 					op=self.normalizeOperator(args[1])
-					value = F.compute(F._op(op, self.getOperatorPriority(op)), value, args[2])
+					if (op == '..'):
+						value = F.enumerate(value, args[2])
+					elif True:
+						value = F.compute(F._op(op, self.getOperatorPriority(op)), value, args[2])
 				elif (name == 'Decomposition'):
 					for _ in args[1]:
 						value = F.resolve(_, value)
 				elif (name == 'Access'):
-					value = F.access(value, F._number(args[1]))
+					value = F.access(value, args[1])
 				elif (name == 'Slice'):
 					value = F.slice(value, args[1], args[2])
 				elif True:
@@ -761,7 +760,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 		return self.on(data[1])
 	
 	def onInstanciation(self, element, data, content):
-		name=self.on(element.resolve('name', data))
+		name=self.on(element.resolve('target', data))
 		params=self.on(element.resolve('params', data))[1]
 		return F.instanciate(name, *(params or []))
 		
@@ -896,7 +895,9 @@ class LambdaFactoryBuilder(TreeBuilder):
 		return []
 	
 	def onArgumentsMany(self, element, data, context):
-		return self.on(data[1])
+		l=self.on(element.resolve('line', data))
+		b=self.on(element.resolve('body', data))
+		return self.filterNull((self.flatten(l) + self.flatten(b)))
 	
 	def onSymbolList(self, element, data, context):
 		"""Returns `[model.Reference]`"""
@@ -1000,14 +1001,14 @@ class LambdaFactoryBuilder(TreeBuilder):
 	
 	def onDocumentation(self, element, data, context):
 		res=[]
-		for line in self._onlyWithValue(self.flatten(self.on(data))):
+		for line in self.filterNull(self.flatten(self.on(data))):
 			res.append(line.group()[1:].strip())
 		return F.doc('\n'.join(res))
 	
 	def onRepeat(self, element, data, context):
 		"""Converts the given repeat to None, the result (if the repeat is optional),
 		or an array (zero or more)"""
-		result=self._onlyWithValue(self.on(data))
+		result=self.filterNull(self.on(data))
 		if result:
 			if element.isOptional():
 				return result[0]
@@ -1043,14 +1044,11 @@ class Parser:
 		self.environment = None
 		self.environment = environment
 	
-	def parse(self, path, moduleName):
-		input=open(path, 'rb')
-		source=input.read()
-		tokens=self.__class__.G.parse(source)
+	def parseString(self, text, path, moduleName):
+		tokens=self.__class__.G.parse(text)
 		builder=LambdaFactoryBuilder(path)
 		module=builder.build(tokens, self.__class__.G)
-		self.environment.getProgram().addModule(module)
-		return [source, module]
+		return [text, module]
 	
 
 def run (arguments):

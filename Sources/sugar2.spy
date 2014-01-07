@@ -15,6 +15,7 @@
 @import  parsing
 @import  sys
 @import  ipdb
+@import  ParsingResult        from parsing
 @import  interfaces           from lambdafactory
 @import  Command              from lambdafactory.main
 @import  Factory              from lambdafactory.modelbase
@@ -186,10 +187,12 @@
 	g token     ("INDENT",           "\t+")
 	g token     ("COMMENT",          "[ \t]*\#[^\n]*")
 	g token     ("EOL",              "[ ]*\n(\s*\n)*")
-	g token     ("NUMBER",           "-?(0x)?[0-9]+(\.[0-9]+)?")
+	# FIXME: Support 0xFFAAEE
+	g token     ("NUMBER",           "\-?(0x)?[0-9]+(\.[0-9]+)?")
 	g token     ("NAME",             "(\\\?)([\$_A-Za-z]\w*)")
 	g token     ("KEY",              "[\$_A-Za-z]\w*")
-	g token     ("INFIX_OPERATOR",   "([\-\+\*\/\%]|\<=|\>=|\<|\>|==|\!=|in\s+|and\s+|or\s+|\*\*)")
+	# TODO: Add "not in"
+	g token     ("INFIX_OPERATOR",   "([\-\+\*\/\%]|\<=|\>=|\<|\>|==|\!=|\.\.|in\s+|and\s+|or\s+|is\s+|\*\*)")
 	g token     ("PREFIX_OPERATOR",  "(not\s+|\-)")
 	g token     ("NEW_OPERATOR",     "new\s+")
 	g token     ("ASSIGN_OPERATOR",  "[\?\*\+\-\/\%]?=")
@@ -279,8 +282,7 @@
 	g rule      ("ParameterList",    s Parameter, g arule(s COMMA, s Parameter) zeroOrMore (), s ELLIPSIS optional ())
 	g rule      ("SymbolList",       s NAME,      g arule(s COMMA, s NAME)      zeroOrMore (), s ELLIPSIS optional ())
 	g rule      ("ArgumentsEmpty",   s LP, s RP)
-	g rule      ("ArgumentsMany",    s LP, s ExpressionList, s RP)
-
+	g rule      ("ArgumentsMany",    s LP, s ExpressionList optional () _as "line", s ExpressionBlock optional () _as "body", g agroup (s RP, g arule (s EOL optional (), s CheckIndent, s RP)))
 	# Closures
 	g rule      ("ClosureStatement", s Expression)
 	g rule      ("ClosureBody",      s EOL, s Expression)
@@ -298,7 +300,7 @@
 	g group     ("Invocation",       s ArgumentsEmpty, s ArgumentsMany, s Literal)
 	g group     ("Prefixes"
 		g rule  ("Parentheses",      s LP,    s Expression, s RP)
-		g rule  ("Instanciation",    s NEW_OPERATOR, s FQName _as "name", s Invocation _as "params")
+		g rule  ("Instanciation",    s NEW_OPERATOR, g agroup (s FQName, s Parentheses) _as "target", s Invocation _as "params")
 		g rule  ("ComputationPrefix",s PREFIX_OPERATOR, s Expression)
 		s Literal
 		s NAME
@@ -383,10 +385,7 @@
 		s EOL
 		s Documentation optional () _as "documentation"
 		s Indent
-		g agroup (s ClassAttribute, s Attribute) zeroOrMore ()    _as "properties"
-		g agroup (s Operation, s AbstractOperation) zeroOrMore () _as "operations"
-		s Constructor   zeroOrMore ()                             _as "constructor"
-		s Methods       zeroOrMore ()                             _as "methods"
+		g agroup (s ClassAttribute, s Attribute, s Operation, s AbstractOperation, s Constructor, s Methods) zeroOrMore () _as "body"
 		s Dedent
 		g aword "@end"
 	)
@@ -547,13 +546,13 @@
 		["or"]
 		["and"]
 		[">" , ">=" , "<" , "<=" , "!=" , "==" , "is" , "is not" , "in" , "not in"]
+		[".."]
 		["+"  , "-"]
 		["not"]
-		["/"  , "*"  , "%" , "//"]
+		["/"  , "*"  , "%" , "//" ]
 		["/=", "*=", "%=", "+=" , "-="]
 	]
 
-	@property program
 	@property module
 	@property process   = None
 	@property scopes    = []
@@ -561,13 +560,18 @@
 
 	@constructor path=None
 		super (path)
-		program = F createProgram ()
-		scopes append (program)
-		program setFactory (F)
+		# program = F createProgram ()
+		# scopes append (program)
+		# program setFactory (F)
 	@end
 
 	@method getDefaultModuleName
-		return path split "/" [-1] split "." [0] replace ("-", "_")
+		# FIXME: This should be done within LambdaFactory, not here
+		if path
+			path split "/" [-1] split "." [0] replace ("-", "_")
+		else
+			return "__anonymous__module__"
+		end
 	@end
 
 	@method normalizeOperator operator
@@ -603,7 +607,7 @@
 		scopes[-1] setSlot (referanceable getName (), referanceable)
 	@end
 
-	@method _onlyWithValue result
+	@method filterNull result
 	| Returns only the elements of result that have a value
 		@embed Python
 		|return filter(lambda _:_, result)
@@ -655,7 +659,7 @@
 		# We create the module
 		module       = F createModule (annotations get "module" or getDefaultModuleName())
 		# A module is a scope, so we add it to the scopes stack
-		program addModule (module)
+		# program addModule (module)
 		scopes append     (module)
 		# We take care of the version number
 		if annotations get "version"
@@ -694,10 +698,7 @@
 		var is_abstract = on(data[0])
 		var inherits    = on(variables["inherits"])
 		var doc         = getElements (on(variables["documentation"]))
-		var properties  = on(variables["properties"])   or []
-		var operations  = on(variables["operations"])   or []
-		var methods     = on(variables["methods"])      or []
-		var constructor = on(variables["constructor"])
+		on(variables["body"])
 		res setDocumentation (doc and doc[0])
 		res setAbstract      (is_abstract and True)
 		scopes pop ()
@@ -744,7 +745,7 @@
 		var data_name    = element resolve ("name",    data)
 		var data_methods = element resolve ("methods", data) or []
 		var methods      = []
-		var group_annotation = F annotation ("as", data_name)
+		var group_annotation = F annotation ("as", on (data_name) getReferenceName ())
 		for m in on(data_methods)
 			m addAnnotation (group_annotation)
 			methods append (m)
@@ -1048,13 +1049,17 @@
 					end
 				if name == "ComputationInfix"
 					var op = normalizeOperator (args[1])
-					value = F compute (F _op (op, getOperatorPriority(op)), value, args[2])
+					if op == ".."
+						value = F enumerate (value, args[2])
+					else
+						value = F compute (F _op (op, getOperatorPriority(op)), value, args[2])
+					end
 				if name == "Decomposition"
 					for _ in args[1]
 						value = F resolve (_, value)
 					end
 				if name == "Access"
-					value = F access (value, F _number (args[1]))
+					value = F access (value, args[1])
 				if name == "Slice"
 					value = F slice  (value, args[1], args[2])
 				else
@@ -1113,7 +1118,7 @@
 	@method onInstanciation element, data, content
 		# Both name and params are suffixes so they're returned as couples,
 		# where we want the second value
-		var name   = on (element resolve ("name",   data))
+		var name   = on (element resolve ("target",   data))
 		var params = on (element resolve ("params", data))[1]
 		@embed Python
 		|return F.instanciate(name, *(params or []))
@@ -1316,7 +1321,9 @@
 	@end
 
 	@method onArgumentsMany element, data, context
-		return on(data[1])
+		var l = on(element resolve ("line", data))
+		var b = on(element resolve ("body", data))
+		return filterNull (flatten (l) + flatten (b))
 	@end
 
 	@method onSymbolList element, data, context
@@ -1473,7 +1480,7 @@
 
 	@method onDocumentation element, data, context
 		var res = []
-		for line in _onlyWithValue (flatten (on (data)))
+		for line in filterNull (flatten (on (data)))
 			res append (line group () [1:] strip ())
 		end
 		return F doc ("\n" join (res))
@@ -1488,7 +1495,7 @@
 	@method onRepeat element, data, context
 	| Converts the given repeat to None, the result (if the repeat is optional),
 	| or an array (zero or more)
-		var result = _onlyWithValue (on (data))
+		var result = filterNull (on (data))
 		if result
 			if element isOptional ()
 				return result[0]
@@ -1545,16 +1552,13 @@
 		self environment = environment
 	@end
 
-	@method parse path, moduleName
-		var input   = open  (path, "rb")
-		var source  = input read ()
-		var tokens  = G parse (source)
+	@method parseString text, path, moduleName
+		var tokens    = G parse (text)
 		# FIXME: Why is this tied to a path?
 		var builder   = new LambdaFactoryBuilder (path)
 		var module    = builder build (tokens, G)
-		# FIXME: This should be done by the Command itself
-		environment getProgram () addModule (module)
-		return [source, module]
+		# FIXME: Proper error reporting when parsing fails
+		return [text, module]
 	@end
 
 @end
