@@ -789,7 +789,6 @@ class LambdaFactoryBuilder(TreeBuilder):
 	def onAccess(self, element, data, context):
 		"""Returns [("Access", INDEX:Element)]"""
 		data_key=data[1]
-		print ('DATA_KEY', self.on(data_key))
 		return [element.name, self.on(data_key)]
 	
 	def onDecomposition(self, element, data, context):

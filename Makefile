@@ -7,7 +7,7 @@ all: $(PRODUCT_PYTHON) Sources/sugar2.so
 %.so: %.pyx
 	python setup.py build_ext --inplace
 
-%.pyx: %.py:
+%.pyx: %.py
 	cp $< $@
 
 %.py: %.spy
