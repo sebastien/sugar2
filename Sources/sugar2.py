@@ -198,7 +198,7 @@ def createProgramGrammar (g=None):
 	g.rule('Slice', s.LSB, s.Expression.optional(), s.COLON, s.Expression.optional(), s.RSB)
 	g.group('Invocation', s.ArgumentsEmpty, s.ArgumentsMany, s.Literal)
 	g.rule('Parentheses', s.LP, s.Expression, s.RP)
-	g.group('Prefixes', s.Literal, g.rule('Instanciation', s.NEW_OPERATOR, g.agroup(s.FQName, s.Parentheses)._as('target'), s.Invocation._as('params')), s.NAME, s.Parentheses, g.rule('ComputationPrefix', s.PREFIX_OPERATOR, s.Expression))
+	g.group('Prefixes', s.Literal, g.rule('Instanciation', s.NEW_OPERATOR, g.agroup(s.FQName, s.Parentheses)._as('target'), s.Invocation._as('params')), g.rule('ComputationPrefix', s.PREFIX_OPERATOR, s.Expression), s.NAME, s.Parentheses)
 	g.group('Suffixes', s.ComputationInfix, s.Decomposition, s.Access, s.Slice, s.Invocation)
 	s.Expression.set(s.Prefixes, s.Suffixes.zeroOrMore())
 	g.rule('Assignable', s.NAME, g.agroup(s.Decomposition, s.Access, s.Slice).zeroOrMore())
@@ -375,8 +375,9 @@ class LambdaFactoryBuilder(TreeBuilder):
 			return '__anonymous__module__'
 	
 	def normalizeOperator(self, operator):
-		while (((len(operator) > 0) and (operator[-1] == ' ')) or (operator[-1] == '\t')):
-			operator = operator[0:-1]
+		operator = operator.replace("\t"," ").replace("\n"," ")
+		operator = " ".join((_.strip() for _ in operator.split() if _.strip()))
+		
 		return operator
 	
 	def getOperatorPriority(self, operator):
