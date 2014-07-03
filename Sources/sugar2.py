@@ -3,7 +3,6 @@ import sys
 __module__ = sys.modules[__name__]
 import parsing
 import sys
-import ipdb
 from parsing import ParsingResult
 from lambdafactory import interfaces
 from lambdafactory.main import Command
@@ -651,7 +650,6 @@ class LambdaFactoryBuilder(TreeBuilder):
 		try_branch=self.on(element.resolve('try', data))
 		catch_branch=self.on(element.resolve('catch', data))
 		finally_branch=self.on(element.resolve('finally', data))
-		print (try_branch, catch_branch, finally_branch)
 		return F.intercept(try_branch, catch_branch, finally_branch)
 	
 	def onForBranch(self, element, data, context):
@@ -686,7 +684,6 @@ class LambdaFactoryBuilder(TreeBuilder):
 	def onFinallyBranch(self, element, data, context):
 		body=self.on(element.resolve('body', data))
 		process=F.createBlock()
-		print ('FINALLY', body)
 		self._setCode(process, body)
 		return process
 	
@@ -839,7 +836,6 @@ class LambdaFactoryBuilder(TreeBuilder):
 	def onAccess(self, element, data, context):
 		"""Returns [("Access", INDEX:Element)]"""
 		data_key=data[1]
-		print ('ACCESS', data_key)
 		return [element.name, self.on(data_key)]
 	
 	def onDecomposition(self, element, data, context):
@@ -941,7 +937,6 @@ class LambdaFactoryBuilder(TreeBuilder):
 		res.append(all[0])
 		ellipsis=all[2]
 		for _ in (all[1] or []):
-			print (' - param', _)
 			res.append(_[1])
 		if ellipsis:
 			res[-1].setRest(True)

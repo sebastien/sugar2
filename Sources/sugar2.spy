@@ -14,7 +14,6 @@
 @target  Python
 @import  parsing
 @import  sys
-@import  ipdb
 @import  ParsingResult        from parsing
 @import  interfaces           from lambdafactory
 @import  Command              from lambdafactory.main
@@ -1001,7 +1000,6 @@
 	@method onFinallyBranch element, data, context
 		var body      = on (element resolve ("body",   data))
 		var process   = F createBlock ()
-		print ("FINALLY", body)
 		_setCode (process, body)
 		return process
 	@end
@@ -1225,7 +1223,6 @@
 	@method onAccess element, data, context
 	| Returns [("Access", INDEX:Element)]
 		var data_key = data[1]
-		print ("ACCESS", data_key)
 		return [element name, on(data_key)]
 	@end
 
@@ -1380,7 +1377,6 @@
 		res append (all[0])
 		var ellipsis = all[2]
 		for _ in (all[1] or [])
-			print (" - param", _)
 			# We have _ = [COMMA, <model.Parameter>]
 			#              0        1
 			res append (_[1])
