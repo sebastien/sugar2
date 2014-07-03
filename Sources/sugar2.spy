@@ -292,7 +292,8 @@
 
 	# Expression prefixes
 	g group     ("Literal",         s NUMBER, s SYMBOLIC, s String, s Array, s Map, s Closure)
-	g rule      ("Decomposition",    s DOT_OR_SPACE, s NAME, g arule (s DOT_OR_SPACE, s NAME) zeroOrMore ())
+	# We only allow dots to chain notations
+	g rule      ("Decomposition",    s DOT_OR_SPACE, s NAME, g arule (s DOT, s NAME) zeroOrMore ())
 	# FIXME: Decomposition and resolution should be the same, no?
 	#g rule      ("Resolution",       s SPACE, s NAME,  g rule ("ResolutionTail", s SPACE, s NAME) zeroOrMore ())
 	g rule      ("ComputationInfix", s INFIX_OPERATOR, s Expression)
@@ -580,7 +581,7 @@
 		if path
 			path split "/" [-1] split "." [0] replace ("-", "_")
 		else
-			return "__anonymous__module__"
+			return "__current__"
 		end
 	@end
 
@@ -684,10 +685,10 @@
 		structure          = on (data_structure)
 		# We get the module code and assign it to the main function
 		var data_code      = element resolve (g symbols Code, data)
-		var main_function  = F createFunction (F MainFunction)
+		var init_function  = F createFunction (F ModuleInit)
 		var code  = on (data_code)
-		_setCode (main_function, code)
-		_bind    (main_function)
+		_setCode (init_function, code)
+		_bind    (init_function)
 		# We pop the scopes as we're done with the module
 		scopes pop ()
 		return module

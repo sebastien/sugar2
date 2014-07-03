@@ -192,7 +192,7 @@ def createProgramGrammar (g=None):
 	g.rule('ClosureBody', s.EOL, s.Expression)
 	g.rule('Closure', s.LB, g.arule(s.ParameterList.optional(), s.PIPE).optional()._as('params'), s.ClosureStatement.optional()._as('line'), s.ClosureBody.optional()._as('body'), g.arule(s.EOL, s.CheckIndent).optional(), s.INDENT.optional(), s.RB)
 	g.group('Literal', s.NUMBER, s.SYMBOLIC, s.String, s.Array, s.Map, s.Closure)
-	g.rule('Decomposition', s.DOT_OR_SPACE, s.NAME, g.arule(s.DOT_OR_SPACE, s.NAME).zeroOrMore())
+	g.rule('Decomposition', s.DOT_OR_SPACE, s.NAME, g.arule(s.DOT, s.NAME).zeroOrMore())
 	g.rule('ComputationInfix', s.INFIX_OPERATOR, s.Expression)
 	g.rule('Access', s.LSB, s.Expression, s.RSB)
 	g.rule('Slice', s.LSB, s.Expression.optional(), s.COLON, s.Expression.optional(), s.RSB)
@@ -372,7 +372,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 		if self.path:
 			self.path.split('/')[-1].split('.')[0].replace('-', '_')
 		elif True:
-			return '__anonymous__module__'
+			return '__current__'
 	
 	def normalizeOperator(self, operator):
 		operator = operator.replace("\t"," ").replace("\n"," ")
@@ -439,10 +439,10 @@ class LambdaFactoryBuilder(TreeBuilder):
 		data_structure=element.resolve(self.g.symbols.Structure, data)
 		structure = self.on(data_structure)
 		data_code=element.resolve(self.g.symbols.Code, data)
-		main_function=F.createFunction(F.MainFunction)
+		init_function=F.createFunction(F.ModuleInit)
 		code=self.on(data_code)
-		self._setCode(main_function, code)
-		self._bind(main_function)
+		self._setCode(init_function, code)
+		self._bind(init_function)
 		self.scopes.pop()
 		return self.module
 	
