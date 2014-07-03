@@ -776,6 +776,7 @@
 		var name_type   = on (data_name)
 		# FIXME: Support return type
 		var params      = _tryGet (on (data_params), 0, [])
+		print ("PARAMS", params)
 		var fun         = None
 		if name_type
 			fun         = factory (name_type[0] getReferenceName (), params)
@@ -1329,6 +1330,7 @@
 		var name_type  = on (data_name)
 		var value      = _tryGet (on (data_value), 1, None)
 		# FIXME: Support type
+		# FIXME: Support keywords?
 		return F _param (name_type[0] getReferenceName (), None, value)
 	@end
 
@@ -1336,10 +1338,15 @@
 		var res  = []
 		var all  = on (data)
 		res append (all[0])
+		var ellipsis = all[2]
 		for _ in (all[1] or [])
+			print (" - param", _)
 			# We have _ = [COMMA, <model.Parameter>]
 			#              0        1
 			res append (_[1])
+		end
+		if ellipsis
+			res[-1] setRest (True)
 		end
 		return res
 	@end

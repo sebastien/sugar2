@@ -1,0 +1,6 @@
+@function toggle toShow, toHide...
+	show (toShow)
+	toHide :: hide
+@end
+
+

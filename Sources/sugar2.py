@@ -516,6 +516,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 		data_body=element.resolve('body', data)
 		name_type=self.on(data_name)
 		params=self._tryGet(self.on(data_params), 0, [])
+		print ('PARAMS', params)
 		fun=None
 		if name_type:
 			fun = factory(name_type[0].getReferenceName(), params)
@@ -904,8 +905,12 @@ class LambdaFactoryBuilder(TreeBuilder):
 		res=[]
 		all=self.on(data)
 		res.append(all[0])
+		ellipsis=all[2]
 		for _ in (all[1] or []):
+			print (' - param', _)
 			res.append(_[1])
+		if ellipsis:
+			res[-1].setRest(True)
 		return res
 	
 	def onArgumentsEmpty(self, element, data, context):

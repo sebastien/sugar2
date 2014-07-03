@@ -1,0 +1,12 @@
+# PROBLEM: That was causing an exception
+#  File "/Users/sebastien/Local/Python/lambdafactory/javascript.py", line 489, in writeSelection
+#    assert isinstance(rule, interfaces.IMatchProcessOperation)
+@class Application
+	@operation searchContent criteria
+		if criteria is Undefined -> criteria = $ "#searchBox" val()
+		if matching_pages length > 0
+			print "POUET"
+		end
+	@end
+
+@end

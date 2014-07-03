@@ -1,0 +1,4 @@
+@main
+	# BUG: This should be allowed
+	pouet \if "asdaas"
+@end

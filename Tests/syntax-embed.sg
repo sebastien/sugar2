@@ -1,0 +1,18 @@
+# FEATURE: Embedding code
+# SYNTAX: @embed Language ... @end
+
+@class A
+	@method f
+		@embed JavaScript
+		|var hello = {world:"Hello, World !"};
+		|alert("HELLO WORLD" + hello.world)
+		@end
+	@end
+@end
+
+@function hello
+	@embed JavaScript
+	|var hello = {world:"Hello, World !"};
+	|alert("HELLO WORLD" + hello.world)
+	@end
+@end

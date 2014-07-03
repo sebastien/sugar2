@@ -1,0 +1,20 @@
+# PROBLEM: When we have long conditions for if, we'd like to span more than
+# one line
+# SYNTAX: Allow
+# if condition ;
+# (and|or) condition ;
+# (and|or) condition
+# NOTE: This only works for computation, before the operator
+
+@function f
+	var averylongvariable = 1
+	var anotherverylongvariable = 1
+
+	if averylongvariable == 1 ;
+	and anotherverylong variable ;
+	or anotherverylong
+		print "OK"
+	end
+@end
+
+# END

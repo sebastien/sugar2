@@ -1,0 +1,47 @@
+@class Point
+
+	@property x:double
+	@property y:double
+
+	@constructor px, py
+		x = px
+		y = py
+	@end
+
+@end
+
+@class Shape
+
+	@shared    COUNT:int
+	@property  points:List
+	
+	@constructor 
+		points = []
+	@end
+
+	@method addPoint point:Point
+		return points append(point)
+	@end
+
+	@method addAnotherPoint point:Point
+		return addPoint(point)
+	@end
+
+	@operation shapeCount
+		return COUNT
+	@end
+
+	@operation otherShapeCount
+		return shapeCount()
+	@end
+
+
+@end
+
+@class RectangleShape: Shape
+
+	@constructor 
+		super ()
+	@end
+
+@end

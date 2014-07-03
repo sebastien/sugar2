@@ -1,0 +1,4 @@
+[collection :: _ ? _ strip () ->  _ strip ()  ]
+[_ strip () for _  in collection if _ strip ()]
+(_ strip () for _  in collection if _ strip ())
+
