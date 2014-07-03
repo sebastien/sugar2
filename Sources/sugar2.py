@@ -117,6 +117,7 @@ def createProgramGrammar (g=None):
 	g.token('DOCSTRING', '\\|[^\n]*')
 	g.token('EMBED_LINE', '\\|([^\n]*)')
 	g.token('VERSION', '[0-9]+(\\.[0-9]+)?(\\.[0-9]+)?[a-zA-Z_]*')
+	g.token('DOT_OR_SPACE', '\\.|\\s+')
 	g.word('LP', '(')
 	g.word('RP', ')')
 	g.word('LB', '{')
@@ -181,7 +182,7 @@ def createProgramGrammar (g=None):
 	g.rule('Map', s.LB, s.KeyValueList.optional(), s.KeyValueBlock.optional(), g.arule(s.EOL, s.CheckIndent).optional(), s.RB)
 	g.rule('Type', s.NAME)
 	g.rule('NameType', s.NAME, g.arule(s.COLON, s.Type).optional())
-	g.rule('FQName', s.NAME, g.arule(s.DOT, s.NAME).zeroOrMore())
+	g.rule('FQName', s.NAME, g.arule(s.DOT_OR_SPACE, s.NAME).zeroOrMore())
 	g.rule('Parameter', s.NameType._as('name'), g.arule(s.EQUALS, s.Expression).optional()._as('value'))
 	g.rule('ParameterList', s.Parameter, g.arule(s.COMMA, s.Parameter).zeroOrMore(), s.ELLIPSIS.optional())
 	g.rule('SymbolList', s.NAME, g.arule(s.COMMA, s.NAME).zeroOrMore(), s.ELLIPSIS.optional())
@@ -191,12 +192,13 @@ def createProgramGrammar (g=None):
 	g.rule('ClosureBody', s.EOL, s.Expression)
 	g.rule('Closure', s.LB, g.arule(s.ParameterList.optional(), s.PIPE).optional()._as('params'), s.ClosureStatement.optional()._as('line'), s.ClosureBody.optional()._as('body'), g.arule(s.EOL, s.CheckIndent).optional(), s.INDENT.optional(), s.RB)
 	g.group('Literal', s.NUMBER, s.SYMBOLIC, s.String, s.Array, s.Map, s.Closure)
-	g.rule('Decomposition', g.agroup(s.DOT, s.SPACE), s.NAME, g.arule(g.agroup(s.DOT, s.SPACE), s.NAME).zeroOrMore())
+	g.rule('Decomposition', s.DOT_OR_SPACE, s.NAME, g.arule(s.DOT_OR_SPACE, s.NAME).zeroOrMore())
 	g.rule('ComputationInfix', s.INFIX_OPERATOR, s.Expression)
 	g.rule('Access', s.LSB, s.Expression, s.RSB)
 	g.rule('Slice', s.LSB, s.Expression.optional(), s.COLON, s.Expression.optional(), s.RSB)
 	g.group('Invocation', s.ArgumentsEmpty, s.ArgumentsMany, s.Literal)
-	g.group('Prefixes', g.rule('Parentheses', s.LP, s.Expression, s.RP), g.rule('Instanciation', s.NEW_OPERATOR, g.agroup(s.FQName, s.Parentheses)._as('target'), s.Invocation._as('params')), g.rule('ComputationPrefix', s.PREFIX_OPERATOR, s.Expression), s.Literal, s.NAME)
+	g.rule('Parentheses', s.LP, s.Expression, s.RP)
+	g.group('Prefixes', s.Literal, g.rule('Instanciation', s.NEW_OPERATOR, g.agroup(s.FQName, s.Parentheses)._as('target'), s.Invocation._as('params')), s.NAME, s.Parentheses, g.rule('ComputationPrefix', s.PREFIX_OPERATOR, s.Expression))
 	g.group('Suffixes', s.ComputationInfix, s.Decomposition, s.Access, s.Slice, s.Invocation)
 	s.Expression.set(s.Prefixes, s.Suffixes.zeroOrMore())
 	g.rule('Assignable', s.NAME, g.agroup(s.Decomposition, s.Access, s.Slice).zeroOrMore())
@@ -359,6 +361,12 @@ class LambdaFactoryBuilder(TreeBuilder):
 		self.processes = []
 		if path is None: path = None
 		TreeBuilder.__init__(self,path)
+	
+	def on(self, parsingResult):
+		res=(lambda *a,**kw:TreeBuilder.on(self,*a,**kw))(parsingResult)
+		if isinstance(res, interfaces.IElement):
+			res.setOffset(parsingResult.start, parsingResult.end)
+		return res
 	
 	def getDefaultModuleName(self):
 		if self.path:
@@ -788,6 +796,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 	def onAccess(self, element, data, context):
 		"""Returns [("Access", INDEX:Element)]"""
 		data_key=data[1]
+		print ('ACCESS', data_key)
 		return [element.name, self.on(data_key)]
 	
 	def onDecomposition(self, element, data, context):
