@@ -1,10 +1,9 @@
 # Sugar test makefile (02-Oct-2007)
 TEST_DIR=tests
+SOURCE_SG:=
 SOURCE_SG=$(filter-out bug-%,$(filter-out todo-%,$(wildcard *.sg)))
 PRODUCT_JS=$(SOURCE_SG:%.sg=$(TEST_DIR)/js/%.js)
-PRODUCT_AS=$(SOURCE_SG:%.sg=$(TEST_DIR)/as/%.as)
 PRODUCT_PY=$(SOURCE_SG:%.sg=$(TEST_DIR)/py/%.py)
-PRODUCT_PNUTS=$(SOURCE_SG:%.sg=$(TEST_DIR)/pnuts/%.pnuts)
 SUGAR=sugar2
 
 .PHONY: all clean
