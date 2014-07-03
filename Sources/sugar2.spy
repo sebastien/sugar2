@@ -192,7 +192,7 @@
 	g token     ("NAME",             "(\\\?)([\$_A-Za-z]\w*)")
 	g token     ("KEY",              "[\$_A-Za-z]\w*")
 	# TODO: Add "not in"
-	g token     ("INFIX_OPERATOR",   "([\-\+\*\/\%]|\<=|\>=|\<|\>|==|\!=|\.\.|in\s+|and\s+|or\s+|is\s+|\*\*)")
+	g token     ("INFIX_OPERATOR",   "([\-\+\*\/\%]|\<=|\>=|\<|\>|==|\!=|\.\.|not\s+in\s+|in\s+|and\s+|or\s+|is\s+not\s+|is\s+|\*\*)")
 	g token     ("PREFIX_OPERATOR",  "(not\s+|\-)")
 	g token     ("NEW_OPERATOR",     "new\s+")
 	g token     ("ASSIGN_OPERATOR",  "[\?\*\+\-\/\%]?=")
@@ -202,7 +202,7 @@
 	g token     ("DOCSTRING",        "\|[^\n]*")
 	g token     ("EMBED_LINE",       "\|([^\n]*)")
 	g token     ("VERSION",          "[0-9]+(\.[0-9]+)?(\.[0-9]+)?[a-zA-Z_]*")
-	g token     ("DOT_OR_SPACE",     "\.|\s+")
+	g token     ("DOT_OR_SPACE",     "\.|[ \t]+")
 	# Punctuation
 	g word      ("LP",               "(")
 	g word      ("RP",               ")")
@@ -1022,25 +1022,38 @@
 	@end
 
 	@method _reorderComputation value
-	| Reorders a sequence of computations according to operators priorities
-		# When we have: A op1 (B op2 C)
-		# FIXME: Not working!
-		var lcomp = value
-		var rcomp = value getRightOperand ()
-		if isinstance (rcomp, interfaces IComputation)
-			var op1_p  = lcomp getOperator () getPriority ()
-			var op2_p  = rcomp getOperator () getPriority ()
+	| Reorders a sequence of computations according to operators priorities.
+	| This method is called by `onExpression` and applied from right
+	| to left.
+		var b = value getRightOperand ()
+		# When we have: A op1 B
+		# where               B = (C op2 D)
+		if isinstance (b, interfaces IComputation)
+			var op1_p  = value getOperator () getPriority ()
+			var op2_p  = b     getOperator () getPriority ()
+			# ...and that priority(op1) >= priority(op2)
 			if op1_p >= op2_p
-				# print ("OP", lcomp getOperator () getName (), op1_p , "vs", lcomp getOperator () getName (), op2_p)
-				# (A op1 (B op2 C)) -> ((A op1 B) op2 C)
-				var b = rcomp getLeftOperand () detach ()
-				rcomp detach ()
-				lcomp setRightOperand (b)
-				rcomp setLeftOperand  (lcomp)
-				return rcomp
-			else
-				return value
+				# We refactor the current computation so that it becomes
+				#     B op2 D
+				# where
+				#     B = (A op1 C)
+				# resulting in
+				#     (A op1 C) op2 D
+				var a  = value getLeftOperand  () detach ()
+				var c  = b     getLeftOperand  () detach ()
+				var d  = b     getRightOperand () detach ()
+				var o1 = value getOperator     () detach ()
+				var o2 = b     getOperator     () detach ()
+				value setOperator (o2)
+				value setRightOperand (d)
+				b detach ()
+				b setLeftOperand  (a)
+				b setOperator     (o1)
+				b setRightOperand (c)
+				# but we need to reorder the new compuation (A op1 C) as we changed it
+				value setLeftOperand (_reorderComputation(b))
 			end
+			return value
 		else
 			return value
 		end

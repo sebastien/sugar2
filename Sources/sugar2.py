@@ -107,7 +107,7 @@ def createProgramGrammar (g=None):
 	g.token('NUMBER', '\\-?(0x)?[0-9]+(\\.[0-9]+)?')
 	g.token('NAME', '(\\\\?)([\\$_A-Za-z]\\w*)')
 	g.token('KEY', '[\\$_A-Za-z]\\w*')
-	g.token('INFIX_OPERATOR', '([\\-\\+\\*\\/\\%]|\\<=|\\>=|\\<|\\>|==|\\!=|\\.\\.|in\\s+|and\\s+|or\\s+|is\\s+|\\*\\*)')
+	g.token('INFIX_OPERATOR', '([\\-\\+\\*\\/\\%]|\\<=|\\>=|\\<|\\>|==|\\!=|\\.\\.|not\\s+in\\s+|in\\s+|and\\s+|or\\s+|is\\s+not\\s+|is\\s+|\\*\\*)')
 	g.token('PREFIX_OPERATOR', '(not\\s+|\\-)')
 	g.token('NEW_OPERATOR', 'new\\s+')
 	g.token('ASSIGN_OPERATOR', '[\\?\\*\\+\\-\\/\\%]?=')
@@ -117,7 +117,7 @@ def createProgramGrammar (g=None):
 	g.token('DOCSTRING', '\\|[^\n]*')
 	g.token('EMBED_LINE', '\\|([^\n]*)')
 	g.token('VERSION', '[0-9]+(\\.[0-9]+)?(\\.[0-9]+)?[a-zA-Z_]*')
-	g.token('DOT_OR_SPACE', '\\.|\\s+')
+	g.token('DOT_OR_SPACE', '\\.|[ \t]+')
 	g.word('LP', '(')
 	g.word('RP', ')')
 	g.word('LB', '{')
@@ -693,20 +693,27 @@ class LambdaFactoryBuilder(TreeBuilder):
 		return current
 	
 	def _reorderComputation(self, value):
-		"""Reorders a sequence of computations according to operators priorities"""
-		lcomp=value
-		rcomp=value.getRightOperand()
-		if isinstance(rcomp, interfaces.IComputation):
-			op1_p=lcomp.getOperator().getPriority()
-			op2_p=rcomp.getOperator().getPriority()
+		"""Reorders a sequence of computations according to operators priorities.
+		This method is called by `onExpression` and applied from right
+		to left."""
+		b=value.getRightOperand()
+		if isinstance(b, interfaces.IComputation):
+			op1_p=value.getOperator().getPriority()
+			op2_p=b.getOperator().getPriority()
 			if (op1_p >= op2_p):
-				b=rcomp.getLeftOperand().detach()
-				rcomp.detach()
-				lcomp.setRightOperand(b)
-				rcomp.setLeftOperand(lcomp)
-				return rcomp
-			elif True:
-				return value
+				a=value.getLeftOperand().detach()
+				c=b.getLeftOperand().detach()
+				d=b.getRightOperand().detach()
+				o1=value.getOperator().detach()
+				o2=b.getOperator().detach()
+				value.setOperator(o2)
+				value.setRightOperand(d)
+				b.detach()
+				b.setLeftOperand(a)
+				b.setOperator(o1)
+				b.setRightOperand(c)
+				value.setLeftOperand(self._reorderComputation(b))
+			return value
 		elif True:
 			return value
 	
