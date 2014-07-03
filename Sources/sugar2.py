@@ -110,6 +110,7 @@ def createProgramGrammar (g=None):
 	g.token('INFIX_OPERATOR', '([\\-\\+\\*\\/\\%]|\\<=|\\>=|\\<|\\>|==|\\!=|\\.\\.|not\\s+in\\s+|in\\s+|and\\s+|or\\s+|is\\s+not\\s+|is\\s+|\\*\\*)')
 	g.token('PREFIX_OPERATOR', '(not\\s+|\\-)')
 	g.token('NEW_OPERATOR', 'new\\s+')
+	g.token('THROW_OPERATOR', '(raise|throw)\\s+')
 	g.token('ASSIGN_OPERATOR', '[\\?\\*\\+\\-\\/\\%]?=')
 	g.token('SYMBOLIC', 'None|Undefined|Nothing|Timeout')
 	g.token('STRING_SQ', "'(\\\\'|[^'\\n])*'")
@@ -146,6 +147,7 @@ def createProgramGrammar (g=None):
 	g.word('_as', 'as')
 	g.word('_try', 'try')
 	g.word('_catch', 'catch')
+	g.word('_finally', 'finally')
 	g.word('oabstract', '@abstract')
 	g.word('oimport', '@import')
 	g.word('omodule', '@module')
@@ -198,7 +200,7 @@ def createProgramGrammar (g=None):
 	g.rule('Slice', s.LSB, s.Expression.optional(), s.COLON, s.Expression.optional(), s.RSB)
 	g.group('Invocation', s.ArgumentsEmpty, s.ArgumentsMany, s.Literal)
 	g.rule('Parentheses', s.LP, s.Expression, s.RP)
-	g.group('Prefixes', s.Literal, g.rule('Instanciation', s.NEW_OPERATOR, g.agroup(s.FQName, s.Parentheses)._as('target'), s.Invocation._as('params')), g.rule('ComputationPrefix', s.PREFIX_OPERATOR, s.Expression), s.NAME, s.Parentheses)
+	g.group('Prefixes', s.Literal, g.rule('Exception', s.THROW_OPERATOR, s.Expression._as('expression')), g.rule('Instanciation', s.NEW_OPERATOR, g.agroup(s.FQName, s.Parentheses)._as('target'), s.Invocation._as('params')), g.rule('ComputationPrefix', s.PREFIX_OPERATOR, s.Expression), s.NAME, s.Parentheses)
 	g.group('Suffixes', s.ComputationInfix, s.Decomposition, s.Access, s.Slice, s.Invocation)
 	s.Expression.set(s.Prefixes, s.Suffixes.zeroOrMore())
 	g.rule('Assignable', s.NAME, g.agroup(s.Decomposition, s.Access, s.Slice).zeroOrMore())
@@ -224,11 +226,12 @@ def createProgramGrammar (g=None):
 	g.rule('ElifBranch', s.CheckIndent, s._elif, s.Expression, g.agroup(s.BlockBody, s.BlockLine))
 	g.rule('ElseBranch', s.CheckIndent, s._else, g.agroup(s.BlockBody, s.BlockLine))
 	g.rule('WhileBranch', s.CheckIndent, s._while, s.Expression._as('condition'), g.agroup(s.BlockBody, s.BlockLine)._as('body'))
-	g.rule('TryBranch', s.CheckIndent, s._try, g.agroup(s.BlockBody, s.BlockLine))
-	g.rule('CatchBranch', s.CheckIndent, s._catch, s.Parameter.optional(), g.agroup(s.BlockBody, s.BlockLine))
+	g.rule('TryBranch', s.CheckIndent, s._try, g.agroup(s.BlockBody, s.BlockLine)._as('body'))
+	g.rule('FinallyBranch', s.CheckIndent, s._finally, g.agroup(s.BlockBody, s.BlockLine)._as('body'))
+	g.rule('CatchBranch', s.CheckIndent, s._catch, s.NameType.optional()._as('param'), g.agroup(s.BlockBody, s.BlockLine)._as('body'))
 	g.rule('ForBranch', s.CheckIndent, s._for, s.ParameterList._as('params'), s._in, s.Expression._as('expr'), g.agroup(s.BlockBody, s.BlockLine)._as('body'))
 	g.rule('Conditional', s.BlockStart, s.IfBranch, s.ElifBranch.zeroOrMore(), s.ElseBranch.optional(), s.BlockEnd)
-	g.rule('Try', s.BlockStart, s.TryBranch, s.CatchBranch.optional(), s.BlockEnd)
+	g.rule('Try', s.BlockStart, s.TryBranch._as('try'), s.CatchBranch.optional()._as('catch'), s.FinallyBranch.optional()._as('finally'), s.BlockEnd)
 	g.rule('Repetition', s.BlockStart, s.WhileBranch._as('while'), s.BlockEnd)
 	g.rule('Iteration', s.BlockStart, s.ForBranch._as('for'), s.BlockEnd)
 	s.Block.set(s.Conditional, s.Repetition, s.Iteration, s.Try)
@@ -516,7 +519,6 @@ class LambdaFactoryBuilder(TreeBuilder):
 		data_body=element.resolve('body', data)
 		name_type=self.on(data_name)
 		params=self._tryGet(self.on(data_params), 0, [])
-		print ('PARAMS', params)
 		fun=None
 		if name_type:
 			fun = factory(name_type[0].getReferenceName(), params)
@@ -645,6 +647,13 @@ class LambdaFactoryBuilder(TreeBuilder):
 	def onRepetition(self, element, data, context):
 		return self.on(element.resolve('while', data))
 	
+	def onTry(self, element, data, context):
+		try_branch=self.on(element.resolve('try', data))
+		catch_branch=self.on(element.resolve('catch', data))
+		finally_branch=self.on(element.resolve('finally', data))
+		print (try_branch, catch_branch, finally_branch)
+		return F.intercept(try_branch, catch_branch, finally_branch)
+	
 	def onForBranch(self, element, data, context):
 		params=self.on(element.resolve('params', data))
 		expr=self.on(element.resolve('expr', data))
@@ -659,6 +668,27 @@ class LambdaFactoryBuilder(TreeBuilder):
 		process=F.createBlock()
 		self._setCode(process, body)
 		return F.repeat(condition, process)
+	
+	def onTryBranch(self, element, data, context):
+		body=self.on(element.resolve('body', data))
+		process=F.createBlock()
+		self._setCode(process, body)
+		return process
+	
+	def onCatchBranch(self, element, data, context):
+		body=self.on(element.resolve('body', data))
+		param=self.on(element.resolve('param', data))
+		args=[F._param(param[0].getReferenceName())]
+		process=F.createClosure(args)
+		self._setCode(process, body)
+		return process
+	
+	def onFinallyBranch(self, element, data, context):
+		body=self.on(element.resolve('body', data))
+		process=F.createBlock()
+		print ('FINALLY', body)
+		self._setCode(process, body)
+		return process
 	
 	def onBlockBody(self, element, data, context):
 		return self.on(data[2])
@@ -682,7 +712,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 		current=None
 		if ((isinstance(prefix, interfaces.ILiteral) or isinstance(prefix, interfaces.IValue)) or isinstance(prefix, interfaces.IClosure)):
 			current = prefix
-		elif ((((isinstance(prefix, interfaces.IComputation) or isinstance(prefix, interfaces.IResolution)) or isinstance(prefix, interfaces.IInvocation)) or isinstance(prefix, interfaces.IInstanciation)) or isinstance(prefix, interfaces.IAccessOperation)):
+		elif (((((isinstance(prefix, interfaces.IComputation) or isinstance(prefix, interfaces.IResolution)) or isinstance(prefix, interfaces.IInvocation)) or isinstance(prefix, interfaces.IInstanciation)) or isinstance(prefix, interfaces.IAccessOperation)) or isinstance(prefix, interfaces.IExcept)):
 			current = prefix
 		elif isinstance(prefix, interfaces.IReference):
 			current = F.resolve(prefix)
@@ -775,6 +805,10 @@ class LambdaFactoryBuilder(TreeBuilder):
 	
 	def onParentheses(self, element, data, content):
 		return self.on(data[1])
+	
+	def onException(self, element, data, content):
+		value=self.on(element.resolve('expression', data))
+		return F.exception(value)
 	
 	def onInstanciation(self, element, data, content):
 		name=self.on(element.resolve('target', data))

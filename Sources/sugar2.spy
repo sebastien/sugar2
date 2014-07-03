@@ -195,6 +195,7 @@
 	g token     ("INFIX_OPERATOR",   "([\-\+\*\/\%]|\<=|\>=|\<|\>|==|\!=|\.\.|not\s+in\s+|in\s+|and\s+|or\s+|is\s+not\s+|is\s+|\*\*)")
 	g token     ("PREFIX_OPERATOR",  "(not\s+|\-)")
 	g token     ("NEW_OPERATOR",     "new\s+")
+	g token     ("THROW_OPERATOR",   "(raise|throw)\s+")
 	g token     ("ASSIGN_OPERATOR",  "[\?\*\+\-\/\%]?=")
 	g token     ("SYMBOLIC",         "None|Undefined|Nothing|Timeout")
 	g token     ("STRING_SQ",        "'(\\\\'|[^'\\n])*'")
@@ -233,6 +234,7 @@
 	g word      ("_as",              "as")
 	g word      ("_try",             "try")
 	g word      ("_catch",           "catch")
+	g word      ("_finally",         "finally")
 	g word      ("oabstract",        "@abstract")
 	g word      ("oimport",          "@import")
 	g word      ("omodule",          "@module")
@@ -303,7 +305,8 @@
 	g rule      ("Parentheses",      s LP,    s Expression, s RP)
 	g group     ("Prefixes"
 		s Literal
-		g rule  ("Instanciation",    s NEW_OPERATOR, g agroup (s FQName, s Parentheses) _as "target", s Invocation _as "params")
+		g rule  ("Exception",        s THROW_OPERATOR, s Expression _as "expression")
+		g rule  ("Instanciation",    s NEW_OPERATOR,   g agroup (s FQName, s Parentheses) _as "target", s Invocation _as "params")
 		g rule  ("ComputationPrefix",s PREFIX_OPERATOR, s Expression)
 		s NAME
 		s Parentheses
@@ -348,11 +351,12 @@
 	g rule      ("ElifBranch",       s CheckIndent, s _elif,  s Expression, g agroup (s BlockBody, s BlockLine))
 	g rule      ("ElseBranch",       s CheckIndent, s _else,                g agroup (s BlockBody, s BlockLine))
 	g rule      ("WhileBranch",      s CheckIndent, s _while, s Expression _as "condition", g agroup (s BlockBody, s BlockLine) _as "body")
-	g rule      ("TryBranch",        s CheckIndent, s _try,                 g agroup (s BlockBody, s BlockLine))
-	g rule      ("CatchBranch",      s CheckIndent, s _catch, s Parameter optional (), g agroup (s BlockBody, s BlockLine))
+	g rule      ("TryBranch",        s CheckIndent, s _try,                 g agroup (s BlockBody, s BlockLine) _as "body")
+	g rule      ("FinallyBranch",    s CheckIndent, s _finally,             g agroup (s BlockBody, s BlockLine) _as "body")
+	g rule      ("CatchBranch",      s CheckIndent, s _catch, s NameType optional () _as "param", g agroup (s BlockBody, s BlockLine) _as "body")
 	g rule      ("ForBranch",        s CheckIndent, s _for,   s ParameterList _as "params", s _in, s Expression _as "expr", g agroup (s BlockBody, s BlockLine) _as "body")
 	g rule      ("Conditional",      s BlockStart, s IfBranch,    s ElifBranch zeroOrMore (), s ElseBranch optional (), s BlockEnd)
-	g rule      ("Try",              s BlockStart, s TryBranch,   s CatchBranch optional  (), s BlockEnd)
+	g rule      ("Try",              s BlockStart, s TryBranch _as "try",   s CatchBranch optional  () _as "catch", s FinallyBranch optional () _as "finally", s BlockEnd)
 	g rule      ("Repetition",       s BlockStart, s WhileBranch _as "while", s BlockEnd)
 	g rule      ("Iteration",        s BlockStart, s ForBranch   _as "for",   s BlockEnd)
 	s Block set (                    s Conditional, s Repetition, s Iteration, s Try)
@@ -953,6 +957,13 @@
 		return on (element resolve ("while", data))
 	@end
 
+	@method onTry element, data, context
+		var try_branch     = on (element resolve ("try",     data))
+		var catch_branch   = on (element resolve ("catch",   data))
+		var finally_branch = on (element resolve ("finally", data))
+		return F intercept (try_branch, catch_branch, finally_branch)
+	@end
+
 	@method onForBranch element, data, context
 		var params   = on (element resolve ("params", data))
 		var expr     = on (element resolve ("expr",   data))
@@ -968,6 +979,31 @@
 		var process   = F createBlock ()
 		_setCode (process, body)
 		return F repeat (condition, process)
+	@end
+
+	@method onTryBranch element, data, context
+		var body      = on (element resolve ("body",   data))
+		var process   = F createBlock ()
+		_setCode (process, body)
+		return process
+	@end
+
+	@method onCatchBranch element, data, context
+		var body      = on (element resolve ("body",   data))
+		var param     = on (element resolve ("param",  data))
+		var args      = [F _param(param[0] getReferenceName ())]
+		var process   = F createClosure (args)
+		_setCode (process, body)
+		return process
+	@end
+
+
+	@method onFinallyBranch element, data, context
+		var body      = on (element resolve ("body",   data))
+		var process   = F createBlock ()
+		print ("FINALLY", body)
+		_setCode (process, body)
+		return process
 	@end
 
 	@method onBlockBody element, data, context
@@ -1010,9 +1046,9 @@
 		# NOTE: This should be abstracted
 		if isinstance(prefix, interfaces ILiteral) or isinstance(prefix, interfaces IValue) or isinstance(prefix, interfaces IClosure)
 			current  = prefix
-		if isinstance(prefix, interfaces IComputation) or isinstance(prefix, interfaces IResolution) or isinstance(prefix, interfaces IInvocation) or isinstance (prefix, interfaces IInstanciation) or isinstance (prefix, interfaces IAccessOperation)
+		elif isinstance(prefix, interfaces IComputation) or isinstance(prefix, interfaces IResolution) or isinstance(prefix, interfaces IInvocation) or isinstance (prefix, interfaces IInstanciation) or isinstance (prefix, interfaces IAccessOperation) or isinstance(prefix, interfaces IExcept)
 			current  = prefix
-		if isinstance(prefix, interfaces IReference)
+		elif isinstance(prefix, interfaces IReference)
 			current  = F resolve (prefix)
 		else
 			ipdb set_trace ()
@@ -1140,6 +1176,11 @@
 
 	@method onParentheses element, data, content
 		return on (data[1])
+	@end
+
+	@method onException element, data, content
+		var value = on (element resolve ("expression", data))
+		return F exception (value)
 	@end
 
 	@method onInstanciation element, data, content
