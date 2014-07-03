@@ -16,22 +16,10 @@ clean:
 $(TEST_DIR)/js/%.js: %.sg $(TEST_DIR)/js
 	$(SUGAR) -cljavascript $< > $@
 
-$(TEST_DIR)/as/%.as: %.sg $(TEST_DIR)/as
-	$(SUGAR) -clactionscript $< > $@
-
 $(TEST_DIR)/py/%.py: %.sg $(TEST_DIR)/py
 	$(SUGAR) -clpython $< > $@
 
-$(TEST_DIR)/pnuts/%.pnuts: %.sg $(TEST_DIR)/pnuts
-	$(SUGAR) -clpnuts $< > $@
-
-$(TEST_DIR)/pnuts:
-	mkdir -p $@
-
 $(TEST_DIR)/js:
-	mkdir -p $@
-
-$(TEST_DIR)/as:
 	mkdir -p $@
 
 $(TEST_DIR)/py:

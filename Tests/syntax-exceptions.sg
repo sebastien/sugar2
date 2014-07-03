@@ -1,9 +1,5 @@
 # PROBLEM: Declare, raise and intercept and exception
 
-# STEP 1: Declare the exception
-@exception MyException
-@end
-
 # STEP 2: Raise the exception in a function
 @function f
 	raise new MyException()

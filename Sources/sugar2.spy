@@ -711,9 +711,9 @@
 		scopes append (res)
 		var is_abstract = on(data[0])
 		var inherits    = on(variables["inherits"])
-		var doc         = getElements (on(variables["documentation"]))
+		var doc         = element resolve ("documentation", data)
 		on(variables["body"])
-		res setDocumentation (doc and doc[0])
+		res setDocumentation (doc and on(doc))
 		res setAbstract      (is_abstract and True)
 		scopes pop ()
 		_bind (res)
@@ -776,7 +776,6 @@
 		var name_type   = on (data_name)
 		# FIXME: Support return type
 		var params      = _tryGet (on (data_params), 0, [])
-		print ("PARAMS", params)
 		var fun         = None
 		if name_type
 			fun         = factory (name_type[0] getReferenceName (), params)

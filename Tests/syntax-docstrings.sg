@@ -4,6 +4,7 @@
 @end
 
 @class A
+| Hello, this is class A
 	@method a
 	| This is the documentation for the method
 		return 0
