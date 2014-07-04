@@ -714,7 +714,6 @@ class LambdaFactoryBuilder(TreeBuilder):
 		elif isinstance(prefix, interfaces.IReference):
 			current = F.resolve(prefix)
 		elif True:
-			ipdb.set_trace()
 			raise Exception(('Prefix not supported yet: ' + str(current)))
 		current = self._applySuffixes(current, suffixes)
 		if isinstance(current, interfaces.IComputation):
@@ -770,7 +769,6 @@ class LambdaFactoryBuilder(TreeBuilder):
 				elif (name == 'Slice'):
 					value = F.slice(value, args[1], args[2])
 				elif True:
-					ipdb.set_trace()
 					raise Exception(('Suffix not supported yet: ' + str(name)))
 		return value
 	

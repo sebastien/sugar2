@@ -1049,7 +1049,7 @@
 		elif isinstance(prefix, interfaces IReference)
 			current  = F resolve (prefix)
 		else
-			ipdb set_trace ()
+			# ipdb set_trace ()
 			raise Exception("Prefix not supported yet: " + str(current))
 		end
 		current = _applySuffixes (current, suffixes)
@@ -1124,7 +1124,7 @@
 				if name == "Slice"
 					value = F slice  (value, args[1], args[2])
 				else
-					ipdb set_trace ()
+					# ipdb set_trace ()
 					raise new Exception ("Suffix not supported yet: " + str(name))
 				end
 			end
