@@ -1,8 +1,10 @@
 SOURCES_SUGAR = $(wildcard Sources/*.spy)
-PRODUCT_PYTHON = $(SOURCES_SUGAR:%.spy=%.py) #Sources/sugar2.so
+PRODUCT_PYTHON = $(SOURCES_SUGAR:%.spy=%.py)
 
 all: $(PRODUCT_PYTHON)
 	chmod +x Sources/sugar2.py
+
+native: Sources/sugar2.so
 	
 clean:
 	rm $(PRODUCT_PYTHON)

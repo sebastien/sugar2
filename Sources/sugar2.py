@@ -104,8 +104,8 @@ def createProgramGrammar (g=None):
 	g.token('COMMENT', '[ \t]*\\#[^\n]*')
 	g.token('EOL', '[ ]*\n(\\s*\n)*')
 	g.token('NUMBER', '\\-?(0x)?[0-9]+(\\.[0-9]+)?')
-	g.token('NAME', '(\\\\?)([\\$_A-Za-z]\\w*)')
-	g.token('KEY', '[\\$_A-Za-z]\\w*')
+	g.token('NAME', '(\\\\?)([\\$_A-Za-z][_\\w]*)')
+	g.token('KEY', '[\\$_\\-A-Za-z][_\\-\\w]*')
 	g.token('INFIX_OPERATOR', '([\\-\\+\\*\\/\\%]|\\<=|\\>=|\\<|\\>|==|\\!=|\\.\\.|not\\s+in\\s+|in\\s+|and\\s+|or\\s+|is\\s+not\\s+|is\\s+|\\*\\*)')
 	g.token('PREFIX_OPERATOR', '(not\\s+|\\-)')
 	g.token('NEW_OPERATOR', 'new\\s+')
@@ -181,7 +181,8 @@ def createProgramGrammar (g=None):
 	g.rule('KeyValueBlock', s.Indent, g.arule(s.EOL, s.CheckIndent, s.KeyValueList).oneOrMore(), s.Dedent)
 	g.rule('Array', s.LSB, s.ExpressionList.optional(), s.ExpressionBlock.optional(), g.arule(s.EOL, s.CheckIndent).optional(), s.RSB)
 	g.rule('Map', s.LB, s.KeyValueList.optional(), s.KeyValueBlock.optional(), g.arule(s.EOL, s.CheckIndent).optional(), s.RB)
-	g.rule('Type', s.NAME)
+	g.rule('TypeStructure', g.atoken('\\<[^\\>]*\\>'))
+	g.rule('Type', g.agroup(s.NAME, s.TypeStructure))
 	g.rule('NameType', s.NAME, g.arule(s.COLON, s.Type).optional())
 	g.rule('FQName', s.NAME, g.arule(s.DOT_OR_SPACE, s.NAME).zeroOrMore())
 	g.rule('Parameter', s.NameType._as('name'), g.arule(s.EQUALS, s.Expression).optional()._as('value'))
@@ -202,8 +203,8 @@ def createProgramGrammar (g=None):
 	g.group('Prefixes', s.Literal, g.rule('Exception', s.THROW_OPERATOR, s.Expression._as('expression')), g.rule('Instanciation', s.NEW_OPERATOR, g.agroup(s.FQName, s.Parentheses)._as('target'), s.Invocation._as('params')), g.rule('ComputationPrefix', s.PREFIX_OPERATOR, s.Expression), s.NAME, s.Parentheses)
 	g.group('Suffixes', s.ComputationInfix, s.Decomposition, s.Access, s.Slice, s.Invocation)
 	s.Expression.set(s.Prefixes, s.Suffixes.zeroOrMore())
-	g.rule('Assignable', s.NAME, g.agroup(s.Decomposition, s.Access, s.Slice).zeroOrMore())
-	g.rule('Allocation', s._var, s.SymbolList._as('target'), g.arule(s.PIPE, s.NAME).optional()._as('rest'), g.arule(s.EQUALS, s.Expression).optional()._as('value'))
+	g.rule('Assignable', s.NAME, g.agroup(s.Decomposition, s.Access, s.Slice, s.Invocation).zeroOrMore())
+	g.rule('Allocation', s._var, s.SPACE, s.SymbolList._as('target'), g.arule(s.PIPE, s.NAME).optional()._as('rest'), g.arule(s.EQUALS, s.Expression).optional()._as('value'))
 	g.rule('Assignment', g.arule(s.Assignable, s.COMMA).zeroOrMore()._as('before'), s.Assignable._as('main'), g.arule(s.PIPE, s.Assignable).optional()._as('rest'), g.arule(s.ASSIGN_OPERATOR, s.Expression)._as('op'))
 	g.rule('Termination', g.aword('return'), s.Expression.optional())
 	g.rule('IterationLine', s.Expression, s.ITERATOR, s.Expression)
@@ -250,7 +251,7 @@ def createProgramGrammar (g=None):
 	function(g, 'Method', s.omethod)
 	function(g, 'Operation', s.ooperation)
 	g.rule('CGroup')
-	g.group('Methods', s.Method, s.AbstractMethod, s.AbstractMethod, s.CGroup, s.Comment)
+	g.group('Methods', s.Operation, s.AbstractOperation, s.Method, s.AbstractMethod, s.AbstractMethod, s.CGroup, s.Comment)
 	s.CGroup.set(s.CheckIndent, s.ogroup, s.NAME._as('name'), s.EOL, s.Documentation.optional(), s.Indent, s.Methods.zeroOrMore()._as('methods'), s.Dedent, s.OEnd)
 	g.rule('EmbedLine', s.CheckIndent, s.EMBED_LINE, s.EOL)
 	g.rule('Embed', s.CheckIndent, s.oembed, s.NAME.optional()._as('language'), s.EOL, s.EmbedLine.zeroOrMore()._as('body'), s.OEnd)
@@ -265,7 +266,7 @@ def createProgramGrammar (g=None):
 	g.rule('ImportMultipleSymbols', s.oimport, s.NAME, g.arule(s.COMMA, s.NAME).zeroOrMore(), s._from, s.FQName, s.EOL)
 	g.rule('ImportAllSymbols', s.oimport, s.WILDCARD, s._from, s.FQName, s.EOL)
 	g.group('ImportOperation', s.ImportAllSymbols, s.ImportMultipleSymbols, s.ImportSingleFQSymbol, s.ImportSingleSymbol)
-	g.rule('ModuleDeclaration', s.EmptyLines.zeroOrMore(), s.Comment.zeroOrMore(), s.ModuleAnnotation.optional(), s.VersionAnnotation.optional(), s.RequiresAnnotation.optional(), s.TargetAnnotation.optional(), s.ImportOperation.zeroOrMore())
+	g.rule('ModuleDeclaration', s.EmptyLines.zeroOrMore(), s.Comment.zeroOrMore(), s.ModuleAnnotation.optional(), s.VersionAnnotation.optional(), s.Documentation.optional()._as('documentation'), s.RequiresAnnotation.optional(), s.TargetAnnotation.optional(), s.ImportOperation.zeroOrMore())
 	g.group('Structure', s.EmptyLines, s.Comment, s.ModuleAttribute, s.Function, s.Class)
 	g.rule('Module', s.ModuleDeclaration, s.Structure.zeroOrMore(), s.Code.zeroOrMore())
 	g.ignore(s.SPACE, s.COMMENT)
@@ -429,11 +430,14 @@ class LambdaFactoryBuilder(TreeBuilder):
 	def onModule(self, element, data, context):
 		self.context = context
 		data_declaration=element.resolve(self.g.symbols.ModuleDeclaration, data)
+		docstring=element.resolve('documentation', data)
 		annotations = {}
 		for _ in self.on(data_declaration):
 			if isinstance(_, interfaces.IAnnotation):
 				annotations[_.getName()] = _.getContent()
 		self.module = F.createModule((annotations.get('module') or self.getDefaultModuleName()))
+		if docstring:
+			self.module.setDocumentation(docstring)
 		self.scopes.append(self.module)
 		if annotations.get('version'):
 			res=F._moduleattr('VERSION', None, F._string(annotations.get('version')))
@@ -505,7 +509,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 		data_methods=(element.resolve('methods', data) or [])
 		methods=[]
 		group_annotation=F.annotation('as', self.on(data_name).getReferenceName())
-		for m in self.on(data_methods):
+		for m in (self.on(data_methods) or []):
 			m.addAnnotation(group_annotation)
 			methods.append(m)
 		return methods
@@ -808,6 +812,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 	def onInstanciation(self, element, data, content):
 		name=self.on(element.resolve('target', data))
 		params=self.on(element.resolve('params', data))[1]
+		if not (isinstance(params, list) or isinstance(params, tuple)): params = (params,)
 		return F.instanciate(name, *(params or []))
 		
 	
