@@ -369,7 +369,8 @@ class LambdaFactoryBuilder(TreeBuilder):
 		res=(lambda *a,**kw:TreeBuilder.on(self,*a,**kw))(parsingResult)
 		if isinstance(res, interfaces.IElement):
 			res.setOffset(parsingResult.start, parsingResult.end)
-			res.setSourcePath(self.path)
+			if self.path:
+				res.setSourcePath(self.path)
 		return res
 	
 	def getDefaultModuleName(self):
@@ -1099,7 +1100,7 @@ class Parser:
 		self.environment = None
 		self.environment = environment
 	
-	def parseString(self, text, path, moduleName):
+	def parseString(self, text, moduleName, path):
 		tokens=self.__class__.G.parse(text)
 		builder=LambdaFactoryBuilder(path)
 		module=builder.build(tokens, self.__class__.G)

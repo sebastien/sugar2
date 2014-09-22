@@ -582,7 +582,9 @@
 		var res = super on (parsingResult)
 		if isinstance (res, interfaces IElement)
 			res setOffset     (parsingResult start, parsingResult end)
-			res setSourcePath (path)
+			if self path
+				res setSourcePath (self path)
+			end
 		end
 		return res
 	@end
@@ -1640,7 +1642,7 @@
 		self environment = environment
 	@end
 
-	@method parseString text, path, moduleName
+	@method parseString text, moduleName, path
 		var tokens    = G parse (text)
 		# FIXME: Why is this tied to a path?
 		var builder   = new LambdaFactoryBuilder (path)
