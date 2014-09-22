@@ -369,6 +369,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 		res=(lambda *a,**kw:TreeBuilder.on(self,*a,**kw))(parsingResult)
 		if isinstance(res, interfaces.IElement):
 			res.setOffset(parsingResult.start, parsingResult.end)
+			res.setSourcePath(self.path)
 		return res
 	
 	def getDefaultModuleName(self):
@@ -1109,6 +1110,7 @@ def run (arguments):
 	self=__module__
 	command=SugarCommand('sugar')
 	command.run((arguments or ['--help']))
+	return command
 
 
 def __module_init__():

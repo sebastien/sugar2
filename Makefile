@@ -6,6 +6,9 @@ all: $(PRODUCT_PYTHON)
 
 native: Sources/sugar2.so
 	
+callgraph:
+	pycallgraph graphviz --output-format=svg --output-file=tooltips.svg -- Sources/sugar2.py -cljs test-modules/tooltips.sjs
+
 clean:
 	rm $(PRODUCT_PYTHON)
 

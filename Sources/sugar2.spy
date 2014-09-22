@@ -581,7 +581,8 @@
 	@method on parsingResult
 		var res = super on (parsingResult)
 		if isinstance (res, interfaces IElement)
-			res setOffset (parsingResult start, parsingResult end)
+			res setOffset     (parsingResult start, parsingResult end)
+			res setSourcePath (path)
 		end
 		return res
 	@end
@@ -1113,6 +1114,7 @@
 	@method _applySuffixes value, suffixes
 	| Applies the suffixes to the current value, modifying it
 		if suffixes
+			# We go from left to right
 			for args in suffixes
 				var name = args[0]
 				if name == "Invocation"
@@ -1122,6 +1124,7 @@
 						value = F invoke (value, args[1])
 					end
 				if name == "ComputationInfix"
+					# FIXME: Re-ordering should be appled here
 					var op = normalizeOperator (args[1])
 					if op == ".."
 						value = F enumerate (value, args[2])
@@ -1651,6 +1654,7 @@
 @function run arguments
 	var command = new SugarCommand "sugar"
 	command run (arguments or ["--help"])
+	return command
 @end
 
 @embed Python
