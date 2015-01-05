@@ -6,15 +6,14 @@
 # License   : Revised BSD License
 # -----------------------------------------------------------------------------
 # Creation  : 08-Sep-2007
-# Last mod  : 04-Jul-2014
+# Last mod  : 05-Jan-2014
 # -----------------------------------------------------------------------------
 
 @module  sugar2
 @version 0.9
 @target  Python
-@import  parsing
+@import  libparsing
 @import  sys
-@import  ParsingResult        from parsing
 @import  interfaces           from lambdafactory
 @import  Command              from lambdafactory.main
 @import  Factory              from lambdafactory.modelbase
@@ -154,16 +153,16 @@
 	return g rule (name
 		s CheckIndent
 		s oabstract
-		prefix bindAs "type"
-		s NameType                  bindAs "name"
+		prefix _as "type"
+		s NameType _as "name"
 		g agroup (
 			s EOL
 			g arule (
-				s ParameterList optional () bindAs "parameters"
+				s ParameterList optional () _as "parameters"
 				s EOL
 			)
 		)
-		s Documentation optional () bindAs "documentation"
+		s Documentation optional () _as "documentation"
 	)
 @end
 
@@ -182,7 +181,7 @@
 #
 # -----------------------------------------------------------------------------
 
-@function createProgramGrammar g=(new parsing Grammar "Sugar")
+@function createProgramGrammar g=(new libparsing Grammar "Sugar")
 	var s = g symbols
 	g token     ("SPACE",            "[ ]+")
 	g token     ("TABS",             "\t*")
@@ -259,7 +258,7 @@
 	# Indentation
 	g procedure ("Indent",           doIndent)
 	g procedure ("Dedent",           doDedent)
-	g rule      ("CheckIndent",      s TABS bindAs "tabs", g acondition (doCheckIndent)) disableMemoize ()
+	g rule      ("CheckIndent",      s TABS _as "tabs", g acondition (doCheckIndent)) disableMemoize ()
 
 	# Documentation & Comments
 	g rule      ("CommentLine",      s COMMENT,     s EOL)
@@ -368,7 +367,7 @@
 
 	# Program
 	g rule      ("OEnd",             s CheckIndent, s oend,      s EOL)
-	g rule      ("Body",             s Indent, s Code zeroOrMore () bindAs "code", s Dedent)
+	g rule      ("Body",             s Indent, s Code zeroOrMore () _as "code", s Dedent)
 	s ClosureStatement set (s Statements)
 	s ClosureBody      set (s EOL, s Body)
 	declaration      (g, "ClassAttribute",    s oshared)
@@ -427,102 +426,11 @@
 	)
 	g group     ("Structure",          s EmptyLines, s Comment, s ModuleAttribute, s Function, s Class)
 	g rule      ("Module",             s ModuleDeclaration,  s Structure zeroOrMore (), s Code zeroOrMore ())
-	# s Program set (s Map)
-	g ignore    (s SPACE, s COMMENT)
-	g axiom   = s Module
+
+	g skip      (g agroup (s SPACE, s COMMENT))
+	g axiom     (s Modula)
 	return g
 @end
-
-# -----------------------------------------------------------------------------
-#
-# TREE BUILDER
-#
-# -----------------------------------------------------------------------------
-
-# FIXME: Get rid of that once LambdaFactory supports Python imports
-@class TreeBuilder
-
-	@property g
-	@property path
-
-	@constructor path=None
-		self path = path
-	@end
-
-	@method build result, grammar
-		g = grammar
-		return on (result)
-	@end
-
-	@method flatten l,r=[]
-		if not (type(l) in [tuple,list])
-			return r
-		else
-			for e in l
-				if type(e) in [tuple,list]
-					flatten (e,r)
-				else
-					r append (e)
-				end
-			end
-		end
-		return r
-	@end
-
-	@method getElements l
-		var res = []
-		for e in flatten(l)
-			if isinstance(e, interfaces IElement )
-				res append (e)
-			end
-		end
-		return res
-	@end
-
-	@method on parsingResult
-	| Expand the given value, so that the ParsingResults are converted to values
-	| expanded by the corresponding `onXXX` methods.
-		# FIXME: We should definitely not use elementDataContext but instead a named tuple
-		if isinstance (parsingResult, parsing ParsingResult)
-			# We got an (Element, Data, Context) triple
-			var element       = parsingResult element
-			var data          = parsingResult data
-			var context       = parsingResult context
-			var element_name  = (element name) or (element __class__ __name__)
-			var method_name   = "on" + (element_name[0] upper () + element_name[1:])
-			if hasattr(self, method_name)
-				# There is a specific handler for the element
-				# print ("RLE " + method_name)
-				var res = getattr (self, method_name)(element, data, context)
-				return res
-			else
-				# There is no handler for the element, so we trigger `onMissing`
-				# print ("dfl " + method_name)
-				var res = _onMissing (element, data, context)
-				# print ("--- ", method_name, res)
-				return res
-			end
-		if type(parsingResult) == list or type(parsingResult) == tuple
-			# We got a list of Element/Data/Context triples [(E,D,C),...]
-			res = []
-			for _ in parsingResult
-				var e = on (_)
-				res append (e)
-			end
-			return res
-		else
-			# We are in a terminal element, so we simply return it as-is. This
-			return parsingResult
-		end
-	@end
-
-	@method _onMissing element, data, context
-		return on (data)
-	@end
-
-@end
-
-
 
 # -----------------------------------------------------------------------------
 #
@@ -530,7 +438,7 @@
 #
 # -----------------------------------------------------------------------------
 
-@class LambdaFactoryBuilder: TreeBuilder
+@class LambdaFactoryBuilder: libparsing.AbstractProcessor
 | Converts a parse tree into a Lambda Factory program model, which can then
 | be translated to one of Lambda Factory's target language.
 |
@@ -1635,7 +1543,7 @@
 
 @class Parser
 
-	@shared  G = createProgramGrammar (new parsing Grammar "Sugar")
+	@shared  G = createProgramGrammar (new libparsing Grammar "Sugar")
 	@property environment
 
 	@constructor environment
@@ -1643,12 +1551,13 @@
 	@end
 
 	@method parseString text, moduleName, path
-		var tokens    = G parse (text)
+		var result    = G parseString (text)
+		return result
 		# FIXME: Why is this tied to a path?
-		var builder   = new LambdaFactoryBuilder (path)
-		var module    = builder build (tokens, G)
+		# var builder   = new LambdaFactoryBuilder (path)
+		# var module    = builder build (tokens, G)
 		# FIXME: Proper error reporting when parsing fails
-		return [text, module]
+		# return [text, module]
 	@end
 
 @end

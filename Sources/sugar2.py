@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 import sys
 __module__ = sys.modules[__name__]
-import parsing
+import libparsing
 import sys
-from parsing import ParsingResult
 from lambdafactory import interfaces
 from lambdafactory.main import Command
 from lambdafactory.modelbase import Factory
@@ -83,7 +82,7 @@ def abstractFunction (grammar, name, prefix):
 	self=__module__
 	g=grammar
 	s=grammar.symbols
-	return g.rule(name, s.CheckIndent, s.oabstract, prefix.bindAs('type'), s.NameType.bindAs('name'), g.agroup(s.EOL, g.arule(s.ParameterList.optional().bindAs('parameters'), s.EOL)), s.Documentation.optional().bindAs('documentation'))
+	return g.rule(name, s.CheckIndent, s.oabstract, prefix._as('type'), s.NameType._as('name'), g.agroup(s.EOL, g.arule(s.ParameterList.optional()._as('parameters'), s.EOL)), s.Documentation.optional()._as('documentation'))
 
 
 def listOf (rule, separator, grammar):
@@ -95,7 +94,7 @@ def listOf (rule, separator, grammar):
 
 def createProgramGrammar (g=None):
 	self=__module__
-	if g is None: g = parsing.Grammar('Sugar')
+	if g is None: g = libparsing.Grammar('Sugar')
 	s=g.symbols
 	g.token('SPACE', '[ ]+')
 	g.token('TABS', '\t*')
@@ -166,7 +165,7 @@ def createProgramGrammar (g=None):
 	g.word('oembed', '@embed')
 	g.procedure('Indent', doIndent)
 	g.procedure('Dedent', doDedent)
-	g.rule('CheckIndent', s.TABS.bindAs('tabs'), g.acondition(doCheckIndent)).disableMemoize()
+	g.rule('CheckIndent', s.TABS._as('tabs'), g.acondition(doCheckIndent)).disableMemoize()
 	g.rule('CommentLine', s.COMMENT, s.EOL)
 	g.rule('EmptyLines', s.EMPTY_LINES)
 	g.rule('DocumentationLine', s.CheckIndent, s.DOCSTRING, s.EOL)
@@ -237,7 +236,7 @@ def createProgramGrammar (g=None):
 	s.Block.set(s.Conditional, s.Repetition, s.Iteration, s.Try)
 	s.Code.set(s.Comment, s.Block, s.Line)
 	g.rule('OEnd', s.CheckIndent, s.oend, s.EOL)
-	g.rule('Body', s.Indent, s.Code.zeroOrMore().bindAs('code'), s.Dedent)
+	g.rule('Body', s.Indent, s.Code.zeroOrMore()._as('code'), s.Dedent)
 	s.ClosureStatement.set(s.Statements)
 	s.ClosureBody.set(s.EOL, s.Body)
 	declaration(g, 'ClassAttribute', s.oshared)
@@ -269,70 +268,12 @@ def createProgramGrammar (g=None):
 	g.rule('ModuleDeclaration', s.EmptyLines.zeroOrMore(), s.Comment.zeroOrMore(), s.ModuleAnnotation.optional(), s.VersionAnnotation.optional(), s.Documentation.optional()._as('documentation'), s.RequiresAnnotation.optional(), s.TargetAnnotation.optional(), s.ImportOperation.zeroOrMore())
 	g.group('Structure', s.EmptyLines, s.Comment, s.ModuleAttribute, s.Function, s.Class)
 	g.rule('Module', s.ModuleDeclaration, s.Structure.zeroOrMore(), s.Code.zeroOrMore())
-	g.ignore(s.SPACE, s.COMMENT)
-	g.axiom = s.Module
+	g.skip(g.agroup(s.SPACE, s.COMMENT))
+	g.axiom(s.Modula)
 	return g
 
 
-class TreeBuilder:
-	def __init__ (self, path=None):
-		self.g = None
-		self.path = None
-		if path is None: path = None
-		self.path = path
-	
-	def build(self, result, grammar):
-		self.g = grammar
-		return self.on(result)
-	
-	def flatten(self, l, r=None):
-		if r is None: r = []
-		if (not (type(l) in [tuple, list])):
-			return r
-		elif True:
-			for e in l:
-				if (type(e) in [tuple, list]):
-					self.flatten(e, r)
-				elif True:
-					r.append(e)
-		return r
-	
-	def getElements(self, l):
-		res=[]
-		for e in self.flatten(l):
-			if isinstance(e, interfaces.IElement):
-				res.append(e)
-		return res
-	
-	def on(self, parsingResult):
-		"""Expand the given value, so that the ParsingResults are converted to values
-		expanded by the corresponding `onXXX` methods."""
-		if isinstance(parsingResult, parsing.ParsingResult):
-			element=parsingResult.element
-			data=parsingResult.data
-			context=parsingResult.context
-			element_name=(element.name or element.__class__.__name__)
-			method_name=('on' + (element_name[0].upper() + element_name[1:]))
-			if hasattr(self, method_name):
-				res=getattr(self, method_name)(element, data, context)
-				return res
-			elif True:
-				res=self._onMissing(element, data, context)
-				return res
-		elif ((type(parsingResult) == list) or (type(parsingResult) == tuple)):
-			res = []
-			for _ in parsingResult:
-				e=self.on(_)
-				res.append(e)
-			return res
-		elif True:
-			return parsingResult
-	
-	def _onMissing(self, element, data, context):
-		return self.on(data)
-	
-
-class LambdaFactoryBuilder(TreeBuilder):
+class LambdaFactoryBuilder(libparsing.AbstractProcessor):
 	"""Converts a parse tree into a Lambda Factory program model, which can then
 	be translated to one of Lambda Factory's target language.
 	
@@ -363,10 +304,10 @@ class LambdaFactoryBuilder(TreeBuilder):
 		self.scopes = []
 		self.processes = []
 		if path is None: path = None
-		TreeBuilder.__init__(self,path)
+		libparsing.AbstractProcessor.__init__(self,path)
 	
 	def on(self, parsingResult):
-		res=(lambda *a,**kw:TreeBuilder.on(self,*a,**kw))(parsingResult)
+		res=(lambda *a,**kw:libparsing.AbstractProcessor.on(self,*a,**kw))(parsingResult)
 		if isinstance(res, interfaces.IElement):
 			res.setOffset(parsingResult.start, parsingResult.end)
 			if self.path:
@@ -374,8 +315,8 @@ class LambdaFactoryBuilder(TreeBuilder):
 		return res
 	
 	def getDefaultModuleName(self):
-		if self.path:
-			self.path.split('/')[-1].split('.')[0].replace('-', '_')
+		if path:
+			path.split('/')[-1].split('.')[0].replace('-', '_')
 		elif True:
 			return '__current__'
 	
@@ -431,7 +372,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 	
 	def onModule(self, element, data, context):
 		self.context = context
-		data_declaration=element.resolve(self.g.symbols.ModuleDeclaration, data)
+		data_declaration=element.resolve(g.symbols.ModuleDeclaration, data)
 		docstring=element.resolve('documentation', data)
 		annotations = {}
 		for _ in self.on(data_declaration):
@@ -444,9 +385,9 @@ class LambdaFactoryBuilder(TreeBuilder):
 		if annotations.get('version'):
 			res=F._moduleattr('VERSION', None, F._string(annotations.get('version')))
 			self._bind(res)
-		data_structure=element.resolve(self.g.symbols.Structure, data)
+		data_structure=element.resolve(g.symbols.Structure, data)
 		structure = self.on(data_structure)
-		data_code=element.resolve(self.g.symbols.Code, data)
+		data_code=element.resolve(g.symbols.Code, data)
 		init_function=F.createFunction(F.ModuleInit)
 		code=self.on(data_code)
 		self._setCode(init_function, code)
@@ -463,7 +404,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 	
 	def onClass(self, element, data, context):
 		variables=element.variables(data)
-		name=self.getElements(self.on(variables['name']))
+		name=getElements(self.on(variables['name']))
 		res=F.createClass(name[0].getName(), name[1:])
 		self.scopes.append(res)
 		is_abstract=self.on(data[0])
@@ -478,9 +419,9 @@ class LambdaFactoryBuilder(TreeBuilder):
 	
 	def onAttribute(self, element, data, context):
 		v=element.variables(data)
-		name=self.getElements(self.on(v['name']))
-		value=self.getElements(self.on(v['value']))
-		doc=self.getElements(self.on(v['documentation']))
+		name=getElements(self.on(v['name']))
+		value=getElements(self.on(v['value']))
+		doc=getElements(self.on(v['documentation']))
 		res=F._attr(name[0].getReferenceName(), None, (value and value[0]))
 		res.setDocumentation((doc and doc[0]))
 		self._bind(res)
@@ -488,9 +429,9 @@ class LambdaFactoryBuilder(TreeBuilder):
 	
 	def onClassAttribute(self, element, data, context):
 		v=element.variables(data)
-		name=self.getElements(self.on(v['name']))
-		value=self.getElements(self.on(v['value']))
-		doc=self.getElements(self.on(v['documentation']))
+		name=getElements(self.on(v['name']))
+		value=getElements(self.on(v['value']))
+		doc=getElements(self.on(v['documentation']))
 		res=F._classattr(name[0].getReferenceName(), None, (value and value[0]))
 		res.setDocumentation((doc and doc[0]))
 		self._bind(res)
@@ -587,8 +528,8 @@ class LambdaFactoryBuilder(TreeBuilder):
 		return res
 	
 	def onLine(self, element, data, context):
-		data_statements=element.resolve(self.g.symbols.Statements, data)
-		data_comment=element.resolve(self.g.symbols.Comment, data)
+		data_statements=element.resolve(g.symbols.Statements, data)
+		data_comment=element.resolve(g.symbols.Comment, data)
 		statements=self.on(data_statements)
 		comment=self.on(data_comment)
 		return statements
@@ -953,7 +894,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 	def onArgumentsMany(self, element, data, context):
 		l=self.on(element.resolve('line', data))
 		b=self.on(element.resolve('body', data))
-		return self.filterNull((self.flatten(l) + self.flatten(b)))
+		return self.filterNull((flatten(l) + flatten(b)))
 	
 	def onSymbolList(self, element, data, context):
 		"""Returns `[model.Reference]`"""
@@ -983,15 +924,15 @@ class LambdaFactoryBuilder(TreeBuilder):
 		return F._absref(full_name)
 	
 	def onArray(self, element, data, context):
-		data_list=element.resolve(self.g.symbols.ExpressionList, data)
-		data_block=element.resolve(self.g.symbols.ExpressionBlock, data)
+		data_list=element.resolve(g.symbols.ExpressionList, data)
+		data_block=element.resolve(g.symbols.ExpressionBlock, data)
 		elements=((self.on(data_list) or []) + (self.on(data_block) or []))
 		return F._list(elements)
 	
 	def onMap(self, element, data, context):
 		res=F._dict()
-		data_list=element.resolve(self.g.symbols.KeyValueList, data)
-		data_block=element.resolve(self.g.symbols.KeyValueBlock, data)
+		data_list=element.resolve(g.symbols.KeyValueList, data)
+		data_block=element.resolve(g.symbols.KeyValueBlock, data)
 		elements=((self.on(data_list) or []) + (self.on(data_block) or []))
 		for _ in elements:
 			if _:
@@ -1015,8 +956,8 @@ class LambdaFactoryBuilder(TreeBuilder):
 		return res
 	
 	def onKeyValue(self, element, data, context):
-		key=element.resolve(self.g.symbols.Key, data)
-		value=element.resolve(self.g.symbols.Expression, data)
+		key=element.resolve(g.symbols.Key, data)
+		value=element.resolve(g.symbols.Expression, data)
 		return [self.on(key), self.on(value)]
 	
 	def onKey(self, element, data, context):
@@ -1057,7 +998,7 @@ class LambdaFactoryBuilder(TreeBuilder):
 	
 	def onDocumentation(self, element, data, context):
 		res=[]
-		for line in self.filterNull(self.flatten(self.on(data))):
+		for line in self.filterNull(flatten(self.on(data))):
 			res.append(line.group()[1:].strip())
 		return F.doc('\n'.join(res))
 	
@@ -1095,16 +1036,14 @@ class SugarCommand(Command):
 	
 
 class Parser:
-	G = createProgramGrammar(parsing.Grammar('Sugar'))
+	G = createProgramGrammar(libparsing.Grammar('Sugar'))
 	def __init__ (self, environment):
 		self.environment = None
 		self.environment = environment
 	
 	def parseString(self, text, moduleName, path):
-		tokens=self.__class__.G.parse(text)
-		builder=LambdaFactoryBuilder(path)
-		module=builder.build(tokens, self.__class__.G)
-		return [text, module]
+		result=self.__class__.G.parseString(text)
+		return result
 	
 
 def run (arguments):
