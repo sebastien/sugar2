@@ -269,7 +269,7 @@ def createProgramGrammar (g=None):
 	g.group('Structure', s.EmptyLines, s.Comment, s.ModuleAttribute, s.Function, s.Class)
 	g.rule('Module', s.ModuleDeclaration, s.Structure.zeroOrMore(), s.Code.zeroOrMore())
 	g.skip(g.agroup(s.SPACE, s.COMMENT))
-	g.axiom(s.Modula)
+	g.axiom(s.Module)
 	return g
 
 
