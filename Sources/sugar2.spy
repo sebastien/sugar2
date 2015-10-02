@@ -258,7 +258,8 @@
 	# Indentation
 	g procedure ("Indent",           doIndent)
 	g procedure ("Dedent",           doDedent)
-	g rule      ("CheckIndent",      s TABS _as "tabs", g acondition (doCheckIndent)) disableMemoize ()
+	g rule      ("CheckIndent",      s TABS _as "tabs")
+	#s TABS _as "tabs", g acondition (doCheckIndent)) disableMemoize ()
 
 	# Documentation & Comments
 	g rule      ("CommentLine",      s COMMENT,     s EOL)
@@ -350,7 +351,9 @@
 	g rule      ("BlockBody",        s EOL, s Indent, s Code zeroOrMore (), s Dedent, s BlockLastSetBody)
 	g group     ("BlockEnd",         s BlockLastIsLine, s End) disableMemoize ()
 	# NOTE: If has no checkindednt to support for {assd|if -> asdsadas ... }
-	g rule      ("IfBranch",         s CheckIndent optional (), s _if,    s Expression, g agroup (s BlockBody, s BlockLine))
+	# FIXME: Leaving the s CheckIndent optional () here puts the parser in an infinite loop...
+	# g rule      ("IfBranch",         s CheckIndent optional (), s _if,    s Expression, g agroup (s BlockBody, s BlockLine))
+	g rule      ("IfBranch",         s CheckIndent, s _if,    s Expression, g agroup (s BlockBody, s BlockLine))
 	g rule      ("ElifBranch",       s CheckIndent, s _elif,  s Expression, g agroup (s BlockBody, s BlockLine))
 	g rule      ("ElseBranch",       s CheckIndent, s _else,                g agroup (s BlockBody, s BlockLine))
 	g rule      ("WhileBranch",      s CheckIndent, s _while, s Expression _as "condition", g agroup (s BlockBody, s BlockLine) _as "body")
@@ -387,7 +390,7 @@
 	s CGroup set (s CheckIndent, s ogroup, s NAME _as "name",     s EOL, s Documentation optional (), s Indent, s Methods zeroOrMore () _as "methods", s Dedent, s OEnd)
 	g rule  ("EmbedLine",  s CheckIndent, s EMBED_LINE, s EOL)
 	g rule  ("Embed",      s CheckIndent, s oembed, s NAME optional () _as "language", s EOL, s EmbedLine zeroOrMore () _as "body", s OEnd)
-	s Block append (s Embed)
+	s Block add (s Embed)
 	g rule  ("Class"
 		g aword "@abstract" optional ()
 		g aword "@class"
@@ -475,15 +478,17 @@
 	]
 
 	@property module
+	@property path      = None
 	@property process   = None
 	@property scopes    = []
 	@property processes = []
 
-	@constructor path=None
-		super (path)
-		# program = F createProgram ()
-		# scopes append (program)
-		# program setFactory (F)
+	@constructor grammar, path=None
+		super (grammar)
+		self path = path
+		program = F createProgram ()
+		scopes append (program)
+		program setFactory (F)
 	@end
 
 	@method on parsingResult
@@ -1551,12 +1556,14 @@
 	@end
 
 	@method parseString text, moduleName, path
+		# TODO: I think this is still using a pre-libparsing API, so
+		# we need to udpate that part.
 		var result    = G parseString (text)
-		return result
 		# FIXME: Why is this tied to a path?
-		# var builder   = new LambdaFactoryBuilder (path)
-		# var module    = builder build (tokens, G)
-		# FIXME: Proper error reporting when parsing fails
+		var builder   = new LambdaFactoryBuilder (G, path)
+		var module    = builder process (result)
+		print ("MODULE", module)
+		# # FIXME: Proper error reporting when parsing fails
 		# return [text, module]
 	@end
 

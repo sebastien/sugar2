@@ -165,7 +165,7 @@ def createProgramGrammar (g=None):
 	g.word('oembed', '@embed')
 	g.procedure('Indent', doIndent)
 	g.procedure('Dedent', doDedent)
-	g.rule('CheckIndent', s.TABS._as('tabs'), g.acondition(doCheckIndent)).disableMemoize()
+	g.rule('CheckIndent', s.TABS._as('tabs'))
 	g.rule('CommentLine', s.COMMENT, s.EOL)
 	g.rule('EmptyLines', s.EMPTY_LINES)
 	g.rule('DocumentationLine', s.CheckIndent, s.DOCSTRING, s.EOL)
@@ -221,7 +221,7 @@ def createProgramGrammar (g=None):
 	g.rule('BlockLine', s.BLOCKLINE, s.Statements, g.agroup(s.COMMENT, s.EOL).zeroOrMore(), s.BlockLastSetLine)
 	g.rule('BlockBody', s.EOL, s.Indent, s.Code.zeroOrMore(), s.Dedent, s.BlockLastSetBody)
 	g.group('BlockEnd', s.BlockLastIsLine, s.End).disableMemoize()
-	g.rule('IfBranch', s.CheckIndent.optional(), s._if, s.Expression, g.agroup(s.BlockBody, s.BlockLine))
+	g.rule('IfBranch', s.CheckIndent, s._if, s.Expression, g.agroup(s.BlockBody, s.BlockLine))
 	g.rule('ElifBranch', s.CheckIndent, s._elif, s.Expression, g.agroup(s.BlockBody, s.BlockLine))
 	g.rule('ElseBranch', s.CheckIndent, s._else, g.agroup(s.BlockBody, s.BlockLine))
 	g.rule('WhileBranch', s.CheckIndent, s._while, s.Expression._as('condition'), g.agroup(s.BlockBody, s.BlockLine)._as('body'))
@@ -254,7 +254,7 @@ def createProgramGrammar (g=None):
 	s.CGroup.set(s.CheckIndent, s.ogroup, s.NAME._as('name'), s.EOL, s.Documentation.optional(), s.Indent, s.Methods.zeroOrMore()._as('methods'), s.Dedent, s.OEnd)
 	g.rule('EmbedLine', s.CheckIndent, s.EMBED_LINE, s.EOL)
 	g.rule('Embed', s.CheckIndent, s.oembed, s.NAME.optional()._as('language'), s.EOL, s.EmbedLine.zeroOrMore()._as('body'), s.OEnd)
-	s.Block.append(s.Embed)
+	s.Block.add(s.Embed)
 	g.rule('Class', g.aword('@abstract').optional(), g.aword('@class'), s.NameType._as('name'), g.arule(s.COLON, listOf(s.FQName, s.COMMA, g)).optional()._as('inherits'), s.EOL, s.Documentation.optional()._as('documentation'), s.Indent, g.agroup(s.ClassAttribute, s.Attribute, s.Operation, s.AbstractOperation, s.Constructor, s.Methods).zeroOrMore()._as('body'), s.Dedent, g.aword('@end'))
 	g.rule('ModuleAnnotation', s.omodule, s.FQName, s.EOL)
 	g.rule('VersionAnnotation', s.oversion, s.VERSION, s.EOL)
@@ -298,13 +298,18 @@ class LambdaFactoryBuilder(libparsing.AbstractProcessor):
 	@end
 	```"""
 	OPERATORS = [['or'], ['and'], ['>', '>=', '<', '<=', '!=', '==', 'is', 'is not', 'in', 'not in'], ['..'], ['+', '-'], ['not'], ['/', '*', '%', '//'], ['/=', '*=', '%=', '+=', '-=']]
-	def __init__ (self, path=None):
+	def __init__ (self, grammar, path=None):
 		self.module = None
+		self.path = None
 		self.process = None
 		self.scopes = []
 		self.processes = []
 		if path is None: path = None
-		libparsing.AbstractProcessor.__init__(self,path)
+		libparsing.AbstractProcessor.__init__(self,grammar)
+		self.path = path
+		program = F.createProgram()
+		self.scopes.append(program)
+		program.setFactory(F)
 	
 	def on(self, parsingResult):
 		res=(lambda *a,**kw:libparsing.AbstractProcessor.on(self,*a,**kw))(parsingResult)
@@ -315,8 +320,8 @@ class LambdaFactoryBuilder(libparsing.AbstractProcessor):
 		return res
 	
 	def getDefaultModuleName(self):
-		if path:
-			path.split('/')[-1].split('.')[0].replace('-', '_')
+		if self.path:
+			self.path.split('/')[-1].split('.')[0].replace('-', '_')
 		elif True:
 			return '__current__'
 	
@@ -1043,7 +1048,9 @@ class Parser:
 	
 	def parseString(self, text, moduleName, path):
 		result=self.__class__.G.parseString(text)
-		return result
+		builder=LambdaFactoryBuilder(self.__class__.G, path)
+		module=builder.process(result)
+		print ('MODULE', module)
 	
 
 def run (arguments):
