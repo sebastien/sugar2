@@ -479,7 +479,6 @@
 
 	@property module
 	@property path      = None
-	@property process   = None
 	@property scopes    = []
 	@property processes = []
 
@@ -585,7 +584,9 @@
 	# STRUCTURE
 	# =========================================================================
 
-	@method onModule element, data, context
+	@method onModule match
+		print ("MODULE", match data)
+		return None
 		# Module should be retrieved either through a parameter/option
 		self context = context
 		# We get the module declaration
@@ -1495,20 +1496,20 @@
 	# The following methods deal with AST elements that we need to prune
 	# as they're not relevant to the semantic.
 
-	@method onRepeat element, data, context
-	| Converts the given repeat to None, the result (if the repeat is optional),
-	| or an array (zero or more)
-		var result = filterNull (on (data))
-		if result
-			if element isOptional ()
-				return result[0]
-			else
-				return result
-			end
-		else
-			return None
-		end
-	@end
+	# @method onRepeat element, data, context
+	# | Converts the given repeat to None, the result (if the repeat is optional),
+	# | or an array (zero or more)
+	# 	var result = filterNull (on (data))
+	# 	if result
+	# 		if element isOptional ()
+	# 			return result[0]
+	# 		else
+	# 			return result
+	# 		end
+	# 	else
+	# 		return None
+	# 	end
+	# @end
 
 	@method onCheckIndent element, data, context
 		# We bypass check indent, as it does not contain any valuable or
@@ -1562,9 +1563,8 @@
 		# FIXME: Why is this tied to a path?
 		var builder   = new LambdaFactoryBuilder (G, path)
 		var module    = builder process (result)
-		print ("MODULE", module)
 		# # FIXME: Proper error reporting when parsing fails
-		# return [text, module]
+		return [text, module]
 	@end
 
 @end

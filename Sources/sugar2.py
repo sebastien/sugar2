@@ -301,7 +301,6 @@ class LambdaFactoryBuilder(libparsing.AbstractProcessor):
 	def __init__ (self, grammar, path=None):
 		self.module = None
 		self.path = None
-		self.process = None
 		self.scopes = []
 		self.processes = []
 		if path is None: path = None
@@ -375,7 +374,9 @@ class LambdaFactoryBuilder(libparsing.AbstractProcessor):
 					process.addOperation(statement)
 		return process
 	
-	def onModule(self, element, data, context):
+	def onModule(self, match):
+		print ('MODULE', match.data)
+		return None
 		self.context = context
 		data_declaration=element.resolve(g.symbols.ModuleDeclaration, data)
 		docstring=element.resolve('documentation', data)
@@ -1007,18 +1008,6 @@ class LambdaFactoryBuilder(libparsing.AbstractProcessor):
 			res.append(line.group()[1:].strip())
 		return F.doc('\n'.join(res))
 	
-	def onRepeat(self, element, data, context):
-		"""Converts the given repeat to None, the result (if the repeat is optional),
-		or an array (zero or more)"""
-		result=self.filterNull(self.on(data))
-		if result:
-			if element.isOptional():
-				return result[0]
-			elif True:
-				return result
-		elif True:
-			return None
-	
 	def onCheckIndent(self, element, data, context):
 		return None
 	
@@ -1050,7 +1039,7 @@ class Parser:
 		result=self.__class__.G.parseString(text)
 		builder=LambdaFactoryBuilder(self.__class__.G, path)
 		module=builder.process(result)
-		print ('MODULE', module)
+		return [text, module]
 	
 
 def run (arguments):
