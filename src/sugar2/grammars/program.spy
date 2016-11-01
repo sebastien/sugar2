@@ -229,13 +229,13 @@
 	g rule      ("ArgumentsEmpty",   s LP, s RP)
 	g rule      ("ArgumentsMany",    s LP, s ExpressionList optional () _as "line", s ExpressionBlock optional () _as "body", g agroup (s RP, g arule (s EOL optional (), s CheckIndent, s RP)))
 	# Closures
-	g rule      ("ClosureStatement",  s Expression)
+	g rule      ("ClosureStatement")
 	g rule      ("ClosureBody",       s EOL, s Expression)
 	g rule      ("ClosureParameters", s ParameterList, s PIPE)
 	# FIXME: It seems that ClosureBody swallows the last EOL
 	# g rule      ("Closure",          s LB, g arule (s ParameterList optional (), s PIPE) optional () _as "params", s ClosureStatement optional () _as "line", s ClosureBody optional () _as "body", g arule (s EOL, s CheckIndent) optional (), s INDENT optional (), s RB)
 
-	g rule      ("Closure",          s LB, s ClosureParameters, s Expression, s RB)
+	g rule      ("Closure",          s LB, s ClosureParameters, s ClosureStatement, s RB)
 
 	# Expression prefixes
 	g group     ("Literal",         s NUMBER, s SYMBOLIC, s String, s Array, s Map, s Closure)
@@ -313,7 +313,7 @@
 	# Program
 	g rule      ("OEnd",             s CheckIndent, s oend,      s EOL)
 	g rule      ("Body",             s Indent, s Code zeroOrMore () _as "code", s Dedent)
-	# s ClosureStatement set (s Statements)
+	s ClosureStatement set (s Statements)
 	s ClosureBody      set (s EOL, s Body)
 	declaration      (g, "ClassAttribute",    s oshared)
 	declaration      (g, "ModuleAttribute",   s oshared)

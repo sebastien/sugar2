@@ -375,21 +375,10 @@
 	@end
 
 	@method onStatements match
-		let head       = process (match[0])
-		var res        = [head]
+		var res        = [process (match[0])]
 		let tail       = process (match[1])
 		for _ in tail
-			let s = _[1]
-			# A statement can return one or more elements (for instance,
-			# onAllocation will return a list of operations)
-			if (type(_) is list) or (type(_) is tuple)
-				# In this case we have a list of operations
-				# [Allocation, Evalution, etc...]
-				res += _
-			else
-				# Or here we have a single element/operation
-				res append (_)
-			end
+			res append (_[1])
 		end
 		return res
 	@end
@@ -847,10 +836,8 @@
 		return F iterate (lvalue, closure)
 	@end
 
-	@method onTermination element, data, context
-		var data_value = data[1]
-		var value      = on (data[1])
-		return F returns (value)
+	@method onTermination match
+		return F returns (process(match[1]))
 	@end
 
 	# =========================================================================
