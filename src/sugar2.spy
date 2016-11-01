@@ -327,7 +327,7 @@
 
 	# Operations
 	g rule      ("Assignable", s NAME, g agroup(s Decomposition, s Access, s Slice, s Invocation) zeroOrMore ())
-	g rule      ("Allocation", s _var, s SPACE, s SymbolList _as "target", g arule (s PIPE, s NAME) optional () _as "rest", g arule (s EQUALS, s Expression) optional () _as "value")
+	g rule      ("Allocation", s _var, s SPACE, s SymbolList _as "symbols", g arule (s PIPE, s NAME) optional () _as "rest", g arule (s EQUALS, s Expression) optional () _as "value")
 	g rule      ("Assignment"
 		g arule (s Assignable, s COMMA) zeroOrMore () _as "before"
 		s Assignable _as "main"
@@ -501,13 +501,25 @@
 		program setFactory (F)
 	@end
 
-	@method on parsingResult
-		var res = super on (parsingResult)
-		if isinstance (res, interfaces IElement)
-			res setOffset     (parsingResult start, parsingResult end)
-			if self path
-				res setSourcePath (self path)
+	@method access value, keys...
+		for k in keys
+			if value
+				value = value[k]
+			else
+				return value
 			end
+		end
+		return value
+	@end
+
+	@method process match
+		var res = super process (match)
+		if isinstance (res, interfaces IElement)
+			pass
+			# res setOffset (match start, parsingResult end)
+			# if self path
+			# 	res setSourcePath (self path)
+			# end
 		end
 		return res
 	@end
@@ -573,7 +585,7 @@
 		end
 	@end
 
-	@method _setCode process, code
+	@method _setCode element, code
 		code = code or []
 		for line in (code or [])
 			if type(line) != type([])
@@ -581,14 +593,14 @@
 			end
 			for statement in (line or [])
 				if isinstance (statement, interfaces IOperation)
-					process addOperation (statement)
+					element addOperation (statement)
 				end
 				#else
 				#	# FIXME: For some reason, comments are converted to regexps
 				#	# print ("ELEMENT NOT SUPPORTED YET:" + repr(statement))
 			end
 		end
-		return process
+		return element
 	@end
 
 	# =========================================================================
@@ -787,58 +799,50 @@
 	@end
 
 	@method onCode match
-		print ("MATCH", match)
-		var res   = []
-		var d     = self process(match[0])
-		#var value = on(data)
-		#if (type(value) is list) or (type(value) is tuple)
-		#	for _ in (on(data) or [])
-		#		if (type(_) is list) or (type(_) is tuple)
-		#			res += _
-		#		else
-		#			res append (_)
-		#		end
-		#	end
-		#else
-		#	res append (value)
-		#end
-		return res
+		let content = process(match[0])
+		# NOTE: We might need to flatten the list
+		let r = F createModule ("test")
+		let f = F createFunction (F ModuleInit)
+		r setSlot (F ModuleInit, f, True)
+		_setCode(f, content)
+		return r
 	@end
 
-	@method onLine element, data, context
-		var data_statements = element resolve (g symbols Statements, data)
-		var data_comment    = element resolve (g symbols Comment,    data)
-		var statements      = on(data_statements)
-		# FIXME: We ignore the comment here but should attach it to statements
-		var comment         = on(data_comment)
+	@method onLine match
+		let comment    = self process (match[2])
+		let statements = self process (match[1])
 		return statements
 	@end
 
-	@method onStatements element, data, context
+	@method onStatements match
 		# model_data is STATEMENT | [STATEMENT]
-		var model_data = on (data)
-		var statements = [model_data[0]] + (model_data[1] or [])
-		var res        = []
-		for _ in statements
-			# A statement can return one or more elements (for instance,
-			# onAllocation will return a list of operations)
-			if (type(_) is list) or (type(_) is tuple)
-				# In this case we have a list of operations
-				# [Allocation, Evalution, etc...]
-				res += _
-			else
-				# Or here we have a single element/operation
-				res append (_)
-			end
-		end
+		let head = process (match[0])
+		let res  = [head]
+		let tail = process (match[1])
+		print ("TAIL", tail)
+		# let tail = self process (match[0])
+		# var model_data = on (data)
+		# var statements = [model_data[0]] + (model_data[1] or [])
+		# var res        = []
+		# for _ in statements
+		# 	# A statement can return one or more elements (for instance,
+		# 	# onAllocation will return a list of operations)
+		# 	if (type(_) is list) or (type(_) is tuple)
+		# 		# In this case we have a list of operations
+		# 		# [Allocation, Evalution, etc...]
+		# 		res += _
+		# 	else
+		# 		# Or here we have a single element/operation
+		# 		res append (_)
+		# 	end
+		# end
 		return res
 	@end
 
-	@method onStatement element, data, context
+	@method onStatement match
 	| Returns an `Element` or a list of `[Element]`. Typically these elements
 	| would be Comments, Blocks or Operations.
-		var res = on (data)
-		return res
+		return process (match[0])
 	@end
 
 	# =========================================================================
@@ -976,14 +980,14 @@
 	# EXPRESSIONS
 	# =========================================================================
 
-	@method onExpression element, data, context
-		var prefix_suffixes = on (data)
+	@method onExpression match
 		# Prefix is the current value of the expression, and suffixes is
 		# a sequence of operations on the value (invocation, resolution, etc).
 		# Suffixes is because we wanted to avoid recursive grammars, which
 		# is not well supported in PEG parsers.
-		var prefix,suffixes = prefix_suffixes
-		var current = None
+		let prefix   = process (match[0])
+		let suffixes = process (match[1])
+		var current  = None
 		# NOTE: This should be abstracted
 		if isinstance(prefix, interfaces ILiteral) or isinstance(prefix, interfaces IValue) or isinstance(prefix, interfaces IClosure)
 			current  = prefix
@@ -1106,9 +1110,8 @@
 	# PREFIXES
 	# =========================================================================
 
-	@method onPrefixes element, data, context
-		var prefix = on (data)
-		return prefix
+	@method onPrefixes match
+		return process(match[0])
 	@end
 
 	@method onComputationPrefix element, data, content
@@ -1192,19 +1195,16 @@
 	# OPERATIONS
 	# =========================================================================
 
-	@method onAllocation element, data, context
+	@method onAllocation match
 	| Returns a list of operations. If there's only one operation,
 	| then it is a single allocation, otherwise it will be a mutliple
 	| allocation with an automatic variable name.
-		# We get the individual parts of the parsed data
-		var data_target  = element resolve ("target", data)
-		var data_rest    = element resolve ("rest",   data)
-		var data_value   = element resolve ("value",  data)
 		# We resolve "var SYMBOLS | REST = VALUE"
-		var value        = _tryGet (on (data_value), 1, None)
-		var rest         = _tryGet (on (data_rest),  1, None)
-		var symbols      = on (data_target)
 		var res          = None
+		let symbols = process (match[2])
+		let rest    = process (match[3])
+		let value   = access (process (match[4]), 1)
+		print ("ALLOC", symbols, rest, value)
 		if (len(symbols) == 1) and (not rest)
 			# This is a single allocation with no rest
 			var slot = F _slot (symbols[0] getReferenceName())
@@ -1343,19 +1343,20 @@
 		return filterNull (flatten (l) + flatten (b))
 	@end
 
-	@method onSymbolList element, data, context
+	@method onSymbolList match
 	| Returns `[model.Reference]`
-		var res = []
-		var symbols = on (data)
-		res append (symbols[0])
-		for _ in (symbols[1] or [])
-			# We have _ = [offset, <model.Reference>]
+		let head = process (match[0])
+		let tail = process (match[1])
+		let more = process (match[2])
+		let res  = [head]
+		for _ in tail
+			# We have _ = [',', <model.Reference>]
 			#              0        1
 			res append (_[1])
 		end
-		var ellispis     = symbols[-1]
 		# FIXME: Check why there would be an ELLIPSIS in SymbolsList
-		assert (not ellispis)
+		# NOTE: There would be an ellipsis for list destructuring
+		assert (not more)
 		return res
 	@end
 
@@ -1454,22 +1455,22 @@
 	# LITERALS
 	# =========================================================================
 
-	@method onString element, data, context
-		var raw_string = on (data) group ()
+	@method onString match
+		let raw     = process (match[0])
 		# FIXME: Proper string decoding
-		var decoded_string = eval (raw_string)
-		return F _string (decoded_string)
+		let decoded = eval (raw)
+		return F _string (decoded)
 	@end
 
-	@method onNUMBER element, data, context
-		var raw_number     = on (data) group ()
+	@method onNUMBER match
+		let raw     = process (match[0])
 		# FIXME: Proper number decoding
-		var decoded_number = eval (raw_number)
-		return F _number (decoded_number)
+		let decoded = eval (raw)
+		return F _number (decoded)
 	@end
 
-	@method onSYMBOLIC element, data, context
-		var raw_symbol     = on (data) group ()
+	@method onSYMBOLIC match
+		var raw_symbol     = match group ()
 		if raw_symbol == "Undefined"
 			return F _symbol (raw_symbol)
 		if raw_symbol == "None"
@@ -1483,12 +1484,12 @@
 		end
 	@end
 
-	@method onNAME element, data, context
-		return F _ref (data group (2))
+	@method onNAME match
+		return F _ref (match group 2)
 	@end
 
-	@method onKEY element, data, context
-		return F _string (data group ())
+	@method onKEY match
+		return F _string (match group ())
 	@end
 
 	# =========================================================================

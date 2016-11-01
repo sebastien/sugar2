@@ -210,7 +210,7 @@ def createProgramGrammar (g=None):
 	g.group('Suffixes', s.ComputationInfix, s.Decomposition, s.Access, s.Slice, s.Invocation)
 	s.Expression.set(s.Prefixes, s.Suffixes.zeroOrMore())
 	g.rule('Assignable', s.NAME, g.agroup(s.Decomposition, s.Access, s.Slice, s.Invocation).zeroOrMore())
-	g.rule('Allocation', s._var, s.SPACE, s.SymbolList._as('target'), g.arule(s.PIPE, s.NAME).optional()._as('rest'), g.arule(s.EQUALS, s.Expression).optional()._as('value'))
+	g.rule('Allocation', s._var, s.SPACE, s.SymbolList._as('symbols'), g.arule(s.PIPE, s.NAME).optional()._as('rest'), g.arule(s.EQUALS, s.Expression).optional()._as('value'))
 	g.rule('Assignment', g.arule(s.Assignable, s.COMMA).zeroOrMore()._as('before'), s.Assignable._as('main'), g.arule(s.PIPE, s.Assignable).optional()._as('rest'), g.arule(s.ASSIGN_OPERATOR, s.Expression)._as('op'))
 	g.rule('Termination', g.aword('return'), s.Expression.optional())
 	g.rule('IterationLine', s.Expression, s.ITERATOR, s.Expression)
@@ -317,12 +317,18 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		self.scopes.append(program)
 		program.setFactory(F)
 	
-	def on(self, parsingResult):
-		res=(lambda *a,**kw:libparsing.Processor.on(self,*a,**kw))(parsingResult)
+	def access(self, value, *keys):
+		for k in keys:
+			if value:
+				value = value[k]
+			elif True:
+				return value
+		return value
+	
+	def process(self, match):
+		res=(lambda *a,**kw:libparsing.Processor.process(self,*a,**kw))(match)
 		if isinstance(res, interfaces.IElement):
-			res.setOffset(parsingResult.start, parsingResult.end)
-			if self.path:
-				res.setSourcePath(self.path)
+			pass
 		return res
 	
 	def getDefaultModuleName(self):
@@ -371,15 +377,15 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		elif True:
 			return None
 	
-	def _setCode(self, process, code):
+	def _setCode(self, element, code):
 		code = (code or [])
 		for line in (code or []):
 			if (type(line) != type([])):
 				line = [line]
 			for statement in (line or []):
 				if isinstance(statement, interfaces.IOperation):
-					process.addOperation(statement)
-		return process
+					element.addOperation(statement)
+		return element
 	
 	def onModule(self, match):
 		print ('MODULE', match.data)
@@ -388,7 +394,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		data_declaration=element.resolve(g.symbols.ModuleDeclaration, data)
 		docstring=element.resolve('documentation', data)
 		annotations = {}
-		for _ in self.on(data_declaration):
+		for _ in on(data_declaration):
 			if isinstance(_, interfaces.IAnnotation):
 				annotations[_.getName()] = _.getContent()
 		self.module = F.createModule((annotations.get('module') or self.getDefaultModuleName()))
@@ -399,10 +405,10 @@ class LambdaFactoryBuilder(libparsing.Processor):
 			res=F._moduleattr('VERSION', None, F._string(annotations.get('version')))
 			self._bind(res)
 		data_structure=element.resolve(g.symbols.Structure, data)
-		structure = self.on(data_structure)
+		structure = on(data_structure)
 		data_code=element.resolve(g.symbols.Code, data)
 		init_function=F.createFunction(F.ModuleInit)
-		code=self.on(data_code)
+		code=on(data_code)
 		self._setCode(init_function, code)
 		self._bind(init_function)
 		self.scopes.pop()
@@ -413,18 +419,18 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		return F.annotation('module', ref.getReferenceName())
 	
 	def onVersionAnnotation(self, element, data, context):
-		return F.annotation('version', self.on(data)[1].group())
+		return F.annotation('version', on(data)[1].group())
 	
 	def onClass(self, element, data, context):
 		variables=element.variables(data)
-		name=getElements(self.on(variables['name']))
+		name=getElements(on(variables['name']))
 		res=F.createClass(name[0].getName(), name[1:])
 		self.scopes.append(res)
-		is_abstract=self.on(data[0])
-		inherits=self.on(variables['inherits'])
+		is_abstract=on(data[0])
+		inherits=on(variables['inherits'])
 		doc=element.resolve('documentation', data)
-		self.on(variables['body'])
-		res.setDocumentation((doc and self.on(doc)))
+		on(variables['body'])
+		res.setDocumentation((doc and on(doc)))
 		res.setAbstract((is_abstract and True))
 		self.scopes.pop()
 		self._bind(res)
@@ -432,9 +438,9 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	
 	def onAttribute(self, element, data, context):
 		v=element.variables(data)
-		name=getElements(self.on(v['name']))
-		value=getElements(self.on(v['value']))
-		doc=getElements(self.on(v['documentation']))
+		name=getElements(on(v['name']))
+		value=getElements(on(v['value']))
+		doc=getElements(on(v['documentation']))
 		res=F._attr(name[0].getReferenceName(), None, (value and value[0]))
 		res.setDocumentation((doc and doc[0]))
 		self._bind(res)
@@ -442,9 +448,9 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	
 	def onClassAttribute(self, element, data, context):
 		v=element.variables(data)
-		name=getElements(self.on(v['name']))
-		value=getElements(self.on(v['value']))
-		doc=getElements(self.on(v['documentation']))
+		name=getElements(on(v['name']))
+		value=getElements(on(v['value']))
+		doc=getElements(on(v['documentation']))
 		res=F._classattr(name[0].getReferenceName(), None, (value and value[0]))
 		res.setDocumentation((doc and doc[0]))
 		self._bind(res)
@@ -454,8 +460,8 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		data_ref_type=element.resolve('name', data)
 		data_value=element.resolve('value', data)
 		data_doc=element.resolve('documentation', data)
-		value=self._tryGet(self.on(data_value), 1, None)
-		ref_type=self.on(data_ref_type)
+		value=self._tryGet(on(data_value), 1, None)
+		ref_type=on(data_ref_type)
 		res=F._moduleattr(ref_type[0].getReferenceName(), None, value)
 		self._bind(res)
 		return res
@@ -464,8 +470,8 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		data_name=element.resolve('name', data)
 		data_methods=(element.resolve('methods', data) or [])
 		methods=[]
-		group_annotation=F.annotation('as', self.on(data_name).getReferenceName())
-		for m in (self.on(data_methods) or []):
+		group_annotation=F.annotation('as', on(data_name).getReferenceName())
+		for m in (on(data_methods) or []):
 			m.addAnnotation(group_annotation)
 			methods.append(m)
 		return methods
@@ -476,16 +482,16 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		data_params=element.resolve('parameters', data)
 		data_doc=element.resolve('documentation', data)
 		data_body=element.resolve('body', data)
-		name_type=self.on(data_name)
-		params=self._tryGet(self.on(data_params), 0, [])
+		name_type=on(data_name)
+		params=self._tryGet(on(data_params), 0, [])
 		fun=None
 		if name_type:
 			fun = factory(name_type[0].getReferenceName(), params)
 		elif True:
 			fun = factory(params)
-		fun.setDocumentation(self.on(data_doc))
+		fun.setDocumentation(on(data_doc))
 		self.scopes.append(fun)
-		self._setCode(fun, self.on(data_body))
+		self._setCode(fun, on(data_body))
 		self.scopes.pop()
 		self._bind(fun)
 		return fun
@@ -517,53 +523,48 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		data_params=element.resolve('params', data)
 		data_line=element.resolve('line', data)
 		data_body=element.resolve('body', data)
-		params=self._tryGet(self.on(data_params), 0, None)
-		line=(self.on(data_line) or [])
-		body=(self._tryGet(self.on(data_body), 1, None) or [])
+		params=self._tryGet(on(data_params), 0, None)
+		line=(on(data_line) or [])
+		body=(self._tryGet(on(data_body), 1, None) or [])
 		res=F.createClosure(params)
 		self._setCode(res, (line + body))
 		return res
 	
 	def onBody(self, element, data, context):
-		return self.on(element.resolve('code', data))
+		return on(element.resolve('code', data))
 	
 	def onCode(self, match):
-		print ('MATCH', match)
-		res=[]
-		d=self.process(match[0])
-		return res
+		content=self.process(match[0])
+		r=F.createModule('test')
+		f=F.createFunction(F.ModuleInit)
+		r.setSlot(F.ModuleInit, f, True)
+		self._setCode(f, content)
+		return r
 	
-	def onLine(self, element, data, context):
-		data_statements=element.resolve(g.symbols.Statements, data)
-		data_comment=element.resolve(g.symbols.Comment, data)
-		statements=self.on(data_statements)
-		comment=self.on(data_comment)
+	def onLine(self, match):
+		comment=self.process(match[2])
+		statements=self.process(match[1])
 		return statements
 	
-	def onStatements(self, element, data, context):
-		model_data=self.on(data)
-		statements=([model_data[0]] + (model_data[1] or []))
-		res=[]
-		for _ in statements:
-			if ((type(_) is list) or (type(_) is tuple)):
-				res = (res + _)
-			elif True:
-				res.append(_)
+	def onStatements(self, match):
+		head=self.process(match[0])
+		res=[head]
+		tail=self.process(match[1])
+		print ('TAIL', tail)
 		return res
 	
-	def onStatement(self, element, data, context):
+	def onStatement(self, match):
 		"""Returns an `Element` or a list of `[Element]`. Typically these elements
 		would be Comments, Blocks or Operations."""
-		res=self.on(data)
-		return res
+		return self.process(match[0])
 	
 	def onConditional(self, element, data, context):
 		data_if=data[1]
 		data_elifs=data[2]
 		data_else=data[3]
-		_if=self.on(data_if)
-		_elifs=(self.on(data_elifs) or [])
-		_else=self.on(data_else)
+		_if=on(data_if)
+		_elifs=(on(data_elifs) or [])
+		_else=on(data_else)
 		res=F.select()
 		res.addRule(F.matchProcess(_if[0], _if[1]))
 		for _ in _elifs:
@@ -576,78 +577,78 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		data_condition=data[-2]
 		data_body=data[-1]
 		block=F.createBlock()
-		code=self.on(data_body.data)
+		code=on(data_body.data)
 		self._setCode(block, code)
-		return [self.on(data_condition), block]
+		return [on(data_condition), block]
 	
 	def onElifBranch(self, element, data, context):
 		data_condition=data[-2]
 		data_body=data[-1]
 		block=F.createBlock()
-		self._setCode(block, self.on(data_body.data))
-		return [self.on(data_condition), block]
+		self._setCode(block, on(data_body.data))
+		return [on(data_condition), block]
 	
 	def onElseBranch(self, element, data, context):
 		data_body=data[-1]
 		block=F.createBlock()
-		self._setCode(block, self.on(data_body.data))
+		self._setCode(block, on(data_body.data))
 		return [block]
 	
 	def onIteration(self, element, data, context):
-		return self.on(element.resolve('for', data))
+		return on(element.resolve('for', data))
 	
 	def onRepetition(self, element, data, context):
-		return self.on(element.resolve('while', data))
+		return on(element.resolve('while', data))
 	
 	def onTry(self, element, data, context):
-		try_branch=self.on(element.resolve('try', data))
-		catch_branch=self.on(element.resolve('catch', data))
-		finally_branch=self.on(element.resolve('finally', data))
+		try_branch=on(element.resolve('try', data))
+		catch_branch=on(element.resolve('catch', data))
+		finally_branch=on(element.resolve('finally', data))
 		return F.intercept(try_branch, catch_branch, finally_branch)
 	
 	def onForBranch(self, element, data, context):
-		params=self.on(element.resolve('params', data))
-		expr=self.on(element.resolve('expr', data))
-		body=self.on(element.resolve('body', data))
+		params=on(element.resolve('params', data))
+		expr=on(element.resolve('expr', data))
+		body=on(element.resolve('body', data))
 		process=F.createClosure(params)
 		self._setCode(process, body)
 		return F.iterate(expr, process)
 	
 	def onWhileBranch(self, element, data, context):
-		condition=self.on(element.resolve('condition', data))
-		body=self.on(element.resolve('body', data))
+		condition=on(element.resolve('condition', data))
+		body=on(element.resolve('body', data))
 		process=F.createBlock()
 		self._setCode(process, body)
 		return F.repeat(condition, process)
 	
 	def onTryBranch(self, element, data, context):
-		body=self.on(element.resolve('body', data))
+		body=on(element.resolve('body', data))
 		process=F.createBlock()
 		self._setCode(process, body)
 		return process
 	
 	def onCatchBranch(self, element, data, context):
-		body=self.on(element.resolve('body', data))
-		param=self.on(element.resolve('param', data))
+		body=on(element.resolve('body', data))
+		param=on(element.resolve('param', data))
 		args=[F._param(param[0].getReferenceName())]
 		process=F.createClosure(args)
 		self._setCode(process, body)
 		return process
 	
 	def onFinallyBranch(self, element, data, context):
-		body=self.on(element.resolve('body', data))
+		body=on(element.resolve('body', data))
 		process=F.createBlock()
 		self._setCode(process, body)
 		return process
 	
 	def onBlockBody(self, element, data, context):
-		return self.on(data[2])
+		return on(data[2])
 	
 	def onBlockLine(self, element, data, context):
-		return self.on(data[1])
+		return on(data[1])
 	
 	def onEmbed(self, element, data, context):
-		body=self.on(element.resolve('body', data))
+		body=on(element.resolve('body', data))
 		language=element.resolve('language', data).data
 		language = 'JavaScript'
 		lines=[]
@@ -655,11 +656,9 @@ class LambdaFactoryBuilder(libparsing.Processor):
 			lines.append(line[1].group(1))
 		return F.embed(language, '\n'.join(lines))
 	
-	def onExpression(self, element, data, context):
-		prefix_suffixes=self.on(data)
-		suffixes=prefix_suffixes
-		prefix=suffixes[0]
-		suffixes = suffixes[1]
+	def onExpression(self, match):
+		prefix=self.process(match[0])
+		suffixes=self.process(match[1])
 		current=None
 		if ((isinstance(prefix, interfaces.ILiteral) or isinstance(prefix, interfaces.IValue)) or isinstance(prefix, interfaces.IClosure)):
 			current = prefix
@@ -729,7 +728,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	def onExpressionList(self, element, data, context):
 		"""Returns a list of expressions [model.Expression]"""
 		res=[]
-		expr=self.on(data)
+		expr=on(data)
 		res.append(expr[0])
 		for _ in (expr[1] or []):
 			res.append(_[1])
@@ -738,30 +737,29 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	def onExpressionBlock(self, element, data, context):
 		"""Returns a list of expressions [model.Expression]"""
 		res=[]
-		expr=self.on(data)
+		expr=on(data)
 		for _ in (expr[1] or []):
 			res = (res + _[2])
 		return res
 	
-	def onPrefixes(self, element, data, context):
-		prefix=self.on(data)
-		return prefix
+	def onPrefixes(self, match):
+		return self.process(match[0])
 	
 	def onComputationPrefix(self, element, data, content):
-		operator=self.normalizeOperator(self.on(data[0]).group())
-		operand=self.on(data[1])
+		operator=self.normalizeOperator(on(data[0]).group())
+		operand=on(data[1])
 		return F.compute(F._op(operator, self.getOperatorPriority(operator)), operand)
 	
 	def onParentheses(self, element, data, content):
-		return self.on(data[1])
+		return on(data[1])
 	
 	def onException(self, element, data, content):
-		value=self.on(element.resolve('expression', data))
+		value=on(element.resolve('expression', data))
 		return F.exception(value)
 	
 	def onInstanciation(self, element, data, content):
-		name=self.on(element.resolve('target', data))
-		params=self.on(element.resolve('params', data))[1]
+		name=on(element.resolve('target', data))
+		params=on(element.resolve('params', data))[1]
 		if not (isinstance(params, list) or isinstance(params, tuple)): params = (params,)
 		return F.instanciate(name, *(params or []))
 		
@@ -769,11 +767,11 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	def onSuffixes(self, element, data, context):
 		"""This rule returns the data AS-IS, without modifying it. This is necessary
 		because suffixes need a prefix to be turned into a proper expression."""
-		return self.on(data)
+		return on(data)
 	
 	def onInvocation(self, element, data, context):
 		"""Returns ("Invocation", [args])"""
-		arguments_or_litteral=self.on(data)
+		arguments_or_litteral=on(data)
 		args=None
 		if isinstance(arguments_or_litteral, interfaces.ILiteral):
 			args = [arguments_or_litteral]
@@ -784,37 +782,35 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	
 	def onComputationInfix(self, element, data, content):
 		"""Returns ("ComputationInfix", OPERATOR:String, Expression)"""
-		return [element.name, self.on(data[0]).group(), self.on(data[1])]
+		return [element.name, on(data[0]).group(), on(data[1])]
 	
 	def onAccess(self, element, data, context):
 		"""Returns [("Access", INDEX:Element)]"""
 		data_key=data[1]
-		return [element.name, self.on(data_key)]
+		return [element.name, on(data_key)]
 	
 	def onDecomposition(self, element, data, context):
 		"""Returns [("Decomposition", [ref:Reference])]"""
-		all=[self.on(data[1])]
-		for _ in (self.on(data[2]) or []):
+		all=[on(data[1])]
+		for _ in (on(data[2]) or []):
 			all.append(_[1])
 		res=[element.name, all]
 		return res
 	
 	def onSlice(self, element, data, context):
-		start_index=self.on(data[1])
-		end_index=self.on(data[3])
+		start_index=on(data[1])
+		end_index=on(data[3])
 		return [element.name, start_index, end_index]
 	
-	def onAllocation(self, element, data, context):
+	def onAllocation(self, match):
 		"""Returns a list of operations. If there's only one operation,
 		then it is a single allocation, otherwise it will be a mutliple
 		allocation with an automatic variable name."""
-		data_target=element.resolve('target', data)
-		data_rest=element.resolve('rest', data)
-		data_value=element.resolve('value', data)
-		value=self._tryGet(self.on(data_value), 1, None)
-		rest=self._tryGet(self.on(data_rest), 1, None)
-		symbols=self.on(data_target)
 		res=None
+		symbols=self.process(match[2])
+		rest=self.process(match[3])
+		value=self.access(self.process(match[4]), 1)
+		print ('ALLOC', symbols, rest, value)
 		if ((len(symbols) == 1) and (not rest)):
 			slot=F._slot(symbols[0].getReferenceName())
 			res = [F.allocate(slot, value)]
@@ -840,8 +836,8 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		data_main=element.resolve('main', data)
 		data_rest=element.resolve('rest', data)
 		data_op=element.resolve('op', data)
-		lvalue=self.on(data_main)
-		op_value=self.on(data_op)
+		lvalue=on(data_main)
+		op_value=on(data_op)
 		op=op_value[0].group()
 		if (op == '='):
 			return F.assign(lvalue, op_value[1])
@@ -861,32 +857,32 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	def onAssignable(self, element, data, context):
 		data_lvalue=data[0]
 		data_suffixes=data[1]
-		lvalue=self.on(data_lvalue)
-		suffixes=self.on(data_suffixes)
+		lvalue=on(data_lvalue)
+		suffixes=on(data_suffixes)
 		return self._applySuffixes(lvalue, suffixes)
 	
 	def onIterationLine(self, element, data, context):
 		data_lvalue=data[0]
 		data_closure=data[2]
-		lvalue=self.on(data_lvalue)
-		closure=self.on(data_closure)
+		lvalue=on(data_lvalue)
+		closure=on(data_closure)
 		return F.iterate(lvalue, closure)
 	
 	def onTermination(self, element, data, context):
 		data_value=data[1]
-		value=self.on(data[1])
+		value=on(data[1])
 		return F.returns(value)
 	
 	def onParameter(self, element, data, context):
 		data_name=element.resolve('name', data)
 		data_value=element.resolve('value', data)
-		name_type=self.on(data_name)
-		value=self._tryGet(self.on(data_value), 1, None)
+		name_type=on(data_name)
+		value=self._tryGet(on(data_value), 1, None)
 		return F._param(name_type[0].getReferenceName(), None, value)
 	
 	def onParameterList(self, element, data, context):
 		res=[]
-		all=self.on(data)
+		all=on(data)
 		res.append(all[0])
 		ellipsis=all[2]
 		for _ in (all[1] or []):
@@ -899,31 +895,31 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		return []
 	
 	def onArgumentsMany(self, element, data, context):
-		l=self.on(element.resolve('line', data))
-		b=self.on(element.resolve('body', data))
+		l=on(element.resolve('line', data))
+		b=on(element.resolve('body', data))
 		return self.filterNull((flatten(l) + flatten(b)))
 	
-	def onSymbolList(self, element, data, context):
+	def onSymbolList(self, match):
 		"""Returns `[model.Reference]`"""
-		res=[]
-		symbols=self.on(data)
-		res.append(symbols[0])
-		for _ in (symbols[1] or []):
+		head=self.process(match[0])
+		tail=self.process(match[1])
+		more=self.process(match[2])
+		res=[head]
+		for _ in tail:
 			res.append(_[1])
-		ellispis=symbols[-1]
-		assert((not ellispis))
+		assert((not more))
 		return res
 	
 	def onNameType(self, element, data, context):
 		"""Returns a couple (name, type) where type might be None."""
 		name=data[0]
 		type=data[1]
-		return [self.on(name), self.on(type)]
+		return [on(name), on(type)]
 	
 	def onFQName(self, element, data, context):
 		"""A fully qualified name that will return an absolute reference"""
 		res=[]
-		all=self.on(data)
+		all=on(data)
 		res.append(all[0].getReferenceName())
 		for _ in (all[1] or []):
 			res.append(_[1].getReferenceName())
@@ -933,14 +929,14 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	def onArray(self, element, data, context):
 		data_list=element.resolve(g.symbols.ExpressionList, data)
 		data_block=element.resolve(g.symbols.ExpressionBlock, data)
-		elements=((self.on(data_list) or []) + (self.on(data_block) or []))
+		elements=((on(data_list) or []) + (on(data_block) or []))
 		return F._list(elements)
 	
 	def onMap(self, element, data, context):
 		res=F._dict()
 		data_list=element.resolve(g.symbols.KeyValueList, data)
 		data_block=element.resolve(g.symbols.KeyValueBlock, data)
-		elements=((self.on(data_list) or []) + (self.on(data_block) or []))
+		elements=((on(data_list) or []) + (on(data_block) or []))
 		for _ in elements:
 			if _:
 				res.setValue(_[0], _[1])
@@ -948,7 +944,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	
 	def onKeyValueList(self, element, data, context):
 		res=[]
-		expr=self.on(data)
+		expr=on(data)
 		res.append(expr[0])
 		for _ in (expr[1] or []):
 			res.append(_[1])
@@ -956,7 +952,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	
 	def onKeyValueBlock(self, element, data, context):
 		res=[]
-		expr=self.on(data)
+		expr=on(data)
 		res.append(expr[0])
 		for _ in (expr[1] or []):
 			res = (res + _[2])
@@ -965,27 +961,27 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	def onKeyValue(self, element, data, context):
 		key=element.resolve(g.symbols.Key, data)
 		value=element.resolve(g.symbols.Expression, data)
-		return [self.on(key), self.on(value)]
+		return [on(key), on(value)]
 	
 	def onKey(self, element, data, context):
-		res=self.on(data)
+		res=on(data)
 		if isinstance(res, interfaces.IElement):
 			return res
 		elif True:
 			return res[1]
 	
-	def onString(self, element, data, context):
-		raw_string=self.on(data).group()
-		decoded_string=eval(raw_string)
-		return F._string(decoded_string)
+	def onString(self, match):
+		raw=self.process(match[0])
+		decoded=eval(raw)
+		return F._string(decoded)
 	
-	def onNUMBER(self, element, data, context):
-		raw_number=self.on(data).group()
-		decoded_number=eval(raw_number)
-		return F._number(decoded_number)
+	def onNUMBER(self, match):
+		raw=self.process(match[0])
+		decoded=eval(raw)
+		return F._number(decoded)
 	
-	def onSYMBOLIC(self, element, data, context):
-		raw_symbol=self.on(data).group()
+	def onSYMBOLIC(self, match):
+		raw_symbol=match.group()
 		if (raw_symbol == 'Undefined'):
 			return F._symbol(raw_symbol)
 		elif (raw_symbol == 'None'):
@@ -997,15 +993,15 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		elif True:
 			raise Exception(('Unknown symbol:' + raw_symbol()))
 	
-	def onNAME(self, element, data, context):
-		return F._ref(data.group(2))
+	def onNAME(self, match):
+		return F._ref(match.group(2))
 	
-	def onKEY(self, element, data, context):
-		return F._string(data.group())
+	def onKEY(self, match):
+		return F._string(match.group())
 	
 	def onDocumentation(self, element, data, context):
 		res=[]
-		for line in self.filterNull(flatten(self.on(data))):
+		for line in self.filterNull(flatten(on(data))):
 			res.append(line.group()[1:].strip())
 		return F.doc('\n'.join(res))
 	
