@@ -988,6 +988,7 @@
 		let prefix   = process (match[0])
 		let suffixes = process (match[1])
 		var current  = None
+		print ("EXPR", prefix, suffixes)
 		# NOTE: This should be abstracted
 		if isinstance(prefix, interfaces ILiteral) or isinstance(prefix, interfaces IValue) or isinstance(prefix, interfaces IClosure)
 			current  = prefix
@@ -1081,24 +1082,26 @@
 		return value
 	@end
 
-	@method onExpressionList element, data, context
+	@method onExpressionList match
 	| Returns a list of expressions [model.Expression]
-		var res  = []
-		var expr = on (data)
-		res append (expr[0])
-		for _ in (expr[1] or [])
-			# We have _ = [offset, <model.Reference>]
+		let head = process (match[0])
+		let tail = process (match[1])
+		let res  = [head]
+		for _ in tail
+			print (" - ", _)
+			# We have _ = [',', <model.Reference>]
 			#              0        1
 			res append (_[1])
 		end
+		print ("EXPR", res)
 		return res
 	@end
 
-	@method onExpressionBlock element, data, context
+	@method onExpressionBlock match
 	| Returns a list of expressions [model.Expression]
-		var res  = []
-		var expr = on (data)
-		for _ in (expr[1] or [])
+		let lines = process (match[1])
+		let res   = []
+		for _ in lines
 			# We have _ = [EOL, Indent, ExpressionList]
 			#              0    1       2
 			res += _[2]
@@ -1144,10 +1147,10 @@
 	# SUFFIXES
 	# =========================================================================
 
-	@method onSuffixes element, data, context
+	@method onSuffixes match
 	| This rule returns the data AS-IS, without modifying it. This is necessary
 	| because suffixes need a prefix to be turned into a proper expression.
-		return on(data)
+		return process (match[0])
 	@end
 
 	@method onInvocation element, data, context
@@ -1164,9 +1167,9 @@
 	@end
 
 
-	@method onComputationInfix element, data, content
+	@method onComputationInfix match
 	| Returns ("ComputationInfix", OPERATOR:String, Expression)
-		return [element name, on (data[0]) group (), on (data[1])]
+		return [match element name, match[0] group 0, process (match[1])]
 	@end
 
 	@method onAccess element, data, context
@@ -1360,11 +1363,9 @@
 		return res
 	@end
 
-	@method onNameType element, data, context
+	@method onNameType match
 	| Returns a couple (name, type) where type might be None.
-		var name = data[0]
-		var type = data[1]
-		return [on (name), on (type)]
+		return [process (match[0]), process (match[1])]
 	@end
 
 	@method onFQName element, data, context
@@ -1386,11 +1387,10 @@
 	# COMPOUND TYPES (LIST)
 	# =========================================================================
 
-	@method onArray element, data, context
-		var data_list  = element resolve (g symbols ExpressionList,  data)
-		var data_block = element resolve (g symbols ExpressionBlock, data)
-		var elements   = (on(data_list) or []) + (on(data_block) or [])
-		return F _list (elements)
+	@method onArray match
+		let list  = process (match[1]) or []
+		let block = process (match[2]) or []
+		return F _list (list + block)
 	@end
 
 	# =========================================================================
@@ -1463,7 +1463,7 @@
 	@end
 
 	@method onNUMBER match
-		let raw     = process (match[0])
+		let raw     = match[0]
 		# FIXME: Proper number decoding
 		let decoded = eval (raw)
 		return F _number (decoded)
@@ -1525,13 +1525,13 @@
 	# 	end
 	# @end
 
-	@method onCheckIndent element, data, context
+	@method onCheckIndent match
 		# We bypass check indent, as it does not contain any valuable or
 		# interesting result
 		return None
 	@end
 
-	@method onEOL element, data, context
+	@method onEOL match
 		# We bypass check indent, as it does not contain any valuable or
 		# interesting result
 		return None

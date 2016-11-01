@@ -660,6 +660,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		prefix=self.process(match[0])
 		suffixes=self.process(match[1])
 		current=None
+		print ('EXPR', prefix, suffixes)
 		if ((isinstance(prefix, interfaces.ILiteral) or isinstance(prefix, interfaces.IValue)) or isinstance(prefix, interfaces.IClosure)):
 			current = prefix
 		elif (((((isinstance(prefix, interfaces.IComputation) or isinstance(prefix, interfaces.IResolution)) or isinstance(prefix, interfaces.IInvocation)) or isinstance(prefix, interfaces.IInstanciation)) or isinstance(prefix, interfaces.IAccessOperation)) or isinstance(prefix, interfaces.IExcept)):
@@ -725,20 +726,22 @@ class LambdaFactoryBuilder(libparsing.Processor):
 					raise Exception(('Suffix not supported yet: ' + str(name)))
 		return value
 	
-	def onExpressionList(self, element, data, context):
+	def onExpressionList(self, match):
 		"""Returns a list of expressions [model.Expression]"""
-		res=[]
-		expr=on(data)
-		res.append(expr[0])
-		for _ in (expr[1] or []):
+		head=self.process(match[0])
+		tail=self.process(match[1])
+		res=[head]
+		for _ in tail:
+			print (' - ', _)
 			res.append(_[1])
+		print ('EXPR', res)
 		return res
 	
-	def onExpressionBlock(self, element, data, context):
+	def onExpressionBlock(self, match):
 		"""Returns a list of expressions [model.Expression]"""
+		lines=self.process(match[1])
 		res=[]
-		expr=on(data)
-		for _ in (expr[1] or []):
+		for _ in lines:
 			res = (res + _[2])
 		return res
 	
@@ -764,10 +767,10 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		return F.instanciate(name, *(params or []))
 		
 	
-	def onSuffixes(self, element, data, context):
+	def onSuffixes(self, match):
 		"""This rule returns the data AS-IS, without modifying it. This is necessary
 		because suffixes need a prefix to be turned into a proper expression."""
-		return on(data)
+		return self.process(match[0])
 	
 	def onInvocation(self, element, data, context):
 		"""Returns ("Invocation", [args])"""
@@ -780,9 +783,9 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		res = [element.name, (args or [])]
 		return res
 	
-	def onComputationInfix(self, element, data, content):
+	def onComputationInfix(self, match):
 		"""Returns ("ComputationInfix", OPERATOR:String, Expression)"""
-		return [element.name, on(data[0]).group(), on(data[1])]
+		return [match.element.name, match[0].group(0), self.process(match[1])]
 	
 	def onAccess(self, element, data, context):
 		"""Returns [("Access", INDEX:Element)]"""
@@ -910,11 +913,9 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		assert((not more))
 		return res
 	
-	def onNameType(self, element, data, context):
+	def onNameType(self, match):
 		"""Returns a couple (name, type) where type might be None."""
-		name=data[0]
-		type=data[1]
-		return [on(name), on(type)]
+		return [self.process(match[0]), self.process(match[1])]
 	
 	def onFQName(self, element, data, context):
 		"""A fully qualified name that will return an absolute reference"""
@@ -926,11 +927,10 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		full_name='.'.join(res)
 		return F._absref(full_name)
 	
-	def onArray(self, element, data, context):
-		data_list=element.resolve(g.symbols.ExpressionList, data)
-		data_block=element.resolve(g.symbols.ExpressionBlock, data)
-		elements=((on(data_list) or []) + (on(data_block) or []))
-		return F._list(elements)
+	def onArray(self, match):
+		list=(self.process(match[1]) or [])
+		block=(self.process(match[2]) or [])
+		return F._list((list + block))
 	
 	def onMap(self, element, data, context):
 		res=F._dict()
@@ -976,7 +976,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		return F._string(decoded)
 	
 	def onNUMBER(self, match):
-		raw=self.process(match[0])
+		raw=match[0]
 		decoded=eval(raw)
 		return F._number(decoded)
 	
@@ -1005,10 +1005,10 @@ class LambdaFactoryBuilder(libparsing.Processor):
 			res.append(line.group()[1:].strip())
 		return F.doc('\n'.join(res))
 	
-	def onCheckIndent(self, element, data, context):
+	def onCheckIndent(self, match):
 		return None
 	
-	def onEOL(self, element, data, context):
+	def onEOL(self, match):
 		return None
 	
 
