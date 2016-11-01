@@ -9,12 +9,8 @@
 # -----------------------------------------------------------------------------
 
 @module sugar2.grammars.helpers
+| A collection of helper functions used by the grammar submodules
 
-# ----------------------------------------------------------------------------
-#
-# INDENTATION FUNCTIONS
-#
-# ----------------------------------------------------------------------------
 
 @function doIndent context, element
 	return True

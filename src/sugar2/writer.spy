@@ -255,24 +255,21 @@
 	@end
 
 	@method onClassAttribute element, data, context
-		var v     = element variables (data)
-		var name  = getElements (on(v["name"]))
-		var value = getElements (on(v["value"]))
-		var doc   = getElements (on(v["documentation"]))
-		# FIXME: Value is reference, but it should be a resolution if it's a reference, no?
-		var res   = F _classattr (name[0] getReferenceName (), None, value and value[0])
+		let name_type = process (match[2])
+		let value     = _tryGet (process (match[3]), 1, None)
+		let doc       = process (match[5])
+		var res       = F _classattr (name_type[0] getReferenceName (), None, value and value[0])
 		res setDocumentation (doc and doc[0])
 		_bind (res)
 		return res
 	@end
 
-	@method onModuleAttribute element, data, context
-		var data_ref_type  = element resolve ("name",  data)
-		var data_value     = element resolve ("value", data)
-		var data_doc       = element resolve ("documentation",   data)
-		var value          = _tryGet(on(data_value), 1, None)
-		var ref_type       = on (data_ref_type)
-		var res = F _moduleattr (ref_type[0] getReferenceName(), None, value)
+	@method onModuleAttribute match
+		let name_type = process (match[2])
+		let value     = _tryGet (process (match[3]), 1, None)
+		let doc       = process (match[5])
+		var res       = F _moduleattr (name_type[0] getReferenceName(), None, value)
+		res setDocumentation (doc and doc[0])
 		_bind (res)
 		return res
 	@end
@@ -296,7 +293,6 @@
 		let body       = process (match[5])
 		var fun        = None
 		if name_type
-			print ("NAME", name_type[0] getReferenceName ())
 			fun    = factory (name_type[0] getReferenceName (), params)
 		else
 			fun    = factory (params)
@@ -339,15 +335,23 @@
 	# 	return _createCallable (F createAbstractFunction, element, data, context)
 	# @end
 
-	@method onClosure element, data, context
-		var data_params = element resolve ("params", data)
-		var data_line   = element resolve ("line",   data)
-		var data_body   = element resolve ("body",   data)
-		var params      = _tryGet(on(data_params),0,None)
-		var line        = on(data_line) or []
-		var body        = _tryGet(on(data_body),1,None) or []
-		var res         = F createClosure (params)
-		_setCode( res, line + body)
+	@method onClosureParameters match
+		return process(match[0])
+	@end
+
+	@method onClosureBody match
+		return process(match[0])
+	@end
+
+	@method onClosureStatement match
+		return process(match[0])
+	@end
+
+	@method onClosure match
+		let params = process (match[1])
+		let line   = [process (match[2])]
+		var res    = F createClosure (params)
+		_setCode( res, line)
 		return res
 	@end
 
@@ -671,13 +675,12 @@
 		return F compute (F _op (operator, getOperatorPriority (operator)), operand)
 	@end
 
-	@method onParentheses element, data, content
-		return on (data[1])
+	@method onParentheses match
+		return process (match[1])
 	@end
 
-	@method onException element, data, content
-		var value = on (element resolve ("expression", data))
-		return F exception (value)
+	@method onException match
+		return F exception (process (match[1]))
 	@end
 
 	@method onInstanciation element, data, content
@@ -704,13 +707,13 @@
 	@method onInvocation match
 	| Returns ("Invocation", [args])
 		let arguments_or_litteral = process (match[0])
-		var args                  = None
-		if isinstance (arguments_or_litteral, interfaces ILiteral)
-			args = [arguments_or_litteral]
-		else
-			args = arguments_or_litteral
+		var args                  = []
+		for _ in process (match[0])
+			if isinstance(_, interfaces IElement)
+				args append (_)
+			end
 		end
-		return [match element name, args or []]
+		return [match element name, args]
 	@end
 
 
@@ -724,14 +727,13 @@
 		return [match element name, process(match[1])]
 	@end
 
-	@method onDecomposition element, data, context
+	@method onDecomposition match
 	| Returns [("Decomposition", [ref:Reference])]
-		var all = [on(data[1])]
-		for _ in (on(data[2]) or [])
-			all append (_[1])
+		let slots  = [process (match[1])]
+		for _ in process(match[2])
+			slots append (_[1])
 		end
-		var res = [element name, all]
-		return res
+		return [match element name, slots]
 	@end
 
 	@method onSlice element, data, context
@@ -855,22 +857,18 @@
 	# SYMBOLS & DECLARATIONS
 	# =========================================================================
 
-	@method onParameter element, data, context
-		var data_name  = element resolve ("name",  data)
-		var data_value = element resolve ("value", data)
-		var name_type  = on (data_name)
-		var value      = _tryGet (on (data_value), 1, None)
+	@method onParameter match
+		let name_type  = process(match[0])
+		var value      = _tryGet (process(match[1]), 1, None)
 		# FIXME: Support type
 		# FIXME: Support keywords?
 		return F _param (name_type[0] getReferenceName (), None, value)
 	@end
 
-	@method onParameterList element, data, context
-		var res  = []
-		var all  = on (data)
-		res append (all[0])
-		var ellipsis = all[2]
-		for _ in (all[1] or [])
+	@method onParameterList match
+		let res      = [process(match[0])]
+		let ellipsis = process(match[2])
+		for _ in process(match[1])
 			# We have _ = [COMMA, <model.Parameter>]
 			#              0        1
 			res append (_[1])
@@ -1041,12 +1039,12 @@
 	# COMMENTS & DOCUMENTATION
 	# =========================================================================
 
-	@method onDocumentation element, data, context
-		var res = []
-		for line in filterNull (flatten (on (data)))
-			res append (line group () [1:] strip ())
+	@method onDocumentation match
+		let lines = []
+		for l in process (match[0])
+			lines append (l[1][1:])
 		end
-		return F doc ("\n" join (res))
+		return F doc ("\n" join (lines))
 	@end
 
 	# =========================================================================
