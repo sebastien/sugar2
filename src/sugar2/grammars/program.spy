@@ -230,12 +230,14 @@
 	g rule      ("ArgumentsMany",    s LP, s ExpressionList optional () _as "line", s ExpressionBlock optional () _as "body", g agroup (s RP, g arule (s EOL optional (), s CheckIndent, s RP)))
 	# Closures
 	g rule      ("ClosureStatement")
-	g rule      ("ClosureBody",       s EOL, s Expression)
+	g rule      ("ClosureBody",       s EOL, s String)
 	g rule      ("ClosureParameters", s ParameterList, s PIPE)
 	# FIXME: It seems that ClosureBody swallows the last EOL
 	# g rule      ("Closure",          s LB, g arule (s ParameterList optional (), s PIPE) optional () _as "params", s ClosureStatement optional () _as "line", s ClosureBody optional () _as "body", g arule (s EOL, s CheckIndent) optional (), s INDENT optional (), s RB)
 
-	g rule      ("Closure",          s LB, s ClosureParameters, s ClosureStatement, s RB)
+	g rule      ("InlineClosure",  s LB, s ClosureParameters, s ClosureStatement, s RB)
+	g rule      ("BlockClosure",   s LB, s EOL, s NUMBER, s EOL, s RB, s EOL)
+	g group     ("Closure", s BlockClosure)
 
 	# Expression prefixes
 	g group     ("Literal",         s NUMBER, s SYMBOLIC, s String, s Array, s Map, s Closure)
@@ -314,7 +316,6 @@
 	g rule      ("OEnd",             s CheckIndent, s oend,      s EOL)
 	g rule      ("Body",             s Indent, s Code zeroOrMore () _as "code", s Dedent)
 	s ClosureStatement set (s Statements)
-	s ClosureBody      set (s EOL, s Body)
 	declaration      (g, "ClassAttribute",    s oshared)
 	declaration      (g, "ModuleAttribute",   s oshared)
 	declaration      (g, "Attribute",         s oproperty)
@@ -375,7 +376,7 @@
 	g skip      = g agroup (s SPACE, s COMMENT)
 
 	# NOTE: Right now, MODULE does not work, we're using Code instea
-	g axiom     = s Module
+	g axiom     = s Closure
 
 	return g
 @end
