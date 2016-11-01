@@ -121,6 +121,7 @@
 		return g rule (name
 			s CheckIndent
 			prefix _as "type"
+			s NOTHING _as "name"
 			g agroup (
 				s EOL
 				g arule (
@@ -230,6 +231,7 @@
 	g word      ("ITERATOR",         "::")
 	g word      ("BLOCKLINE",        "->")
 	g word      ("ELLIPSIS",         "...")
+	g condition ("NOTHING")
 	# Keywords
 	g word      ("_var",             "var")
 	g word      ("_if",              "if")
@@ -250,7 +252,7 @@
 	g word      ("otarget",          "@target")
 	g word      ("orequires",        "@requires")
 	g word      ("oversion",         "@version")
-	g word      ("olicense",         "@license")
+	# g word      ("olicense",         "@license")
 	g word      ("ofunction",        "@function")
 	g word      ("oclass",           "@class")
 	g word      ("oproperty",        "@property")
@@ -269,7 +271,7 @@
 	#s TABS _as "tabs", g acondition (doCheckIndent)) disableMemoize ()
 
 	# Documentation & Comments
-	g rule      ("CommentLine",      s COMMENT,     s EOL)
+	# g rule      ("CommentLine",      s COMMENT,     s EOL)
 	g rule      ("EmptyLines",       s EMPTY_LINES)
 	g rule      ("DocumentationLine",s CheckIndent, s DOCSTRING, s EOL)
 	g rule      ("Documentation",    s DocumentationLine oneOrMore ())
@@ -384,7 +386,7 @@
 	declaration      (g, "ClassAttribute",    s oshared)
 	declaration      (g, "ModuleAttribute",   s oshared)
 	declaration      (g, "Attribute",         s oproperty)
-	abstractFunction (g, "AbstractFunction",  s ofunction)
+	# abstractFunction (g, "AbstractFunction",  s ofunction)
 	abstractFunction (g, "AbstractMethod",    s omethod)
 	abstractFunction (g, "AbstractOperation", s ooperation)
 	function         (g, "Function",          s ofunction)
@@ -401,7 +403,7 @@
 	s Block add (s Embed)
 	g rule  ("Class"
 		g aword "@abstract" optional ()
-		g aword "@class"
+		s oclass
 		s NameType _as "name"
 		g arule (s COLON, listOf (s FQName, s COMMA, g)) optional () _as "inherits"
 		s EOL
@@ -441,7 +443,7 @@
 	g skip      = g agroup (s SPACE, s COMMENT)
 
 	# NOTE: Right now, MODULE does not work, we're using Code instea
-	g axiom     = s Code
+	g axiom     = s Module
 
 	return g
 @end
@@ -527,7 +529,7 @@
 	@method getDefaultModuleName
 		# FIXME: This should be done within LambdaFactory, not here
 		if path
-			path split "/" [-1] split "." [0] replace ("-", "_")
+			return path split "/" [-1] split "." [0] replace ("-", "_")
 		else
 			return "__current__"
 		end
@@ -588,16 +590,17 @@
 	@method _setCode element, code
 		code = code or []
 		for line in (code or [])
-			if type(line) != type([])
+			if not (isinstance(line, tuple) or isinstance(line, list))
 				line = [line]
 			end
 			for statement in (line or [])
 				if isinstance (statement, interfaces IOperation)
 					element addOperation (statement)
+				elif isinstance(line, tuple) or isinstance(line, list)
+					_setCode (element, line)
+				else
+					assert (False, "Code element type not supported: {0}" format (repr(statement)))
 				end
-				#else
-				#	# FIXME: For some reason, comments are converted to regexps
-				#	# print ("ELEMENT NOT SUPPORTED YET:" + repr(statement))
 			end
 		end
 		return element
@@ -608,55 +611,49 @@
 	# =========================================================================
 
 	@method onModule match
-		print ("MODULE", match data)
-		return None
-		# Module should be retrieved either through a parameter/option
-		self context = context
-		# We get the module declaration
-		var data_declaration = element resolve (g symbols ModuleDeclaration, data)
-		var docstring        = element resolve ("documentation", data)
-		annotations = {}
-		for _ in on (data_declaration)
+		let declaration = process (match[0])
+
+		# We parse the annotations
+		let annotations = {}
+		for _ in declaration
 			if isinstance (_, interfaces IAnnotation)
 				annotations[_ getName ()] = _ getContent ()
 			end
 		end
+
 		# We create the module
 		# TODO: Support module dosctring from annotation
-		module         = F createModule (annotations get "module" or getDefaultModuleName())
-		# FIXME: For some reason, the docstring is not passed
-		if docstring
-			module setDocumentation (docstring)
-		end
+		let module = F createModule (annotations get "module" or getDefaultModuleName())
+
 		# A module is a scope, so we add it to the scopes stack
-		# program addModule (module)
-		scopes append     (module)
+		scopes append (module)
+
 		# We take care of the version number
 		if annotations get "version"
-			var res = F _moduleattr ("VERSION", None, F _string (annotations get "version"))
-			_bind (res)
+			_bind (F _moduleattr ("VERSION", None, F _string (annotations get "version")))
 		end
-		# We get the module structure
-		var data_structure = element resolve (g symbols Structure, data)
-		structure          = on (data_structure)
-		# We get the module code and assign it to the main function
-		var data_code      = element resolve (g symbols Code, data)
+
+		let structure   = process (match[1])
+		let code        = process (match[2])
+
+		# We create the init function
 		var init_function  = F createFunction (F ModuleInit)
-		var code  = on (data_code)
 		_setCode (init_function, code)
 		_bind    (init_function)
+
 		# We pop the scopes as we're done with the module
 		scopes pop ()
+
 		return module
 	@end
 
-	@method onModuleAnnotation element, data, context
-		var ref = self on (data[1])
+	@method onModuleAnnotation match
+		var ref = process(match[1])
 		return F annotation ("module", ref getReferenceName ())
 	@end
 
-	@method onVersionAnnotation element, data, context
-		return F annotation ("version", on(data)[1] group ())
+	@method onVersionAnnotation match
+		return F annotation ("version", match[1] group ())
 	@end
 
 	@method onClass element, data, context
@@ -723,60 +720,55 @@
 		return methods
 	@end
 
-	@method _createCallable factory, element, data, context
-		var data_type   = element resolve ("type",          data)
-		var data_name   = element resolve ("name",          data)
-		var data_params = element resolve ("parameters",    data)
-		var data_doc    = element resolve ("documentation", data)
-		var data_body   = element resolve ("body",          data)
-		var name_type   = on (data_name)
-		# FIXME: Support return type
-		var params      = _tryGet (on (data_params), 0, [])
-		var fun         = None
+	@method _createCallable factory, match
+		let name_type  = process (match[2])
+		let params     = process (match[3])
+		let doc        = process (match[4])
+		let body       = process (match[5])
+		var fun        = None
 		if name_type
-			fun         = factory (name_type[0] getReferenceName (), params)
+			print ("NAME", name_type[0] getReferenceName ())
+			fun    = factory (name_type[0] getReferenceName (), params)
 		else
-			fun         = factory (params)
+			fun    = factory (params)
 		end
-		fun setDocumentation (on(data_doc))
-		# ipdb set_trace ()
+		fun setDocumentation (doc)
 		scopes append (fun)
-		# TODO: Set documentation
-		_setCode (fun, on(data_body))
+		_setCode (fun, body)
 		scopes pop ()
 		_bind    (fun)
 		return fun
 	@end
 
-	@method onOperation element, data, context
-		return _createCallable (F createClassMethod, element, data, context)
+	@method onOperation match
+		return _createCallable (F createClassMethod, match)
 	@end
 
-	@method onAbstractOperation element, data, context
-		var res = _createCallable (F createClassMethod, element, data, context)
+	@method onAbstractOperation match
+		var res = _createCallable (F createClassMethod, match)
 		res setAbstract (True)
 		return res
 	@end
 
-	@method onMethod element, data, context
-		return _createCallable (F createMethod, element, data, context)
+	@method onMethod match
+		return _createCallable (F createMethod, match)
 	@end
 
-	@method onConstructor element, data, context
-		return _createCallable (F createConstructor, element, data, context)
+	@method onConstructor match
+		return _createCallable (F createConstructor, match)
 	@end
 
-	@method onAbstractMethod element, data, context
-		return _createCallable (F createAbstractMethod, element, data, context)
+	@method onAbstractMethod match
+		return _createCallable (F createAbstractMethod, match)
 	@end
 
-	@method onFunction element, data, context
-		return _createCallable (F createFunction, element, data, context)
+	@method onFunction match
+		return _createCallable (F createFunction, match)
 	@end
 
-	@method onAbstractFunction element, data, context
-		return _createCallable (F createAbstractFunction, element, data, context)
-	@end
+	# @method onAbstractFunction element, data, context
+	# 	return _createCallable (F createAbstractFunction, element, data, context)
+	# @end
 
 	@method onClosure element, data, context
 		var data_params = element resolve ("params", data)
@@ -794,18 +786,13 @@
 	# CODE
 	# =========================================================================
 
-	@method onBody element, data, context
-		return on(element resolve ("code", data))
+	@method onBody match
+		return process (match[1])
 	@end
 
 	@method onCode match
 		let content = process(match[0])
-		# NOTE: We might need to flatten the list
-		let r = F createModule ("test")
-		let f = F createFunction (F ModuleInit)
-		r setSlot (F ModuleInit, f, True)
-		_setCode(f, content)
-		return r
+		return content
 	@end
 
 	@method onLine match
@@ -815,27 +802,22 @@
 	@end
 
 	@method onStatements match
-		# model_data is STATEMENT | [STATEMENT]
-		let head = process (match[0])
-		let res  = [head]
-		let tail = process (match[1])
-		print ("TAIL", tail)
-		# let tail = self process (match[0])
-		# var model_data = on (data)
-		# var statements = [model_data[0]] + (model_data[1] or [])
-		# var res        = []
-		# for _ in statements
-		# 	# A statement can return one or more elements (for instance,
-		# 	# onAllocation will return a list of operations)
-		# 	if (type(_) is list) or (type(_) is tuple)
-		# 		# In this case we have a list of operations
-		# 		# [Allocation, Evalution, etc...]
-		# 		res += _
-		# 	else
-		# 		# Or here we have a single element/operation
-		# 		res append (_)
-		# 	end
-		# end
+		let head       = process (match[0])
+		var res        = [head]
+		let tail       = process (match[1])
+		for _ in tail
+			let s = _[1]
+			# A statement can return one or more elements (for instance,
+			# onAllocation will return a list of operations)
+			if (type(_) is list) or (type(_) is tuple)
+				# In this case we have a list of operations
+				# [Allocation, Evalution, etc...]
+				res += _
+			else
+				# Or here we have a single element/operation
+				res append (_)
+			end
+		end
 		return res
 	@end
 
@@ -988,7 +970,6 @@
 		let prefix   = process (match[0])
 		let suffixes = process (match[1])
 		var current  = None
-		print ("EXPR", prefix, suffixes)
 		# NOTE: This should be abstracted
 		if isinstance(prefix, interfaces ILiteral) or isinstance(prefix, interfaces IValue) or isinstance(prefix, interfaces IClosure)
 			current  = prefix
@@ -1088,12 +1069,10 @@
 		let tail = process (match[1])
 		let res  = [head]
 		for _ in tail
-			print (" - ", _)
 			# We have _ = [',', <model.Reference>]
 			#              0        1
 			res append (_[1])
 		end
-		print ("EXPR", res)
 		return res
 	@end
 
@@ -1153,17 +1132,16 @@
 		return process (match[0])
 	@end
 
-	@method onInvocation element, data, context
+	@method onInvocation match
 	| Returns ("Invocation", [args])
-		var arguments_or_litteral = on (data)
-		var args = None
+		let arguments_or_litteral = process (match[0])
+		var args                  = None
 		if isinstance (arguments_or_litteral, interfaces ILiteral)
 			args = [arguments_or_litteral]
 		else
 			args = arguments_or_litteral
 		end
-		res = [element name, args or []]
-		return res
+		return [match element name, args or []]
 	@end
 
 
@@ -1172,10 +1150,9 @@
 		return [match element name, match[0] group 0, process (match[1])]
 	@end
 
-	@method onAccess element, data, context
+	@method onAccess match
 	| Returns [("Access", INDEX:Element)]
-		var data_key = data[1]
-		return [element name, on(data_key)]
+		return [match element name, process(match[1])]
 	@end
 
 	@method onDecomposition element, data, context
@@ -1207,7 +1184,6 @@
 		let symbols = process (match[2])
 		let rest    = process (match[3])
 		let value   = access (process (match[4]), 1)
-		print ("ALLOC", symbols, rest, value)
 		if (len(symbols) == 1) and (not rest)
 			# This is a single allocation with no rest
 			var slot = F _slot (symbols[0] getReferenceName())
@@ -1336,14 +1312,14 @@
 		return res
 	@end
 
-	@method onArgumentsEmpty element, data, context
+	@method onArgumentsEmpty match
 		return []
 	@end
 
-	@method onArgumentsMany element, data, context
-		var l = on(element resolve ("line", data))
-		var b = on(element resolve ("body", data))
-		return filterNull (flatten (l) + flatten (b))
+	@method onArgumentsMany match
+		let line = process (match[1])
+		let body = process (match[2])
+		return filterNull (line + body)
 	@end
 
 	@method onSymbolList match
@@ -1368,20 +1344,20 @@
 		return [process (match[0]), process (match[1])]
 	@end
 
-	@method onFQName element, data, context
+	@method onFQName match
 	| A fully qualified name that will return an absolute reference
-		var res  = []
-		var all  = on (data)
-		res append (all[0] getReferenceName ())
-		for _ in (all[1] or [])
+		let head = process (match[0])
+		let tail = process (match[1])
+		let res  = [head getReferenceName ()]
+		for _ in tail
 			# We have _ = [DOT, NAME]
 			#              0        1
 			res append (_[1] getReferenceName ())
 		end
-		var full_name = "." join (res)
+		let full_name = "." join (res)
 		return F _absref (full_name)
-
 	@end
+
 
 	# =========================================================================
 	# COMPOUND TYPES (LIST)
@@ -1564,10 +1540,12 @@
 @class Parser
 
 	@shared  G = createProgramGrammar (new libparsing Grammar ("Sugar", True))
-	@property environment
+	@property command
+	@property logger
 
-	@constructor environment
-		self environment = environment
+	@constructor command
+		self command = command
+		self logger  = command environment report
 	@end
 
 	@method parseString text, moduleName, path
@@ -1576,10 +1554,29 @@
 		var result    = G parseString (text)
 		# FIXME: Why is this tied to a path?
 		var builder   = new LambdaFactoryBuilder (G, path)
-		#var builder   = new libparsing TreeWriter (G, path)
-		var module    = builder process (result match)
-		# # FIXME: Proper error reporting when parsing fails
-		return [text, module]
+		# @embed Python
+		# |import ipdb;ipdb.set_trace()
+		# @end
+		# FIXME: This is not work properly, the result offset in particular is off
+		if result isPartial ()
+			let r = result lastMatchRange ()
+			let t = result text
+			print ("XXX Parsing stopped at {0}, matching {1}" format (result textOffset, r))
+			print ("XXX", result textAround ())
+			return [text, None]
+		elif result isFailure ()
+			let r = result lastMatchRange ()
+			let t = result text
+			print ("XXX Parsing stopped at {0}, matching {1}" format (result textOffset, r))
+			print ("XXX", result textAround ())
+			return [text, None]
+		elif result isSuccess ()
+			var module    = builder process (result match)
+			# # FIXME: Proper error reporting when parsing fails
+			return [text, module]
+		else
+			assert (False, "Should not be there")
+		end
 	@end
 
 @end

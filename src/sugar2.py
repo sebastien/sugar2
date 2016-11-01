@@ -80,7 +80,7 @@ def function (grammar, name, prefix, anonymous=None):
 	g=grammar
 	s=grammar.symbols
 	if anonymous:
-		return g.rule(name, s.CheckIndent, prefix._as('type'), g.agroup(s.EOL, g.arule(s.ParameterList.optional(), s.EOL))._as('parameters'), s.Documentation.optional()._as('documentation'), s.Body._as('body'), s.OEnd)
+		return g.rule(name, s.CheckIndent, prefix._as('type'), s.NOTHING._as('name'), g.agroup(s.EOL, g.arule(s.ParameterList.optional(), s.EOL))._as('parameters'), s.Documentation.optional()._as('documentation'), s.Body._as('body'), s.OEnd)
 	elif True:
 		return g.rule(name, s.CheckIndent, prefix._as('type'), s.NameType._as('name'), g.agroup(s.EOL, g.arule(s.ParameterList.optional(), s.EOL))._as('parameters'), s.Documentation.optional()._as('documentation'), s.Body._as('body'), s.OEnd)
 
@@ -140,6 +140,7 @@ def createProgramGrammar (g=None):
 	g.word('ITERATOR', '::')
 	g.word('BLOCKLINE', '->')
 	g.word('ELLIPSIS', '...')
+	g.condition('NOTHING')
 	g.word('_var', 'var')
 	g.word('_if', 'if')
 	g.word('_elif', 'elif')
@@ -159,7 +160,6 @@ def createProgramGrammar (g=None):
 	g.word('otarget', '@target')
 	g.word('orequires', '@requires')
 	g.word('oversion', '@version')
-	g.word('olicense', '@license')
 	g.word('ofunction', '@function')
 	g.word('oclass', '@class')
 	g.word('oproperty', '@property')
@@ -173,7 +173,6 @@ def createProgramGrammar (g=None):
 	g.procedure('Indent', doIndent)
 	g.procedure('Dedent', doDedent)
 	g.rule('CheckIndent', s.TABS._as('tabs'))
-	g.rule('CommentLine', s.COMMENT, s.EOL)
 	g.rule('EmptyLines', s.EMPTY_LINES)
 	g.rule('DocumentationLine', s.CheckIndent, s.DOCSTRING, s.EOL)
 	g.rule('Documentation', s.DocumentationLine.oneOrMore())
@@ -249,7 +248,6 @@ def createProgramGrammar (g=None):
 	declaration(g, 'ClassAttribute', s.oshared)
 	declaration(g, 'ModuleAttribute', s.oshared)
 	declaration(g, 'Attribute', s.oproperty)
-	abstractFunction(g, 'AbstractFunction', s.ofunction)
 	abstractFunction(g, 'AbstractMethod', s.omethod)
 	abstractFunction(g, 'AbstractOperation', s.ooperation)
 	function(g, 'Function', s.ofunction)
@@ -262,7 +260,7 @@ def createProgramGrammar (g=None):
 	g.rule('EmbedLine', s.CheckIndent, s.EMBED_LINE, s.EOL)
 	g.rule('Embed', s.CheckIndent, s.oembed, s.NAME.optional()._as('language'), s.EOL, s.EmbedLine.zeroOrMore()._as('body'), s.OEnd)
 	s.Block.add(s.Embed)
-	g.rule('Class', g.aword('@abstract').optional(), g.aword('@class'), s.NameType._as('name'), g.arule(s.COLON, listOf(s.FQName, s.COMMA, g)).optional()._as('inherits'), s.EOL, s.Documentation.optional()._as('documentation'), s.Indent, g.agroup(s.ClassAttribute, s.Attribute, s.Operation, s.AbstractOperation, s.Constructor, s.Methods).zeroOrMore()._as('body'), s.Dedent, g.aword('@end'))
+	g.rule('Class', g.aword('@abstract').optional(), s.oclass, s.NameType._as('name'), g.arule(s.COLON, listOf(s.FQName, s.COMMA, g)).optional()._as('inherits'), s.EOL, s.Documentation.optional()._as('documentation'), s.Indent, g.agroup(s.ClassAttribute, s.Attribute, s.Operation, s.AbstractOperation, s.Constructor, s.Methods).zeroOrMore()._as('body'), s.Dedent, g.aword('@end'))
 	g.rule('ModuleAnnotation', s.omodule, s.FQName, s.EOL)
 	g.rule('VersionAnnotation', s.oversion, s.VERSION, s.EOL)
 	g.rule('RequiresAnnotation', s.orequires, s.FQName, g.arule(s.COMMA, s.FQName).zeroOrMore(), s.EOL)
@@ -276,7 +274,7 @@ def createProgramGrammar (g=None):
 	g.group('Structure', s.EmptyLines, s.Comment, s.ModuleAttribute, s.Function, s.Class)
 	g.rule('Module', s.ModuleDeclaration, s.Structure.zeroOrMore(), s.Code.zeroOrMore())
 	g.skip = g.agroup(s.SPACE, s.COMMENT)
-	g.axiom = s.Code
+	g.axiom = s.Module
 	return g
 
 
@@ -333,7 +331,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	
 	def getDefaultModuleName(self):
 		if self.path:
-			self.path.split('/')[-1].split('.')[0].replace('-', '_')
+			return self.path.split('/')[-1].split('.')[0].replace('-', '_')
 		elif True:
 			return '__current__'
 	
@@ -380,46 +378,41 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	def _setCode(self, element, code):
 		code = (code or [])
 		for line in (code or []):
-			if (type(line) != type([])):
+			if (not (isinstance(line, tuple) or isinstance(line, list))):
 				line = [line]
 			for statement in (line or []):
 				if isinstance(statement, interfaces.IOperation):
 					element.addOperation(statement)
+				elif (isinstance(line, tuple) or isinstance(line, list)):
+					self._setCode(element, line)
+				elif True:
+					assert(False, 'Code element type not supported: {0}'.format(repr(statement)))
 		return element
 	
 	def onModule(self, match):
-		print ('MODULE', match.data)
-		return None
-		self.context = context
-		data_declaration=element.resolve(g.symbols.ModuleDeclaration, data)
-		docstring=element.resolve('documentation', data)
-		annotations = {}
-		for _ in on(data_declaration):
+		declaration=self.process(match[0])
+		annotations={}
+		for _ in declaration:
 			if isinstance(_, interfaces.IAnnotation):
 				annotations[_.getName()] = _.getContent()
-		self.module = F.createModule((annotations.get('module') or self.getDefaultModuleName()))
-		if docstring:
-			self.module.setDocumentation(docstring)
-		self.scopes.append(self.module)
+		module=F.createModule((annotations.get('module') or self.getDefaultModuleName()))
+		self.scopes.append(module)
 		if annotations.get('version'):
-			res=F._moduleattr('VERSION', None, F._string(annotations.get('version')))
-			self._bind(res)
-		data_structure=element.resolve(g.symbols.Structure, data)
-		structure = on(data_structure)
-		data_code=element.resolve(g.symbols.Code, data)
+			self._bind(F._moduleattr('VERSION', None, F._string(annotations.get('version'))))
+		structure=self.process(match[1])
+		code=self.process(match[2])
 		init_function=F.createFunction(F.ModuleInit)
-		code=on(data_code)
 		self._setCode(init_function, code)
 		self._bind(init_function)
 		self.scopes.pop()
-		return self.module
+		return module
 	
-	def onModuleAnnotation(self, element, data, context):
-		ref=self.on(data[1])
+	def onModuleAnnotation(self, match):
+		ref=self.process(match[1])
 		return F.annotation('module', ref.getReferenceName())
 	
-	def onVersionAnnotation(self, element, data, context):
-		return F.annotation('version', on(data)[1].group())
+	def onVersionAnnotation(self, match):
+		return F.annotation('version', match[1].group())
 	
 	def onClass(self, element, data, context):
 		variables=element.variables(data)
@@ -476,48 +469,43 @@ class LambdaFactoryBuilder(libparsing.Processor):
 			methods.append(m)
 		return methods
 	
-	def _createCallable(self, factory, element, data, context):
-		data_type=element.resolve('type', data)
-		data_name=element.resolve('name', data)
-		data_params=element.resolve('parameters', data)
-		data_doc=element.resolve('documentation', data)
-		data_body=element.resolve('body', data)
-		name_type=on(data_name)
-		params=self._tryGet(on(data_params), 0, [])
+	def _createCallable(self, factory, match):
+		name_type=self.process(match[2])
+		params=self.process(match[3])
+		doc=self.process(match[4])
+		body=self.process(match[5])
 		fun=None
 		if name_type:
+			print ('NAME', name_type[0].getReferenceName())
 			fun = factory(name_type[0].getReferenceName(), params)
 		elif True:
 			fun = factory(params)
-		fun.setDocumentation(on(data_doc))
+		fun.setDocumentation(doc)
 		self.scopes.append(fun)
-		self._setCode(fun, on(data_body))
+		self._setCode(fun, body)
 		self.scopes.pop()
 		self._bind(fun)
 		return fun
 	
-	def onOperation(self, element, data, context):
-		return self._createCallable(F.createClassMethod, element, data, context)
+	def onOperation(self, match):
+		return self._createCallable(F.createClassMethod, match)
 	
-	def onAbstractOperation(self, element, data, context):
-		res=self._createCallable(F.createClassMethod, element, data, context)
+	def onAbstractOperation(self, match):
+		res=self._createCallable(F.createClassMethod, match)
 		res.setAbstract(True)
 		return res
 	
-	def onMethod(self, element, data, context):
-		return self._createCallable(F.createMethod, element, data, context)
+	def onMethod(self, match):
+		return self._createCallable(F.createMethod, match)
 	
-	def onConstructor(self, element, data, context):
-		return self._createCallable(F.createConstructor, element, data, context)
+	def onConstructor(self, match):
+		return self._createCallable(F.createConstructor, match)
 	
-	def onAbstractMethod(self, element, data, context):
-		return self._createCallable(F.createAbstractMethod, element, data, context)
+	def onAbstractMethod(self, match):
+		return self._createCallable(F.createAbstractMethod, match)
 	
-	def onFunction(self, element, data, context):
-		return self._createCallable(F.createFunction, element, data, context)
-	
-	def onAbstractFunction(self, element, data, context):
-		return self._createCallable(F.createAbstractFunction, element, data, context)
+	def onFunction(self, match):
+		return self._createCallable(F.createFunction, match)
 	
 	def onClosure(self, element, data, context):
 		data_params=element.resolve('params', data)
@@ -530,16 +518,12 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		self._setCode(res, (line + body))
 		return res
 	
-	def onBody(self, element, data, context):
-		return on(element.resolve('code', data))
+	def onBody(self, match):
+		return self.process(match[1])
 	
 	def onCode(self, match):
 		content=self.process(match[0])
-		r=F.createModule('test')
-		f=F.createFunction(F.ModuleInit)
-		r.setSlot(F.ModuleInit, f, True)
-		self._setCode(f, content)
-		return r
+		return content
 	
 	def onLine(self, match):
 		comment=self.process(match[2])
@@ -550,7 +534,12 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		head=self.process(match[0])
 		res=[head]
 		tail=self.process(match[1])
-		print ('TAIL', tail)
+		for _ in tail:
+			s=_[1]
+			if ((type(_) is list) or (type(_) is tuple)):
+				res = (res + _)
+			elif True:
+				res.append(_)
 		return res
 	
 	def onStatement(self, match):
@@ -660,7 +649,6 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		prefix=self.process(match[0])
 		suffixes=self.process(match[1])
 		current=None
-		print ('EXPR', prefix, suffixes)
 		if ((isinstance(prefix, interfaces.ILiteral) or isinstance(prefix, interfaces.IValue)) or isinstance(prefix, interfaces.IClosure)):
 			current = prefix
 		elif (((((isinstance(prefix, interfaces.IComputation) or isinstance(prefix, interfaces.IResolution)) or isinstance(prefix, interfaces.IInvocation)) or isinstance(prefix, interfaces.IInstanciation)) or isinstance(prefix, interfaces.IAccessOperation)) or isinstance(prefix, interfaces.IExcept)):
@@ -732,9 +720,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		tail=self.process(match[1])
 		res=[head]
 		for _ in tail:
-			print (' - ', _)
 			res.append(_[1])
-		print ('EXPR', res)
 		return res
 	
 	def onExpressionBlock(self, match):
@@ -772,25 +758,23 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		because suffixes need a prefix to be turned into a proper expression."""
 		return self.process(match[0])
 	
-	def onInvocation(self, element, data, context):
+	def onInvocation(self, match):
 		"""Returns ("Invocation", [args])"""
-		arguments_or_litteral=on(data)
+		arguments_or_litteral=self.process(match[0])
 		args=None
 		if isinstance(arguments_or_litteral, interfaces.ILiteral):
 			args = [arguments_or_litteral]
 		elif True:
 			args = arguments_or_litteral
-		res = [element.name, (args or [])]
-		return res
+		return [match.element.name, (args or [])]
 	
 	def onComputationInfix(self, match):
 		"""Returns ("ComputationInfix", OPERATOR:String, Expression)"""
 		return [match.element.name, match[0].group(0), self.process(match[1])]
 	
-	def onAccess(self, element, data, context):
+	def onAccess(self, match):
 		"""Returns [("Access", INDEX:Element)]"""
-		data_key=data[1]
-		return [element.name, on(data_key)]
+		return [match.element.name, self.process(match[1])]
 	
 	def onDecomposition(self, element, data, context):
 		"""Returns [("Decomposition", [ref:Reference])]"""
@@ -813,7 +797,6 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		symbols=self.process(match[2])
 		rest=self.process(match[3])
 		value=self.access(self.process(match[4]), 1)
-		print ('ALLOC', symbols, rest, value)
 		if ((len(symbols) == 1) and (not rest)):
 			slot=F._slot(symbols[0].getReferenceName())
 			res = [F.allocate(slot, value)]
@@ -894,13 +877,13 @@ class LambdaFactoryBuilder(libparsing.Processor):
 			res[-1].setRest(True)
 		return res
 	
-	def onArgumentsEmpty(self, element, data, context):
+	def onArgumentsEmpty(self, match):
 		return []
 	
-	def onArgumentsMany(self, element, data, context):
-		l=on(element.resolve('line', data))
-		b=on(element.resolve('body', data))
-		return self.filterNull((flatten(l) + flatten(b)))
+	def onArgumentsMany(self, match):
+		line=self.process(match[1])
+		body=self.process(match[2])
+		return self.filterNull((line + body))
 	
 	def onSymbolList(self, match):
 		"""Returns `[model.Reference]`"""
@@ -917,12 +900,12 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		"""Returns a couple (name, type) where type might be None."""
 		return [self.process(match[0]), self.process(match[1])]
 	
-	def onFQName(self, element, data, context):
+	def onFQName(self, match):
 		"""A fully qualified name that will return an absolute reference"""
-		res=[]
-		all=on(data)
-		res.append(all[0].getReferenceName())
-		for _ in (all[1] or []):
+		head=self.process(match[0])
+		tail=self.process(match[1])
+		res=[head.getReferenceName()]
+		for _ in tail:
 			res.append(_[1].getReferenceName())
 		full_name='.'.join(res)
 		return F._absref(full_name)
@@ -1028,15 +1011,32 @@ class SugarCommand(Command):
 
 class Parser:
 	G = createProgramGrammar(libparsing.Grammar('Sugar', True))
-	def __init__ (self, environment):
-		self.environment = None
-		self.environment = environment
+	def __init__ (self, command):
+		self.command = None
+		self.logger = None
+		self.command = command
+		self.logger = command.environment.report
 	
 	def parseString(self, text, moduleName, path):
 		result=self.__class__.G.parseString(text)
 		builder=LambdaFactoryBuilder(self.__class__.G, path)
-		module=builder.process(result.match)
-		return [text, module]
+		if result.isPartial():
+			r=result.lastMatchRange()
+			t=result.text
+			print ('XXX Parsing stopped at {0}, matching {1}'.format(result.textOffset, r))
+			print ('XXX', result.textAround())
+			return [text, None]
+		elif result.isFailure():
+			r=result.lastMatchRange()
+			t=result.text
+			print ('XXX Parsing stopped at {0}, matching {1}'.format(result.textOffset, r))
+			print ('XXX', result.textAround())
+			return [text, None]
+		elif result.isSuccess():
+			module=builder.process(result.match)
+			return [text, module]
+		elif True:
+			assert(False, 'Should not be there')
 	
 
 def run (arguments):

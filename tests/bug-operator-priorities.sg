@@ -1,0 +1,3 @@
+("" + value) + (unit or "")
+frame_started - (started or frame_started)
+-0.5 * ( k * k * k * k - 2 )

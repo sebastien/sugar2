@@ -1,0 +1,8 @@
+@class A
+
+	@group G
+		@operation F
+		@end
+	@end
+
+@end
