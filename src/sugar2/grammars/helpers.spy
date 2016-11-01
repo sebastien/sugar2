@@ -1,0 +1,61 @@
+@module sugar2.grammars.helpers
+
+# ----------------------------------------------------------------------------
+#
+# INDENTATION FUNCTIONS
+#
+# ----------------------------------------------------------------------------
+
+@function doIndent context, element
+	return True
+	var v = context getVariables () getParent ()
+	var i = v get "requiredIndent" or 0
+	v set ("requiredIndent", i + 1)
+	# sys stderr write ("XXX doIndent: indent=" + str(v get "requiredIndent") + "\n")
+@end
+
+@function doCheckIndent context, element
+	return True
+	var v          = context getVariables ()
+	var tab_match  = context getVariables () get "tabs"
+	var tab_indent = len(tab_match group ())
+	var req_indent = v get "requiredIndent" or 0
+	# sys stderr write ("XXX checkIndent tab=" + str(tab_indent) + ", required=" + str(req_indent) + "\n")
+	return  tab_indent == req_indent
+@end
+
+@function doDedent context, element
+	return True
+	var v = context getVariables () getParent ()
+	var i = v get "requiredIndent" or 0
+	v set ("requiredIndent", i - 1)
+	# sys stderr write ("XXX doDedent indent=" + str(v get "requiredIndent") + "\n")
+@end
+
+@function doBlockStart context, element
+	return True
+	var v = context getVariables () getParent ()
+	v set ("blockVariables", v)
+	# sys stderr write ("XXX block start\n")
+@end
+
+@function doBlockLastSetLine context, element
+	return True
+	var v = context getVariables () get "blockVariables"
+	# sys stderr write ("XXX block last set line\n")
+	v set ("blockLast", "line")
+@end
+
+@function doBlockLastSetBody context, element
+	return True
+	var v = context getVariables () get "blockVariables"
+	# sys stderr write ("XXX block last set body\n")
+	v set ("blockLast", "body")
+@end
+
+@function doBlockLastIsLine context, element
+	return True
+	return context getVariables () get "blockLast" == "line"
+@end
+
+

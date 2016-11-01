@@ -1,0 +1,48 @@
+@module sugar2.parser
+@import libparsing
+@import LambdaFactoryBuilder from sugar2.writer
+@import  createProgramGrammar from sugar2.grammars.program
+
+@class Parser
+
+	@shared  G = createProgramGrammar (new libparsing Grammar ("Sugar", True))
+	@property command
+	@property logger
+
+	@constructor command
+		self command = command
+		self logger  = command environment report
+	@end
+
+	@method parseString text, moduleName, path
+		# TODO: I think this is still using a pre-libparsing API, so
+		# we need to udpate that part.
+		var result    = G parseString (text)
+		# FIXME: Why is this tied to a path?
+		var builder   = new LambdaFactoryBuilder (G, path)
+		# @embed Python
+		# |import ipdb;ipdb.set_trace()
+		# @end
+		# FIXME: This is not work properly, the result offset in particular is off
+		if result isPartial ()
+			let r = result lastMatchRange ()
+			let t = result text
+			print ("XXX Parsing stopped at {0}, matching {1}" format (result textOffset, r))
+			print ("XXX", result textAround ())
+			return [text, None]
+		elif result isFailure ()
+			let r = result lastMatchRange ()
+			let t = result text
+			print ("XXX Parsing stopped at {0}, matching {1}" format (result textOffset, r))
+			print ("XXX", result textAround ())
+			return [text, None]
+		elif result isSuccess ()
+			var module    = builder process (result match)
+			# # FIXME: Proper error reporting when parsing fails
+			return [text, module]
+		else
+			assert (False, "Should not be there")
+		end
+	@end
+
+@end

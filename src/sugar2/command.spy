@@ -1,0 +1,55 @@
+#!/usr/bin/env sugar
+# -----------------------------------------------------------------------------
+# Project   : Sugar - Language Parser
+# -----------------------------------------------------------------------------
+# Author    : Sebastien Pierre                            <sebastien@ffctn.com>
+# License   : Revised BSD License
+# -----------------------------------------------------------------------------
+# Creation  : 08-Sep-2007
+# Last mod  : 05-Jan-2014
+# -----------------------------------------------------------------------------
+
+@module  sugar2
+@version 0.9
+@target  Python
+@import  sys
+@import  Command              from lambdafactory.main
+
+# TODO: Proper importer in LF for Python
+# TODO: Move all the tree-related stuff to parsing
+# TODO: Make sure the way of getting variables from parsing is clear
+
+@class SugarCommand: Command
+
+	@method setupEnvironment
+		var python_plugin       = self environment loadLanguage("python")
+		var javascript_plugin   = self environment loadLanguage("javascript")
+		var actionscript_plugin = self environment loadLanguage("actionscript")
+		var pnuts_plugin        = self environment loadLanguage("pnuts")
+		python_plugin       addRecognizedExtension("spy")
+		javascript_plugin   addRecognizedExtension("sjs")
+		actionscript_plugin addRecognizedExtension("sas")
+		pnuts_plugin        addRecognizedExtension("spnuts")
+		pnuts_plugin        addRecognizedExtension("spnut")
+		self environment addParser (new Parser(self), "sg spy sjs sjava spnuts sas" split())
+		# python_plugin.reader      = grammar.Parser
+		# python_reader             = python_plugin.reader()
+		# python_reader.environment = self.environment
+		# python_reader._program = self.environment.getProgram()
+		# self.environment.addParser(python_reader, "sg spy sjs sjava spnuts sas".split())
+	@end
+
+@end
+
+@function run arguments
+	var command = new SugarCommand "sugar"
+	command run (arguments or ["--help"])
+	return command
+@end
+
+@embed Python
+|if __name__ == "__main__":
+|	import sys
+|	run(sys.argv[1:])
+@end
+# EOF
