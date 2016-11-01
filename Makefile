@@ -16,8 +16,9 @@ DIST_PATH      ?= dist
 SOURCES_SUGAR   = $(shell find $(SOURCES_PATH)/ -name "*.spy")
 SOURCES_MODULES = $(filter-out $(SOURCES_PATH)/,$(shell find $(SOURCES_PATH)/ -type "d")) 
 
-PRODUCT_PYTHON  = $(SOURCES_SUGAR:$(SOURCES_PATH)/%.spy=$(BUILD_PATH)/%.py) $(SOURCES_MODULES:$(SOURCES_PATH)/%=$(BUILD_PATH)/%/__init__.py)
-PRODUCT         = $(PRODUCT_PYTHON)
+BUILD_FILES      = $(SOURCES_SUGAR:$(SOURCES_PATH)/%.spy=$(BUILD_PATH)/%.py) $(SOURCES_MODULES:$(SOURCES_PATH)/%=$(BUILD_PATH)/%/__init__.py)
+
+PRODUCT          = $(BUILD_FILES)
 
 # === HELPERS =================================================================
 
@@ -52,11 +53,8 @@ help: ## Displays a description of the different Makefile rules
 	@grep -E -o '((\w|-)+):[^#]+(##.*)$$'  $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":|##"}; {printf "make \033[01;32m%-15s\033[0m🕮 %s\n", $$1, $$3}'
 
 clean: ## Cleans the build files
-	@echo "$(RED)♻  clean: Cleaning $(words $(BUILD_FILES) $(DIST_FILES)) files $(RESET)"
-	@test -e docs && rm -r docs ; true
-	@test -e dist/docs && rm -r dist/docs ; true
-	@test -e $(BUILD) && rm -r $(BUILD) ; true
-	@echo $(DIST_FILES) | xargs rm -f
+	@echo "$(RED)♻  clean: Cleaning $(words $(PRODUCT)) files $(RESET)"
+	@test -e $(BUILD_PATH) && rm -r $(BUILD_PATH) ; true
 
 # -----------------------------------------------------------------------------
 #
@@ -68,7 +66,7 @@ $(BUILD_PATH)/%.py: $(SOURCES_PATH)/%.spy
 	@echo "$(GREEN)📝  $@ [PY]$(RESET)"
 	@mkdir -p `dirname $@`
 	@sugar -clpy $< > $@
-	@cp --attributes-only $< $@
+	@cp --attributes-only --preserve=mode $< $@
 
 $(BUILD_PATH)/%/__init__.py: $(SOURCES_PATH)/%
 	@echo "$(GREEN)📝  $@ [PY]$(RESET)"

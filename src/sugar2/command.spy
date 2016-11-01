@@ -1,19 +1,20 @@
 #!/usr/bin/env sugar
 # -----------------------------------------------------------------------------
-# Project   : Sugar - Language Parser
+# Project           : Sugar2
 # -----------------------------------------------------------------------------
-# Author    : Sebastien Pierre                            <sebastien@ffctn.com>
-# License   : Revised BSD License
+# Author            : FFunction
+# License           : BSD License
 # -----------------------------------------------------------------------------
-# Creation  : 08-Sep-2007
-# Last mod  : 05-Jan-2014
+# Creation date     : 2007-09-08
+# Last modification : 2016-11-01
 # -----------------------------------------------------------------------------
 
 @module  sugar2
 @version 0.9
 @target  Python
 @import  sys
-@import  Command              from lambdafactory.main
+@import  Command  from lambdafactory.main
+@import  Parser   from sugar2.parser
 
 # TODO: Proper importer in LF for Python
 # TODO: Move all the tree-related stuff to parsing
@@ -52,4 +53,5 @@
 |	import sys
 |	run(sys.argv[1:])
 @end
-# EOF
+
+# EOF - vim: ts=4 sw=4 noet

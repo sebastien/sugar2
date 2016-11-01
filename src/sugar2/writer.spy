@@ -1,4 +1,15 @@
-@module sugar2.writer
+# -----------------------------------------------------------------------------
+# Project           : Sugar2
+# -----------------------------------------------------------------------------
+# Author            : FFunction
+# License           : BSD License
+# -----------------------------------------------------------------------------
+# Creation date     : 2016-11-01
+# Last modification : 2016-11-01
+# -----------------------------------------------------------------------------
+
+@module  sugar2.writer
+@import  libparsing
 @import  interfaces           from lambdafactory
 @import  Factory              from lambdafactory.modelbase
 @import  lambdafactory.passes as passes
@@ -1073,3 +1084,4 @@
 
 @end
 
+# EOF - vim: ts=4 sw=4 noet
