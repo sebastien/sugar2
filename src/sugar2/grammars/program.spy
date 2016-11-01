@@ -230,13 +230,13 @@
 	g rule      ("ArgumentsMany",    s LP, s ExpressionList optional () _as "line", s ExpressionBlock optional () _as "body", g agroup (s RP, g arule (s EOL optional (), s CheckIndent, s RP)))
 	# Closures
 	g rule      ("ClosureStatement")
-	g rule      ("ClosureBody",       s EOL, s String)
+	g rule      ("ClosureBody",       s EOL, s CheckIndent, s ClosureStatement)
 	g rule      ("ClosureParameters", s ParameterList, s PIPE)
 	# FIXME: It seems that ClosureBody swallows the last EOL
 	# g rule      ("Closure",          s LB, g arule (s ParameterList optional (), s PIPE) optional () _as "params", s ClosureStatement optional () _as "line", s ClosureBody optional () _as "body", g arule (s EOL, s CheckIndent) optional (), s INDENT optional (), s RB)
 
 	g rule      ("InlineClosure",  s LB, s ClosureParameters, s ClosureStatement, s RB)
-	g rule      ("BlockClosure",   s LB, s EOL, s NUMBER, s EOL, s RB, s EOL)
+	g rule      ("BlockClosure",   s LB, s Indent, s ClosureBody zeroOrMore (), s Dedent, s EOL, s RB)
 	g group     ("Closure", s BlockClosure)
 
 	# Expression prefixes
@@ -376,7 +376,7 @@
 	g skip      = g agroup (s SPACE, s COMMENT)
 
 	# NOTE: Right now, MODULE does not work, we're using Code instea
-	g axiom     = s Closure
+	g axiom     = s Module
 
 	return g
 @end
