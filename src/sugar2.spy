@@ -35,14 +35,16 @@
 #
 # ----------------------------------------------------------------------------
 
-@function doIndent context
+@function doIndent context, element
+	return True
 	var v = context getVariables () getParent ()
 	var i = v get "requiredIndent" or 0
 	v set ("requiredIndent", i + 1)
 	# sys stderr write ("XXX doIndent: indent=" + str(v get "requiredIndent") + "\n")
 @end
 
-@function doCheckIndent context
+@function doCheckIndent context, element
+	return True
 	var v          = context getVariables ()
 	var tab_match  = context getVariables () get "tabs"
 	var tab_indent = len(tab_match group ())
@@ -51,32 +53,37 @@
 	return  tab_indent == req_indent
 @end
 
-@function doDedent context
+@function doDedent context, element
+	return True
 	var v = context getVariables () getParent ()
 	var i = v get "requiredIndent" or 0
 	v set ("requiredIndent", i - 1)
 	# sys stderr write ("XXX doDedent indent=" + str(v get "requiredIndent") + "\n")
 @end
 
-@function doBlockStart context
+@function doBlockStart context, element
+	return True
 	var v = context getVariables () getParent ()
 	v set ("blockVariables", v)
 	# sys stderr write ("XXX block start\n")
 @end
 
-@function doBlockLastSetLine context
+@function doBlockLastSetLine context, element
+	return True
 	var v = context getVariables () get "blockVariables"
 	# sys stderr write ("XXX block last set line\n")
 	v set ("blockLast", "line")
 @end
 
-@function doBlockLastSetBody context
+@function doBlockLastSetBody context, element
+	return True
 	var v = context getVariables () get "blockVariables"
 	# sys stderr write ("XXX block last set body\n")
 	v set ("blockLast", "body")
 @end
 
-@function doBlockLastIsLine context
+@function doBlockLastIsLine context, element
+	return True
 	return context getVariables () get "blockLast" == "line"
 @end
 
@@ -181,7 +188,7 @@
 #
 # -----------------------------------------------------------------------------
 
-@function createProgramGrammar g=(new libparsing Grammar "Sugar")
+@function createProgramGrammar g=(new libparsing Grammar ("Sugar"))
 	var s = g symbols
 	g token     ("SPACE",            "[ ]+")
 	g token     ("TABS",             "\t*")
@@ -349,7 +356,8 @@
 	g rule      ("BlockLine",        s BLOCKLINE, s Statements, g agroup (s COMMENT, s EOL) zeroOrMore (),s BlockLastSetLine)
 	#g rule      ("BlockLine",        s BLOCKLINE, s Statements,   s BlockLastSetLine)
 	g rule      ("BlockBody",        s EOL, s Indent, s Code zeroOrMore (), s Dedent, s BlockLastSetBody)
-	g group     ("BlockEnd",         s BlockLastIsLine, s End) disableMemoize ()
+	g group     ("BlockEnd",         s BlockLastIsLine, s End)
+	# disableMemoize ()
 	# NOTE: If has no checkindednt to support for {assd|if -> asdsadas ... }
 	# FIXME: Leaving the s CheckIndent optional () here puts the parser in an infinite loop...
 	# g rule      ("IfBranch",         s CheckIndent optional (), s _if,    s Expression, g agroup (s BlockBody, s BlockLine))
@@ -430,8 +438,11 @@
 	g group     ("Structure",          s EmptyLines, s Comment, s ModuleAttribute, s Function, s Class)
 	g rule      ("Module",             s ModuleDeclaration,  s Structure zeroOrMore (), s Code zeroOrMore ())
 
-	g skip      (g agroup (s SPACE, s COMMENT))
-	g axiom     (s Module)
+	g skip      = g agroup (s SPACE, s COMMENT)
+
+	# NOTE: Right now, MODULE does not work, we're using Code instea
+	g axiom     = s Code
+
 	return g
 @end
 
@@ -441,7 +452,7 @@
 #
 # -----------------------------------------------------------------------------
 
-@class LambdaFactoryBuilder: libparsing.AbstractProcessor
+@class LambdaFactoryBuilder: libparsing.Processor
 | Converts a parse tree into a Lambda Factory program model, which can then
 | be translated to one of Lambda Factory's target language.
 |
@@ -775,20 +786,22 @@
 		return on(element resolve ("code", data))
 	@end
 
-	@method onCode element, data, context
+	@method onCode match
+		print ("MATCH", match)
 		var res   = []
-		var value = on(data)
-		if (type(value) is list) or (type(value) is tuple)
-			for _ in (on(data) or [])
-				if (type(_) is list) or (type(_) is tuple)
-					res += _
-				else
-					res append (_)
-				end
-			end
-		else
-			res append (value)
-		end
+		var d     = self process(match[0])
+		#var value = on(data)
+		#if (type(value) is list) or (type(value) is tuple)
+		#	for _ in (on(data) or [])
+		#		if (type(_) is list) or (type(_) is tuple)
+		#			res += _
+		#		else
+		#			res append (_)
+		#		end
+		#	end
+		#else
+		#	res append (value)
+		#end
 		return res
 	@end
 
@@ -1549,7 +1562,7 @@
 
 @class Parser
 
-	@shared  G = createProgramGrammar (new libparsing Grammar "Sugar")
+	@shared  G = createProgramGrammar (new libparsing Grammar ("Sugar", True))
 	@property environment
 
 	@constructor environment
@@ -1562,7 +1575,8 @@
 		var result    = G parseString (text)
 		# FIXME: Why is this tied to a path?
 		var builder   = new LambdaFactoryBuilder (G, path)
-		var module    = builder process (result)
+		#var builder   = new libparsing TreeWriter (G, path)
+		var module    = builder process (result match)
 		# # FIXME: Proper error reporting when parsing fails
 		return [text, module]
 	@end

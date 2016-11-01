@@ -14,15 +14,17 @@ __module_name__ = 'sugar2'
 __version__ = '0.9'
 G = None
 F = Factory()
-def doIndent (context):
+def doIndent (context, element):
 	self=__module__
+	return True
 	v=context.getVariables().getParent()
 	i=(v.get('requiredIndent') or 0)
 	v.set('requiredIndent', (i + 1))
 
 
-def doCheckIndent (context):
+def doCheckIndent (context, element):
 	self=__module__
+	return True
 	v=context.getVariables()
 	tab_match=context.getVariables().get('tabs')
 	tab_indent=len(tab_match.group())
@@ -30,33 +32,38 @@ def doCheckIndent (context):
 	return (tab_indent == req_indent)
 
 
-def doDedent (context):
+def doDedent (context, element):
 	self=__module__
+	return True
 	v=context.getVariables().getParent()
 	i=(v.get('requiredIndent') or 0)
 	v.set('requiredIndent', (i - 1))
 
 
-def doBlockStart (context):
+def doBlockStart (context, element):
 	self=__module__
+	return True
 	v=context.getVariables().getParent()
 	v.set('blockVariables', v)
 
 
-def doBlockLastSetLine (context):
+def doBlockLastSetLine (context, element):
 	self=__module__
+	return True
 	v=context.getVariables().get('blockVariables')
 	v.set('blockLast', 'line')
 
 
-def doBlockLastSetBody (context):
+def doBlockLastSetBody (context, element):
 	self=__module__
+	return True
 	v=context.getVariables().get('blockVariables')
 	v.set('blockLast', 'body')
 
 
-def doBlockLastIsLine (context):
+def doBlockLastIsLine (context, element):
 	self=__module__
+	return True
 	return (context.getVariables().get('blockLast') == 'line')
 
 
@@ -220,7 +227,7 @@ def createProgramGrammar (g=None):
 	g.procedure('BlockLastSetBody', doBlockLastSetBody)
 	g.rule('BlockLine', s.BLOCKLINE, s.Statements, g.agroup(s.COMMENT, s.EOL).zeroOrMore(), s.BlockLastSetLine)
 	g.rule('BlockBody', s.EOL, s.Indent, s.Code.zeroOrMore(), s.Dedent, s.BlockLastSetBody)
-	g.group('BlockEnd', s.BlockLastIsLine, s.End).disableMemoize()
+	g.group('BlockEnd', s.BlockLastIsLine, s.End)
 	g.rule('IfBranch', s.CheckIndent, s._if, s.Expression, g.agroup(s.BlockBody, s.BlockLine))
 	g.rule('ElifBranch', s.CheckIndent, s._elif, s.Expression, g.agroup(s.BlockBody, s.BlockLine))
 	g.rule('ElseBranch', s.CheckIndent, s._else, g.agroup(s.BlockBody, s.BlockLine))
@@ -268,12 +275,12 @@ def createProgramGrammar (g=None):
 	g.rule('ModuleDeclaration', s.EmptyLines.zeroOrMore(), s.Comment.zeroOrMore(), s.ModuleAnnotation.optional(), s.VersionAnnotation.optional(), s.Documentation.optional()._as('documentation'), s.RequiresAnnotation.optional(), s.TargetAnnotation.optional(), s.ImportOperation.zeroOrMore())
 	g.group('Structure', s.EmptyLines, s.Comment, s.ModuleAttribute, s.Function, s.Class)
 	g.rule('Module', s.ModuleDeclaration, s.Structure.zeroOrMore(), s.Code.zeroOrMore())
-	g.skip(g.agroup(s.SPACE, s.COMMENT))
-	g.axiom(s.Module)
+	g.skip = g.agroup(s.SPACE, s.COMMENT)
+	g.axiom = s.Code
 	return g
 
 
-class LambdaFactoryBuilder(libparsing.AbstractProcessor):
+class LambdaFactoryBuilder(libparsing.Processor):
 	"""Converts a parse tree into a Lambda Factory program model, which can then
 	be translated to one of Lambda Factory's target language.
 	
@@ -304,14 +311,14 @@ class LambdaFactoryBuilder(libparsing.AbstractProcessor):
 		self.scopes = []
 		self.processes = []
 		if path is None: path = None
-		libparsing.AbstractProcessor.__init__(self,grammar)
+		libparsing.Processor.__init__(self,grammar)
 		self.path = path
 		program = F.createProgram()
 		self.scopes.append(program)
 		program.setFactory(F)
 	
 	def on(self, parsingResult):
-		res=(lambda *a,**kw:libparsing.AbstractProcessor.on(self,*a,**kw))(parsingResult)
+		res=(lambda *a,**kw:libparsing.Processor.on(self,*a,**kw))(parsingResult)
 		if isinstance(res, interfaces.IElement):
 			res.setOffset(parsingResult.start, parsingResult.end)
 			if self.path:
@@ -520,17 +527,10 @@ class LambdaFactoryBuilder(libparsing.AbstractProcessor):
 	def onBody(self, element, data, context):
 		return self.on(element.resolve('code', data))
 	
-	def onCode(self, element, data, context):
+	def onCode(self, match):
+		print ('MATCH', match)
 		res=[]
-		value=self.on(data)
-		if ((type(value) is list) or (type(value) is tuple)):
-			for _ in (self.on(data) or []):
-				if ((type(_) is list) or (type(_) is tuple)):
-					res = (res + _)
-				elif True:
-					res.append(_)
-		elif True:
-			res.append(value)
+		d=self.process(match[0])
 		return res
 	
 	def onLine(self, element, data, context):
@@ -657,8 +657,9 @@ class LambdaFactoryBuilder(libparsing.AbstractProcessor):
 	
 	def onExpression(self, element, data, context):
 		prefix_suffixes=self.on(data)
-		prefix=prefix_suffixes[0]
-		suffixes=prefix_suffixes[1]
+		suffixes=prefix_suffixes
+		prefix=suffixes[0]
+		suffixes = suffixes[1]
 		current=None
 		if ((isinstance(prefix, interfaces.ILiteral) or isinstance(prefix, interfaces.IValue)) or isinstance(prefix, interfaces.IClosure)):
 			current = prefix
@@ -1030,7 +1031,7 @@ class SugarCommand(Command):
 	
 
 class Parser:
-	G = createProgramGrammar(libparsing.Grammar('Sugar'))
+	G = createProgramGrammar(libparsing.Grammar('Sugar', True))
 	def __init__ (self, environment):
 		self.environment = None
 		self.environment = environment
@@ -1038,7 +1039,7 @@ class Parser:
 	def parseString(self, text, moduleName, path):
 		result=self.__class__.G.parseString(text)
 		builder=LambdaFactoryBuilder(self.__class__.G, path)
-		module=builder.process(result)
+		module=builder.process(result.match)
 		return [text, module]
 	
 

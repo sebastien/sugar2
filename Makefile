@@ -1,16 +1,16 @@
-SOURCES_SUGAR = $(wildcard Sources/*.spy)
+SOURCES_SUGAR = $(wildcard src/*.spy)
 PRODUCT_PYTHON = $(SOURCES_SUGAR:%.spy=%.py)
 
 all: $(PRODUCT_PYTHON)
-	chmod +x Sources/sugar2.py
+	chmod +x src/sugar2.py
 
-native: Sources/sugar2.so
+native: src/sugar2.so
 
 debug:
-	gdb -ex r --args python Sources/sugar2.py pouet.sg
+	gdb -ex r --args python src/sugar2.py pouet.sg
 
 callgraph:
-	pycallgraph graphviz --output-format=svg --output-file=tooltips.svg -- Sources/sugar2.py -cljs test-modules/tooltips.sjs
+	pycallgraph graphviz --output-format=svg --output-file=tooltips.svg -- src/sugar2.py -cljs test-modules/tooltips.sjs
 
 clean:
 	rm $(PRODUCT_PYTHON)
