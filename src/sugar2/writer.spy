@@ -339,8 +339,8 @@
 		return process(match[0])
 	@end
 
-	@method onClosureBody match
-		return process(match[0])
+	@method onClosureLine match
+		return process(match[2])
 	@end
 
 	@method onClosureStatement match
@@ -348,10 +348,22 @@
 	@end
 
 	@method onClosure match
+		return process(match[0])
+	@end
+
+	@method onInlineClosure match
 		let params = process (match[1])
 		let line   = [process (match[2])]
 		var res    = F createClosure (params)
 		_setCode( res, line)
+		return res
+	@end
+
+	@method onBlockClosure match
+		let params = process (match[1])
+		let code   = process (match[3])
+		var res    = F createClosure (params)
+		_setCode( res, code)
 		return res
 	@end
 
