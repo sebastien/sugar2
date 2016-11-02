@@ -274,17 +274,17 @@
 		return res
 	@end
 
-	@method onCGroup element, data, context
-		var data_name    = element resolve ("name",    data)
-		var data_methods = element resolve ("methods", data) or []
-		var methods      = []
-		var group_annotation = F annotation ("as", on (data_name) getReferenceName ())
-		for m in (on(data_methods) or [])
-			m addAnnotation (group_annotation)
-			methods append (m)
-		end
-		return methods
-	@end
+	# @method onCGroup element, data, context
+	# 	var data_name    = element resolve ("name",    data)
+	# 	var data_methods = element resolve ("methods", data) or []
+	# 	var methods      = []
+	# 	var group_annotation = F annotation ("as", on (data_name) getReferenceName ())
+	# 	for m in (on(data_methods) or [])
+	# 		m addAnnotation (group_annotation)
+	# 		methods append (m)
+	# 	end
+	# 	return methods
+	# @end
 
 	@method _createCallable factory, match
 		let name_type  = process (match[2])
@@ -321,10 +321,6 @@
 
 	@method onConstructor match
 		return _createCallable (F createConstructor, match)
-	@end
-
-	@method onAbstractMethod match
-		return _createCallable (F createAbstractMethod, match)
 	@end
 
 	@method onFunction match

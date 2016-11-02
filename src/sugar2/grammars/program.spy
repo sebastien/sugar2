@@ -245,7 +245,7 @@
 	g rule      ("ComputationInfix", s INFIX_OPERATOR, s Expression)
 	g rule      ("Access",           s LSB,            s Expression, s RSB)
 	g rule      ("Slice",            s LSB,            s Expression optional (), s COLON, s Expression optional (), s RSB)
-	g group     ("Invocation",       s ArgumentsEmpty, s ArgumentsMany, s Literal)
+	g group     ("Invocation",       g arule (s SPACE, s Literal), s ArgumentsEmpty, s ArgumentsMany )
 	g rule      ("Parentheses",      s LP,    s Expression, s RP)
 	g group     ("Prefixes"
 		s Literal
@@ -332,7 +332,7 @@
 	g rule  ("Embed",      s CheckIndent, s oembed, s NAME optional () _as "language", s EOL, s EmbedLine zeroOrMore () _as "body", s OEnd)
 	s Block add (s Embed)
 	g rule  ("Class"
-		g aword "@abstract" optional ()
+		s oabstract optional ()
 		s oclass
 		s NameType _as "name"
 		g arule (s COLON, listOf (s FQName, s COMMA, g)) optional () _as "inherits"
