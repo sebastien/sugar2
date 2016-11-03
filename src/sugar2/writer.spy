@@ -222,13 +222,11 @@
 
 	@method onClass match
 		# We start by binding the scope
-		var name      = process (match[2])
-		let inherits  = []
-		# We have [':', [‥]]
-		for _ in process(match[3])[1]
-			if _
-				inherits append (_)
-			end
+		var name      = process (match["name"])
+		let inherits  = process (match["inherits"])
+		let parents   = []
+		for _ in access(inherits, 1) or []
+			if _ -> inherits append (_)
 		end
 		var res         = F createClass (name, inherits)
 		scopes append (res)
@@ -242,12 +240,10 @@
 		return res
 	@end
 
-	@method onAttribute element, data, context
-		var v     = element variables (data)
-		var name  = getElements (on(v["name"]))
-		var value = getElements (on(v["value"]))
-		var doc   = getElements (on(v["documentation"]))
-		# FIXME: Value is reference, but it should be a resolution if it's a reference, no?
+	@method onAttribute match
+		var name  = process(match["name"])
+		var value = process(match["value"])
+		var doc   = process(match["documentation"])
 		var res   = F _attr (name[0] getReferenceName (), None, value and value[0])
 		res setDocumentation (doc and doc[0])
 		_bind (res)
@@ -288,7 +284,7 @@
 
 	@method _createCallable factory, match
 		let name_type  = process (match["name"])
-		var params     = process (match["parameters"])[0]
+		var params     = access(process (match["parameters"]), 0)
 		let doc        = process (match["documentation"])
 		let body       = process (match["body"])
 		var fun        = None
@@ -433,60 +429,57 @@
 		return [block]
 	@end
 
-	@method onIteration element, data, context
-		return on (element resolve ("for", data))
+	@method onIteration match
+		return process (match["for"])
 	@end
 
-	@method onRepetition element, data, context
-		return on (element resolve ("while", data))
+	@method onRepetition match
+		return process (match["while"])
 	@end
 
-	@method onTry element, data, context
-		var try_branch     = on (element resolve ("try",     data))
-		var catch_branch   = on (element resolve ("catch",   data))
+	@method onTry match
 		var finally_branch = on (element resolve ("finally", data))
-		return F intercept (try_branch, catch_branch, finally_branch)
+		return F intercept (process(match["try"]), process(match["catch"]), process(match["finally"]))
 	@end
 
-	@method onForBranch element, data, context
-		var params   = on (element resolve ("params", data))
-		var expr     = on (element resolve ("expr",   data))
-		var body     = on (element resolve ("body",   data))
-		var process  = F createClosure (params)
-		_addCode (process, body)
-		return F iterate (expr, process)
+	@method onForBranch match
+		var params   = process(match["params"])
+		var expr     = process(match["expr"])
+		var body     = process(match["body"])
+		var block    = F createClosure (params)
+		_addCode (block, body)
+		return F iterate (expr, block)
 	@end
 
-	@method onWhileBranch element, data, context
-		var condition = on (element resolve ("condition", data))
-		var body      = on (element resolve ("body",   data))
-		var process   = F createBlock ()
-		_addCode (process, body)
-		return F repeat (condition, process)
+	@method onWhileBranch match
+		var condition = process (match["condition"])
+		var body      = process (match["body"])
+		var block     = F createBlock ()
+		_addCode (block, body)
+		return F repeat (condition, block)
 	@end
 
-	@method onTryBranch element, data, context
-		var body      = on (element resolve ("body",   data))
-		var process   = F createBlock ()
-		_addCode (process, body)
-		return process
+	@method onTryBranch match
+		var body      = process(match["body"])
+		var block     = F createBlock ()
+		_addCode (block, body)
+		return block
 	@end
 
-	@method onCatchBranch element, data, context
-		var body      = on (element resolve ("body",   data))
-		var param     = on (element resolve ("param",  data))
+	@method onCatchBranch match
+		var body      = process(match["body"])
+		var param     = process(match["param"])
 		var args      = [F _param(param[0] getReferenceName ())]
-		var process   = F createClosure (args)
-		_addCode (process, body)
-		return process
+		var block     = F createClosure (args)
+		_addCode (block, body)
+		return block
 	@end
 
-
-	@method onFinallyBranch element, data, context
-		var body      = on (element resolve ("body",   data))
-		var process   = F createBlock ()
-		_addCode (process, body)
-		return process
+	@method onFinallyBranch match
+		var body      = process(match["body"])
+		var block     = F createBlock ()
+		_addCode (block, body)
+		return block
 	@end
 
 	@method onBlockBody match
@@ -497,14 +490,13 @@
 		return process(match["body"])
 	@end
 
-	@method onEmbed element, data, context
-		var body     = on (element resolve ("body", data))
-		var language = element resolve ("language", data) data
+	@method onEmbed match
+		var body     = process(match["body"])
+		var language = process(match["language"])
 		# FIXME
-		language = "JavaScript"
-		# if language
-		# 	language = language group ()
-		# end
+		if language
+			language = language group ()
+		end
 		var lines    = []
 		for line in body
 			lines append (line[1] group (1))
@@ -650,9 +642,9 @@
 		return process(match[0])
 	@end
 
-	@method onComputationPrefix element, data, content
-		var operator = normalizeOperator (on (data[0]) group ())
-		var operand  = on (data[1])
+	@method onComputationPrefix match
+		var operator = normalizeOperator (process(match[0]) group ())
+		var operand  = process(match[1])
 		return F compute (F _op (operator, getOperatorPriority (operator)), operand)
 	@end
 
@@ -664,11 +656,11 @@
 		return F exception (process (match[1]))
 	@end
 
-	@method onInstanciation element, data, content
+	@method onInstanciation match
 		# Both name and params are suffixes so they're returned as couples,
 		# where we want the second value
-		var name   = on (element resolve ("target",   data))
-		var params = on (element resolve ("params", data))[1]
+		var name   = process(match["target"])
+		var params = process(match["params"])[1]
 		@embed Python
 		|if not (isinstance(params, list) or isinstance(params, tuple)): params = (params,)
 		|return F.instanciate(name, *(params or []))
@@ -717,9 +709,9 @@
 		return [match element name, slots]
 	@end
 
-	@method onSlice element, data, context
-		var start_index = on(data[1])
-		var end_index   = on(data[3])
+	@method onSlice match
+		var start_index = process(match[1])
+		var end_index   = process(match[3])
 		return [element name, start_index, end_index]
 	@end
 
@@ -766,21 +758,24 @@
 		return res
 	@end
 
-	@method onAssignment element, data, context
-		var data_before = element resolve ("before", data)
-		var data_main   = element resolve ("main",   data)
-		var data_rest   = element resolve ("rest",   data)
-		var data_op     = element resolve ("op",     data)
-		var lvalue      = on(data_main)
-		var op_value    = on(data_op)
-		var op          = op_value[0] group ()
+	@method onAssignment match
+		var before      = process(match["before"])
+		var main        = process(match["main"])
+		var rest        = process(match["rest"])
+		var rvalue      = process(match["op"])
+		var lvalue      = main
+		let op          = rvalue[0]
+		rvalue          = rvalue[1]
+		print ("OP", op, rvalue)
 		if op == "="
-			return F assign (lvalue, op_value[1])
-		if op == "?="
+			# We have an regular assignment
+			return F assign (lvalue, rvalue)
+		elif op == "?="
+			# We have a conditional assignment
 			# In this case: A ?= B is the equivalent of
 			# if not (A) -> A = B
 			var predicate  = F compute (F _op "not", lvalue)
-			var assignment = F assign  (lvalue copy (), op_value[1])
+			var assignment = F assign  (lvalue copy (), rvalue)
 			var match      = F matchExpression (predicate, assignment)
 			var res        = F select ()
 			res addRule (match)
@@ -807,25 +802,28 @@
 			# 	res append (F assign (mod_lvalue, F resolve "__temp__"))
 			# 	return res
 			# else
-			var c = F compute (F _op (sub_op, getOperatorPriority (sub_op)), lvalue, op_value[1])
+			var c = F compute (F _op (sub_op, getOperatorPriority (sub_op)), lvalue, rvalue)
 			return F assign (lvalue copy () detach (), c)
 		end
 	@end
 
-	@method onAssignable element, data, context
-		var data_lvalue   = data[0]
-		var data_suffixes = data[1]
-		var lvalue        = on (data_lvalue)
-		var suffixes      = on (data_suffixes)
-		return _applySuffixes (lvalue, suffixes)
+	@method onAssignable match
+		return _applySuffixes (process(match[0]), process(match[1]))
 	@end
 
-	@method onIterationLine element, data, context
-		var data_lvalue   = data[0]
-		var data_closure  = data[2]
-		var lvalue        = on (data_lvalue)
-		var closure       = on (data_closure)
-		return F iterate (lvalue, closure)
+	@method onIterationLine match
+		let op = process(match[1])
+		if op == "::"
+			return F iterate (process(match[0]), process(match[2]))
+		elif op == "::?"
+			return F filter  (process(match[0]), process(match[2]))
+		elif op == "::="
+			return F map     (process(match[0]), process(match[2]))
+		elif op == "::<"
+			return F reduce  (process(match[0]), process(match[2]))
+		else
+			throw ValueError("Unsupported iteration operator: {0}" format(op))
+		end
 	@end
 
 	@method onTermination match
@@ -919,12 +917,11 @@
 	# COMPOUND TYPES (MAP)
 	# =========================================================================
 
-	@method onMap element, data, context
-		var res        = F _dict ()
-		var data_list  = element resolve (g symbols KeyValueList,  data)
-		var data_block = element resolve (g symbols KeyValueBlock, data)
-		var elements   = (on(data_list) or []) + (on(data_block) or [])
-		for _ in elements
+	@method onMap match
+		var res  = F _dict ()
+		let head = process(match["head"])
+		let tail = process(match["tail"])
+		for _ in (head + tail)
 			if _
 				res setValue (_[0], _[1])
 			end

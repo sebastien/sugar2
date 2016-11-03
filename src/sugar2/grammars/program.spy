@@ -142,6 +142,8 @@
 	g token     ("EMBED_LINE",       "\|([^\n]*)")
 	g token     ("VERSION",          "[0-9]+(\.[0-9]+)?(\.[0-9]+)?[a-zA-Z_]*")
 	g token     ("DOT_OR_SPACE",     "\.|[ \t]+")
+	g token     ("ITERATOR",         "::[\?=\<]?")
+	g token     ("ELLIPSIS",         "\.\.\.|‥")
 	# Punctuation
 	g word      ("LP",               "(")
 	g word      ("RP",               ")")
@@ -156,9 +158,7 @@
 	g word      ("PIPE",             "|")
 	g word      ("EQUALS",           "=")
 	g word      ("WILDCARD",         "*")
-	g word      ("ITERATOR",         "::")
 	g word      ("BLOCKLINE",        "->")
-	g word      ("ELLIPSIS",         "...")
 	g condition ("NOTHING")
 	# Keywords
 	g word      ("_var",             "var")
@@ -214,8 +214,8 @@
 	g rule      ("ExpressionList",   s Expression, g arule (s COMMA, s Expression) zeroOrMore ())
 	g rule      ("ExpressionBlock",  s Indent,     g arule (s EOL,   s CheckIndent, s ExpressionList) oneOrMore (), s Dedent)
 	g rule      ("KeyValueBlock",    s Indent,     g arule (s EOL,   s CheckIndent, s KeyValueList  ) oneOrMore (), s Dedent)
-	g rule      ("Array",            s LSB, s ExpressionList optional (), s ExpressionBlock optional (), g arule (s EOL, s CheckIndent) optional (), s RSB)
-	g rule      ("Map",              s LB,  s KeyValueList   optional (), s KeyValueBlock   optional (), g arule (s EOL, s CheckIndent) optional (), s RB)
+	g rule      ("Array",            s LSB, s ExpressionList optional () _as "head", s ExpressionBlock optional () _as "tail", g arule (s EOL, s CheckIndent) optional (), s RSB)
+	g rule      ("Map",              s LB,  s KeyValueList   optional () _as "head", s KeyValueBlock   optional () _as "tail", g arule (s EOL, s CheckIndent) optional (), s RB)
 
 	# Declarations
 	g rule      ("TypeStructure",    g atoken "\<[^\>]*\>")
@@ -232,7 +232,7 @@
 	g rule      ("ClosureLine",       s EOL, s CheckIndent, s ClosureStatement)
 	g rule      ("ClosureParameters", s ParameterList, s PIPE)
 	g rule      ("InlineClosure",     s LB, s ClosureParameters optional(),  s ClosureStatement, s RB)
-	g rule      ("BlockClosure",      s LB, s ClosureParameters optional (), s Indent, s ClosureLine zeroOrMore (), s Dedent, s EOL, s RB)
+	g rule      ("BlockClosure",      s LB, s ClosureParameters optional (), s Indent, s ClosureLine zeroOrMore (), s Dedent, s EOL, s CheckIndent, s RB)
 	g group     ("Closure",           s BlockClosure, s InlineClosure)
 
 	# Expression prefixes

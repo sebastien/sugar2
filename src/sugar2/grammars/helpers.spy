@@ -25,8 +25,7 @@
 @function doCheckIndent element, context
 	let i = context get("indent") or 0
 	let m = (context lastMatch and context lastMatch length) or 0
-	print ("XXX INDENT", i, "==", m)
-	return m == i
+	return m >= i
 @end
 
 @function doBlockStart element, context
