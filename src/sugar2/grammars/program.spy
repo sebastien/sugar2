@@ -196,8 +196,7 @@
 	# Indentation
 	g procedure ("Indent",           doIndent)
 	g procedure ("Dedent",           doDedent)
-	g rule      ("CheckIndent",      s TABS _as "tabs")
-	#s TABS _as "tabs", g acondition (doCheckIndent)) disableMemoize ()
+	g rule      ("CheckIndent",      s TABS _as "tabs", g acondition (doCheckIndent))
 
 	# Documentation & Comments
 	# g rule      ("CommentLine",      s COMMENT,     s EOL)
@@ -334,7 +333,7 @@
 	g rule  ("Class"
 		s oabstract optional ()
 		s oclass
-		s NameType _as "name"
+		s NAME _as "name"
 		g arule (s COLON, listOf (s FQName, s COMMA, g)) optional () _as "inherits"
 		s EOL
 		s Documentation optional () _as "documentation"

@@ -156,21 +156,16 @@
 		end
 	@end
 
-	@method _setCode element, code
+	@method _addCode element, code
 		code = code or []
-		for line in (code or [])
-			if not (isinstance(line, tuple) or isinstance(line, list))
-				line = [line]
+		if isinstance(code, list) or isinstance(code, tuple)
+			for _ in code
+				_addCode(element, _)
 			end
-			for statement in (line or [])
-				if isinstance (statement, interfaces IOperation)
-					element addOperation (statement)
-				elif isinstance(line, tuple) or isinstance(line, list)
-					_setCode (element, line)
-				else
-					assert (False, "Code element type not supported: {0}" format (repr(statement)))
-				end
-			end
+		elif isinstance(code, interfaces IOperation)
+			element addOperation (code)
+		elif code
+			assert (False, "Code element type not supported: {0}" format (repr(code)))
 		end
 		return element
 	@end
@@ -207,7 +202,7 @@
 
 		# We create the init function
 		var init_function  = F createFunction (F ModuleInit)
-		_setCode (init_function, code)
+		_addCode (init_function, code)
 		_bind    (init_function)
 
 		# We pop the scopes as we're done with the module
@@ -225,17 +220,22 @@
 		return F annotation ("version", match[1] group ())
 	@end
 
-	@method onClass element, data, context
+	@method onClass match
 		# We start by binding the scope
-		var variables   = element variables (data)
-		var name        = getElements (on(variables["name"]))
-		var res         = F createClass (name[0] getName (), name[1:])
+		var name      = process (match[2])
+		let inherits  = []
+		# We have [':', [‥]]
+		for _ in process(match[3])[1]
+			if _
+				inherits append (_)
+			end
+		end
+		var res         = F createClass (name, inherits)
 		scopes append (res)
-		var is_abstract = on(data[0])
-		var inherits    = on(variables["inherits"])
-		var doc         = element resolve ("documentation", data)
-		on(variables["body"])
-		res setDocumentation (doc and on(doc))
+		let is_abstract = match[0] length
+		let doc         = process(match[5])
+		let body        = process(match[7])
+		res setDocumentation (doc)
 		res setAbstract      (is_abstract and True)
 		scopes pop ()
 		_bind (res)
@@ -287,19 +287,19 @@
 	# @end
 
 	@method _createCallable factory, match
-		let name_type  = process (match[2])
-		let params     = process (match[3])
-		let doc        = process (match[4])
-		let body       = process (match[5])
+		let name_type  = process (match["name"])
+		var params     = process (match["parameters"])[0]
+		let doc        = process (match["documentation"])
+		let body       = process (match["body"])
 		var fun        = None
-		if name_type
-			fun    = factory (name_type[0] getReferenceName (), params)
-		else
+		if name_type is True
 			fun    = factory (params)
+		else
+			fun    = factory (name_type[0] getReferenceName (), params)
 		end
 		fun setDocumentation (doc)
 		scopes append (fun)
-		_setCode (fun, body)
+		_addCode (fun, body)
 		scopes pop ()
 		_bind    (fun)
 		return fun
@@ -351,7 +351,7 @@
 		let params = process (match[1])
 		let line   = [process (match[2])]
 		var res    = F createClosure (params)
-		_setCode( res, line)
+		_addCode( res, line)
 		return res
 	@end
 
@@ -359,7 +359,7 @@
 		let params = process (match[1])
 		let code   = process (match[3])
 		var res    = F createClosure (params)
-		_setCode( res, code)
+		_addCode( res, code)
 		return res
 	@end
 
@@ -426,7 +426,7 @@
 		var block          = F createBlock ()
 		# FIXME: I don't get why I have to use data_body data
 		var code           = on (data_body data)
-		_setCode (block, code)
+		_addCode (block, code)
 		return [on(data_condition), block]
 	@end
 
@@ -435,7 +435,7 @@
 		var data_body      = data[-1]
 		var block          = F createBlock ()
 		# FIXME: I don't get why I have to use data_body data
-		_setCode (block, on(data_body data))
+		_addCode (block, on(data_body data))
 		return [on(data_condition), block]
 	@end
 
@@ -443,7 +443,7 @@
 		var data_body = data[-1]
 		var block          = F createBlock ()
 		# FIXME: I don't get why I have to use data_body data
-		_setCode (block, on(data_body data))
+		_addCode (block, on(data_body data))
 		return [block]
 	@end
 
@@ -467,7 +467,7 @@
 		var expr     = on (element resolve ("expr",   data))
 		var body     = on (element resolve ("body",   data))
 		var process  = F createClosure (params)
-		_setCode (process, body)
+		_addCode (process, body)
 		return F iterate (expr, process)
 	@end
 
@@ -475,14 +475,14 @@
 		var condition = on (element resolve ("condition", data))
 		var body      = on (element resolve ("body",   data))
 		var process   = F createBlock ()
-		_setCode (process, body)
+		_addCode (process, body)
 		return F repeat (condition, process)
 	@end
 
 	@method onTryBranch element, data, context
 		var body      = on (element resolve ("body",   data))
 		var process   = F createBlock ()
-		_setCode (process, body)
+		_addCode (process, body)
 		return process
 	@end
 
@@ -491,7 +491,7 @@
 		var param     = on (element resolve ("param",  data))
 		var args      = [F _param(param[0] getReferenceName ())]
 		var process   = F createClosure (args)
-		_setCode (process, body)
+		_addCode (process, body)
 		return process
 	@end
 
@@ -499,7 +499,7 @@
 	@method onFinallyBranch element, data, context
 		var body      = on (element resolve ("body",   data))
 		var process   = F createBlock ()
-		_setCode (process, body)
+		_addCode (process, body)
 		return process
 	@end
 

@@ -5,63 +5,44 @@
 # License           : BSD License
 # -----------------------------------------------------------------------------
 # Creation date     : 2016-11-01
-# Last modification : 2016-11-01
+# Last modification : 2016-11-03
 # -----------------------------------------------------------------------------
 
 @module sugar2.grammars.helpers
 | A collection of helper functions used by the grammar submodules
 
 
-@function doIndent context, element
-	return True
-	var v = context getVariables () getParent ()
-	var i = v get "requiredIndent" or 0
-	v set ("requiredIndent", i + 1)
-	# sys stderr write ("XXX doIndent: indent=" + str(v get "requiredIndent") + "\n")
+@function doIndent element, context
+	let indent = context get "indent" or 0
+	context set ("indent", indent + 1)
 @end
 
-@function doCheckIndent context, element
-	return True
-	var v          = context getVariables ()
-	var tab_match  = context getVariables () get "tabs"
-	var tab_indent = len(tab_match group ())
-	var req_indent = v get "requiredIndent" or 0
-	# sys stderr write ("XXX checkIndent tab=" + str(tab_indent) + ", required=" + str(req_indent) + "\n")
-	return  tab_indent == req_indent
+@function doDedent element, context
+	let indent = context get "indent" or 0
+	context set ("indent", indent - 1)
 @end
 
-@function doDedent context, element
-	return True
-	var v = context getVariables () getParent ()
-	var i = v get "requiredIndent" or 0
-	v set ("requiredIndent", i - 1)
-	# sys stderr write ("XXX doDedent indent=" + str(v get "requiredIndent") + "\n")
+@function doCheckIndent element, context
+	let i = context get("indent") or 0
+	let m = (context lastMatch and context lastMatch length) or 0
+	print ("XXX INDENT", i, "==", m)
+	return m == i
 @end
 
-@function doBlockStart context, element
-	return True
-	var v = context getVariables () getParent ()
-	v set ("blockVariables", v)
-	# sys stderr write ("XXX block start\n")
+@function doBlockStart element, context
+	pass
 @end
 
-@function doBlockLastSetLine context, element
-	return True
-	var v = context getVariables () get "blockVariables"
-	# sys stderr write ("XXX block last set line\n")
-	v set ("blockLast", "line")
+@function doBlockLastSetLine element, context
+	context set ("blockLast", 1)
 @end
 
-@function doBlockLastSetBody context, element
-	return True
-	var v = context getVariables () get "blockVariables"
-	# sys stderr write ("XXX block last set body\n")
-	v set ("blockLast", "body")
+@function doBlockLastSetBody  element, context
+	context set ("blockLast", 2)
 @end
 
-@function doBlockLastIsLine context, element
-	return True
-	return context getVariables () get "blockLast" == "line"
+@function doBlockLastIsLine  element, context
+	return context get "blockLast" == 1
 @end
 
 # EOF - vim: ts=4 sw=4 noet
