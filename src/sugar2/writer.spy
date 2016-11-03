@@ -401,13 +401,10 @@
 	# CONTROL STRUCTURES
 	# =========================================================================
 
-	@method onConditional element, data, context
-		var data_if    = data[1]
-		var data_elifs = data[2]
-		var data_else  = data[3]
-		var _if        = on (data_if)
-		var _elifs     = on (data_elifs) or []
-		var _else      = on (data_else)
+	@method onConditional match
+		var _if        = process(match["if"])
+		var _elifs     = process(match["elif"])
+		var _else      = process(match["else"])
 		var res        = F select ()
 		res addRule (F matchProcess (_if[0], _if[1]))
 		for _ in _elifs
@@ -420,30 +417,19 @@
 		return res
 	@end
 
-	@method onIfBranch element, data, context
-		var data_condition = data[-2]
-		var data_body      = data[-1]
+	@method onIfBranch match
 		var block          = F createBlock ()
-		# FIXME: I don't get why I have to use data_body data
-		var code           = on (data_body data)
-		_addCode (block, code)
-		return [on(data_condition), block]
+		_addCode (block, process(match["body"]))
+		return [process(match["condition"]), block]
 	@end
 
-	@method onElifBranch element, data, context
-		var data_condition = data[-2]
-		var data_body      = data[-1]
-		var block          = F createBlock ()
-		# FIXME: I don't get why I have to use data_body data
-		_addCode (block, on(data_body data))
-		return [on(data_condition), block]
+	@method onElifBranch match
+		return onIfBranch (match)
 	@end
 
 	@method onElseBranch element, data, context
-		var data_body = data[-1]
-		var block          = F createBlock ()
-		# FIXME: I don't get why I have to use data_body data
-		_addCode (block, on(data_body data))
+		var block  = F createBlock ()
+		_addCode (block, process(match["body"]))
 		return [block]
 	@end
 
@@ -503,14 +489,12 @@
 		return process
 	@end
 
-	@method onBlockBody element, data, context
-		# Returns the code contained in the block body
-		return on(data[2])
+	@method onBlockBody match
+		return process(match["body"])
 	@end
 
-	@method onBlockLine element, data, context
-		# Returns the statements contained in the block line
-		return on(data[1])
+	@method onBlockLine match
+		return process(match["body"])
 	@end
 
 	@method onEmbed element, data, context

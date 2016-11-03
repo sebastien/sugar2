@@ -285,23 +285,23 @@
 	# FIXME: This is EOL is causing problems with comments straight after a single-line if
 	# | if (not context) and (not isList(context)) and (not isMap(context)) -> context = {}
 	# | # Support key-value pairs as well
-	g rule      ("BlockLine",        s BLOCKLINE, s Statements, g agroup (s COMMENT, s EOL) zeroOrMore (),s BlockLastSetLine)
+	g rule      ("BlockLine",        s BLOCKLINE, s Statements _as "body", g agroup (s COMMENT, s EOL) zeroOrMore (),s BlockLastSetLine)
 	#g rule      ("BlockLine",        s BLOCKLINE, s Statements,   s BlockLastSetLine)
-	g rule      ("BlockBody",        s EOL, s Indent, s Code zeroOrMore (), s Dedent, s BlockLastSetBody)
+	g rule      ("BlockBody",        s EOL, s Indent, s Code zeroOrMore () _as "body", s Dedent, s BlockLastSetBody)
 	g group     ("BlockEnd",         s BlockLastIsLine, s End)
 	# disableMemoize ()
 	# NOTE: If has no checkindednt to support for {assd|if -> asdsadas ... }
 	# FIXME: Leaving the s CheckIndent optional () here puts the parser in an infinite loop...
 	# g rule      ("IfBranch",         s CheckIndent optional (), s _if,    s Expression, g agroup (s BlockBody, s BlockLine))
-	g rule      ("IfBranch",         s CheckIndent, s _if,    s Expression, g agroup (s BlockBody, s BlockLine))
-	g rule      ("ElifBranch",       s CheckIndent, s _elif,  s Expression, g agroup (s BlockBody, s BlockLine))
-	g rule      ("ElseBranch",       s CheckIndent, s _else,                g agroup (s BlockBody, s BlockLine))
+	g rule      ("IfBranch",         s CheckIndent, s _if,    s Expression _as "condition", g agroup (s BlockBody, s BlockLine) _as "body")
+	g rule      ("ElifBranch",       s CheckIndent, s _elif,  s Expression _as "condition", g agroup (s BlockBody, s BlockLine) _as "body")
+	g rule      ("ElseBranch",       s CheckIndent, s _else,                                g agroup (s BlockBody, s BlockLine) _as "body")
 	g rule      ("WhileBranch",      s CheckIndent, s _while, s Expression _as "condition", g agroup (s BlockBody, s BlockLine) _as "body")
-	g rule      ("TryBranch",        s CheckIndent, s _try,                 g agroup (s BlockBody, s BlockLine) _as "body")
-	g rule      ("FinallyBranch",    s CheckIndent, s _finally,             g agroup (s BlockBody, s BlockLine) _as "body")
+	g rule      ("TryBranch",        s CheckIndent, s _try,                                 g agroup (s BlockBody, s BlockLine) _as "body")
+	g rule      ("FinallyBranch",    s CheckIndent, s _finally,                             g agroup (s BlockBody, s BlockLine) _as "body")
 	g rule      ("CatchBranch",      s CheckIndent, s _catch, s NameType optional () _as "param", g agroup (s BlockBody, s BlockLine) _as "body")
 	g rule      ("ForBranch",        s CheckIndent, s _for,   s ParameterList _as "params", s _in, s Expression _as "expr", g agroup (s BlockBody, s BlockLine) _as "body")
-	g rule      ("Conditional",      s BlockStart, s IfBranch,    s ElifBranch zeroOrMore (), s ElseBranch optional (), s BlockEnd)
+	g rule      ("Conditional",      s BlockStart, s IfBranch _as "if",    s ElifBranch zeroOrMore () _as "elif", s ElseBranch optional () _as "else", s BlockEnd)
 	g rule      ("Try",              s BlockStart, s TryBranch _as "try",   s CatchBranch optional  () _as "catch", s FinallyBranch optional () _as "finally", s BlockEnd)
 	g rule      ("Repetition",       s BlockStart, s WhileBranch _as "while", s BlockEnd)
 	g rule      ("Iteration",        s BlockStart, s ForBranch   _as "for",   s BlockEnd)
