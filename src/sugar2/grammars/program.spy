@@ -284,7 +284,7 @@
 	# | # Support key-value pairs as well
 	g rule      ("BlockLine",        s BLOCKLINE, s Statements _as "body", g agroup (s COMMENT, s EOL) zeroOrMore ())
 	g rule      ("BlockBody",        s EOL, s Indent, s Code zeroOrMore () _as "body", s Dedent)
-	g group     ("BlockEnd",         s End optional ())
+	g group     ("BlockEnd",         g arule (s CheckIndent, s End) )
 	# disableMemoize ()
 	# NOTE: If has no checkindednt to support for {assd|if -> asdsadas ... }
 	# FIXME: Leaving the s CheckIndent optional () here puts the parser in an infinite loop...
@@ -335,7 +335,7 @@
 	g group ("Methods", s Operation, s AbstractOperation, s Method, s AbstractMethod, s AbstractMethod, s CGroup, s Comment)
 	s CGroup set (s CheckIndent, s ogroup, s NAME _as "name",     s EOL, s Documentation optional (), s Indent, s Methods zeroOrMore () _as "methods", s Dedent, s OEnd)
 	g rule  ("EmbedLine",  s CheckIndent, s EMBED_LINE, s EOL)
-	g rule  ("Embed",      s CheckIndent, s oembed, s NAME optional () _as "language", s EOL, s EmbedLine zeroOrMore () _as "body", s OEnd)
+	g rule  ("Embed",      s CheckIndent, s oembed, s SPACE, s NAME optional () _as "language", s EOL, s EmbedLine zeroOrMore () _as "body", s OEnd)
 	s Block add (s Embed)
 	g rule  ("Class"
 		s oabstract optional ()

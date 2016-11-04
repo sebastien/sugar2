@@ -459,7 +459,6 @@
 	@end
 
 	@method onTry match
-		var finally_branch = on (element resolve ("finally", data))
 		return F intercept (process(match["try"]), process(match["catch"]), process(match["finally"]))
 	@end
 
@@ -514,13 +513,12 @@
 	@method onEmbed match
 		var body     = process(match["body"])
 		var language = process(match["language"])
-		# FIXME
 		if language
-			language = language group ()
+			language = language getName ()
 		end
 		var lines    = []
 		for line in body
-			lines append (line[1] group (1))
+			lines append (line[1][1:])
 		end
 		return F embed (language, "\n" join (lines))
 	@end
