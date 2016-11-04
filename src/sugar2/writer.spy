@@ -397,12 +397,17 @@
 	# CONTROL STRUCTURES
 	# =========================================================================
 
-	@method onConditional match
+	@method onConditionalLine match
+		return onConditionalBlock (match)
+	@end
+
+	@method onConditionalBlock match
 		var _if        = process(match["if"])
 		var _elifs     = process(match["elif"])
 		var _else      = process(match["else"])
 		var res        = F select ()
 		res addRule (F matchProcess (_if[0], _if[1]))
+		print ("ELIF")
 		for _ in _elifs
 			res addRule (F matchProcess (_[0], _[1]))
 		end
@@ -413,20 +418,36 @@
 		return res
 	@end
 
-	@method onIfBranch match
+	@method onConditional match
+		return process(match[0])
+	@end
+
+	@method onIfBlock match
 		var block          = F createBlock ()
 		_addCode (block, process(match["body"]))
 		return [process(match["condition"]), block]
 	@end
 
-	@method onElifBranch match
-		return onIfBranch (match)
+	@method onIfLine match
+		return onIfBlock (match)
 	@end
 
-	@method onElseBranch element, data, context
+	@method onElifBlock match
+		return onIfBlock (match)
+	@end
+
+	@method onElifLine match
+		return onElifBlock (match)
+	@end
+
+	@method onElseBlock match
 		var block  = F createBlock ()
 		_addCode (block, process(match["body"]))
 		return [block]
+	@end
+
+	@method onElseLine match
+		return onElseBlock (match)
 	@end
 
 	@method onIteration match
@@ -442,7 +463,7 @@
 		return F intercept (process(match["try"]), process(match["catch"]), process(match["finally"]))
 	@end
 
-	@method onForBranch match
+	@method onForBlock match
 		var params   = process(match["params"])
 		var expr     = process(match["expr"])
 		var body     = process(match["body"])
@@ -451,7 +472,7 @@
 		return F iterate (expr, block)
 	@end
 
-	@method onWhileBranch match
+	@method onWhileBlock match
 		var condition = process (match["condition"])
 		var body      = process (match["body"])
 		var block     = F createBlock ()
@@ -459,14 +480,14 @@
 		return F repeat (condition, block)
 	@end
 
-	@method onTryBranch match
+	@method onTryBlock match
 		var body      = process(match["body"])
 		var block     = F createBlock ()
 		_addCode (block, body)
 		return block
 	@end
 
-	@method onCatchBranch match
+	@method onCatchBlock match
 		var body      = process(match["body"])
 		var param     = process(match["param"])
 		var args      = [F _param(param[0] getReferenceName ())]
@@ -475,7 +496,7 @@
 		return block
 	@end
 
-	@method onFinallyBranch match
+	@method onFinallyBlock match
 		var body      = process(match["body"])
 		var block     = F createBlock ()
 		_addCode (block, body)
