@@ -26,7 +26,7 @@
 @function doCheckIndent element, context
 	let i = context get("indent") or 0
 	let m = (context lastMatch and context lastMatch length) or 0
-	sys stderr write ("CHECK INDENT {0} {1}\n" format (i,m))
+	sys stderr write ("CHECK INDENT {0} {1} {2} @ {3}\n" format (i,m, m >= i, context offset))
 	return m >= i
 @end
 

@@ -290,16 +290,17 @@
 	# FIXME: Leaving the s CheckIndent optional () here puts the parser in an infinite loop...
 	# g rule      ("IfBranch",         s CheckIndent optional (), s _if,    s Expression, g agroup (s BlockBody, s BlockLine))
 
+	# FIXME: This is a big mess
 	g rule      ("IfLine" ,    s _if,    s Expression _as "condition", g agroup (s BlockLine) _as "body")
 	g rule      ("ElifLine" ,  s EOL, s CheckIndent, s _elif,  s Expression _as "condition", g agroup (s BlockLine) _as "body")
 	g rule      ("ElseLine" ,  s EOL, s CheckIndent, s _else,  g agroup (s BlockLine) _as "body")
 
 	g rule      ("IfBlock" ,        s _if,    s Expression _as "condition", g agroup (s BlockBody, s BlockLine) _as "body")
-	g rule      ("ElifBlock",       s EOL, s CheckIndent, s _elif,  s Expression _as "condition", g agroup (s BlockBody, s BlockLine) _as "body")
-	g rule      ("ElseBlock",       s EOL, s CheckIndent, s _else,                                g agroup (s BlockBody, s BlockLine) _as "body")
+	g rule      ("ElifBlock",       s CheckIndent, s _elif,  s Expression _as "condition", g agroup (s BlockBody, s BlockLine) _as "body")
+	g rule      ("ElseBlock",       s CheckIndent, s _else,                                g agroup (s BlockBody, s BlockLine) _as "body")
 	g rule      ("WhileBlock",      s _while, s Expression _as "condition", g agroup (s BlockBody, s BlockLine) _as "body")
 
-	g rule      ("TryBlock",        s _try,                                 g agroup (s BlockBody, s BlockLine) _as "body")
+	g rule      ("TryBlock",        s TABS, s _try,                                 g agroup (s BlockBody, s BlockLine) _as "body")
 	g rule      ("FinallyBlock",    s EOL, s CheckIndent, s _finally,                             g agroup (s BlockBody, s BlockLine) _as "body")
 	g rule      ("CatchBlock",      s EOL, s CheckIndent, s _catch, s NameType optional () _as "param", g agroup (s BlockBody, s BlockLine) _as "body")
 	g rule      ("ForBlock",        s _for,   s ParameterList _as "params", s _in, s Expression _as "expr", g agroup (s BlockBody, s BlockLine) _as "body")

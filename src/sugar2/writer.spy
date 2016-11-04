@@ -407,7 +407,6 @@
 		var _else      = process(match["else"])
 		var res        = F select ()
 		res addRule (F matchProcess (_if[0], _if[1]))
-		print ("ELIF")
 		for _ in _elifs
 			res addRule (F matchProcess (_[0], _[1]))
 		end
@@ -662,7 +661,7 @@
 	@end
 
 	@method onComputationPrefix match
-		var operator = normalizeOperator (process(match[0]) group ())
+		var operator = normalizeOperator (process(match[0]))
 		var operand  = process(match[1])
 		return F compute (F _op (operator, getOperatorPriority (operator)), operand)
 	@end
@@ -785,7 +784,6 @@
 		var lvalue      = main
 		let op          = rvalue[0]
 		rvalue          = rvalue[1]
-		print ("OP", op, rvalue)
 		if op == "="
 			# We have an regular assignment
 			return F assign (lvalue, rvalue)
@@ -948,11 +946,9 @@
 		return res
 	@end
 
-	@method onKeyValueList element, data, context
+	@method onKeyValueList match
 		var res  = []
-		var expr = on (data)
-		res append (expr[0])
-		for _ in (expr[1] or [])
+		for _ in process(match[1])
 			# We have _ = [COMMA, <model.KeyValue>]
 			#              0       1
 			res append (_[1])
@@ -960,11 +956,9 @@
 		return res
 	@end
 
-	@method onKeyValueBlock element, data, context
+	@method onKeyValueBlock match
 		var res  = []
-		var expr = on (data)
-		res append (expr[0])
-		for _ in (expr[1] or [])
+		for _ in  process (match[1])
 			# We have _ = [EOL, CheckIndent, KeyValueList]
 			#              0    1            2
 			res += _[2]
@@ -972,14 +966,12 @@
 		return res
 	@end
 
-	@method onKeyValue element, data, context
-		var key   = element resolve (g symbols Key,        data)
-		var value = element resolve (g symbols Expression, data)
-		return [on(key), on(value)]
+	@method onKeyValue match
+		return [process(match[0]), process (match[2])]
 	@end
 
-	@method onKey element, data, context
-		var res = on (data)
+	@method onKey match
+		let res = process (match[0])
 		if isinstance(res, interfaces IElement)
 			return res
 		else
