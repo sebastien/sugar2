@@ -11,6 +11,7 @@
 @module sugar2.grammars.helpers
 | A collection of helper functions used by the grammar submodules
 
+@import sys
 
 @function doIndent element, context
 	let indent = context get "indent" or 0
@@ -25,6 +26,7 @@
 @function doCheckIndent element, context
 	let i = context get("indent") or 0
 	let m = (context lastMatch and context lastMatch length) or 0
+	sys stderr write ("CHECK INDENT {0} {1}\n" format (i,m))
 	return m >= i
 @end
 

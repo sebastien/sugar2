@@ -250,11 +250,11 @@
 		return res
 	@end
 
-	@method onClassAttribute element, data, context
-		let name_type = process (match[2])
-		let value     = _tryGet (process (match[3]), 1, None)
-		let doc       = process (match[5])
-		var res       = F _classattr (name_type[0] getReferenceName (), None, value and value[0])
+	@method onClassAttribute match
+		var name  = process(match["name"])
+		var value = process(match["value"])
+		var doc   = process(match["documentation"])
+		var res   = F _classattr (name[0] getReferenceName (), None, value and value[0])
 		res setDocumentation (doc and doc[0])
 		_bind (res)
 		return res

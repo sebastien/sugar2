@@ -231,8 +231,8 @@
 	g rule      ("ClosureStatement")
 	g rule      ("ClosureLine",       s EOL, s CheckIndent, s ClosureStatement)
 	g rule      ("ClosureParameters", s ParameterList, s PIPE)
-	g rule      ("InlineClosure",     s LB, s ClosureParameters optional(),  s ClosureStatement, s RB)
-	g rule      ("BlockClosure",      s LB, s ClosureParameters optional (), s Indent, s ClosureLine zeroOrMore (), s Dedent, s EOL, s CheckIndent, s RB)
+	g rule      ("InlineClosure",     s LB, s ClosureParameters optional (), s ClosureStatement, s RB)
+	g rule      ("BlockClosure",      s LB, s ClosureParameters optional (), s Indent, s ClosureLine zeroOrMore (), s EOL,  s Dedent, s CheckIndent, s RB)
 	g group     ("Closure",           s BlockClosure, s InlineClosure)
 
 	# Expression prefixes
@@ -282,7 +282,7 @@
 	# FIXME: This is EOL is causing problems with comments straight after a single-line if
 	# | if (not context) and (not isList(context)) and (not isMap(context)) -> context = {}
 	# | # Support key-value pairs as well
-	g rule      ("BlockLine",        s BLOCKLINE, s Statements _as "body", g agroup (s COMMENT, s EOL) zeroOrMore ())
+	g rule      ("BlockLine",        s BLOCKLINE, s Statements _as "body", s COMMENT optional ())
 	g rule      ("BlockBody",        s EOL, s Indent, s Code zeroOrMore () _as "body", s Dedent)
 	g group     ("BlockEnd",         g arule (s CheckIndent, s End) )
 	# disableMemoize ()
@@ -290,19 +290,19 @@
 	# FIXME: Leaving the s CheckIndent optional () here puts the parser in an infinite loop...
 	# g rule      ("IfBranch",         s CheckIndent optional (), s _if,    s Expression, g agroup (s BlockBody, s BlockLine))
 
-	g rule      ("IfLine" ,    s CheckIndent, s _if,    s Expression _as "condition", g agroup (s BlockLine) _as "body")
-	g rule      ("ElifLine" ,  s CheckIndent, s _elif,  s Expression _as "condition", g agroup (s BlockLine) _as "body")
-	g rule      ("ElseLine" ,  s CheckIndent, s _else,  g agroup (s BlockLine) _as "body")
+	g rule      ("IfLine" ,    s _if,    s Expression _as "condition", g agroup (s BlockLine) _as "body")
+	g rule      ("ElifLine" ,  s EOL, s CheckIndent, s _elif,  s Expression _as "condition", g agroup (s BlockLine) _as "body")
+	g rule      ("ElseLine" ,  s EOL, s CheckIndent, s _else,  g agroup (s BlockLine) _as "body")
 
-	g rule      ("IfBlock" ,         s CheckIndent, s _if,    s Expression _as "condition", g agroup (s BlockBody, s BlockLine) _as "body")
-	g rule      ("ElifBlock",       s CheckIndent, s _elif,  s Expression _as "condition", g agroup (s BlockBody, s BlockLine) _as "body")
-	g rule      ("ElseBlock",       s CheckIndent, s _else,                                g agroup (s BlockBody, s BlockLine) _as "body")
-	g rule      ("WhileBlock",      s CheckIndent, s _while, s Expression _as "condition", g agroup (s BlockBody, s BlockLine) _as "body")
+	g rule      ("IfBlock" ,        s _if,    s Expression _as "condition", g agroup (s BlockBody, s BlockLine) _as "body")
+	g rule      ("ElifBlock",       s EOL, s CheckIndent, s _elif,  s Expression _as "condition", g agroup (s BlockBody, s BlockLine) _as "body")
+	g rule      ("ElseBlock",       s EOL, s CheckIndent, s _else,                                g agroup (s BlockBody, s BlockLine) _as "body")
+	g rule      ("WhileBlock",      s _while, s Expression _as "condition", g agroup (s BlockBody, s BlockLine) _as "body")
 
-	g rule      ("TryBlock",        s CheckIndent, s _try,                                 g agroup (s BlockBody, s BlockLine) _as "body")
-	g rule      ("FinallyBlock",    s CheckIndent, s _finally,                             g agroup (s BlockBody, s BlockLine) _as "body")
-	g rule      ("CatchBlock",      s CheckIndent, s _catch, s NameType optional () _as "param", g agroup (s BlockBody, s BlockLine) _as "body")
-	g rule      ("ForBlock",        s CheckIndent, s _for,   s ParameterList _as "params", s _in, s Expression _as "expr", g agroup (s BlockBody, s BlockLine) _as "body")
+	g rule      ("TryBlock",        s _try,                                 g agroup (s BlockBody, s BlockLine) _as "body")
+	g rule      ("FinallyBlock",    s EOL, s CheckIndent, s _finally,                             g agroup (s BlockBody, s BlockLine) _as "body")
+	g rule      ("CatchBlock",      s EOL, s CheckIndent, s _catch, s NameType optional () _as "param", g agroup (s BlockBody, s BlockLine) _as "body")
+	g rule      ("ForBlock",        s _for,   s ParameterList _as "params", s _in, s Expression _as "expr", g agroup (s BlockBody, s BlockLine) _as "body")
 
 
 	g rule      ("ConditionalLine",  s IfLine _as "if", s ElifLine zeroOrMore () _as "elif", s ElseLine optional () _as "else")
