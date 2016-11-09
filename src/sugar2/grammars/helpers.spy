@@ -23,11 +23,19 @@
 	context set ("indent", indent - 1)
 @end
 
+
 @function doCheckIndent element, context
-	let i = context get("indent") or 0
-	let m = (context lastMatch and context lastMatch length) or 0
-	sys stderr write ("CHECK INDENT {0} {1} {2} @ {3}\n" format (i,m, m >= i, context offset))
-	return m >= i
+	@embed Python
+	|indent = context.get("indent") or 0
+	|o      = context.offset or 0
+	|so     = max(o - indent, 0)
+	|eo     = o
+	|tabs   = 0
+	|for i in xrange(so, eo):
+	|	if context[i] == "\t":
+	|		tabs += 1
+	|return tabs == indent
+	@end
 @end
 
 @function doBlockStart element, context

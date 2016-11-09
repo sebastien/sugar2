@@ -15,7 +15,7 @@
 
 @class Parser
 
-	@shared  G = createProgramGrammar (new libparsing Grammar ("Sugar", True))
+	@shared  G = createProgramGrammar (new libparsing Grammar ("Sugar", False))
 
 	@property command
 	@property logger
@@ -38,21 +38,17 @@
 		if result isPartial ()
 			let r = result lastMatchRange ()
 			let t = result text
-			print ("XXX Parsing stopped at {0}, matching {1}" format (result textOffset, r))
-			print ("XXX", result textAround ())
+			print (result describe ())
 			return [text, None]
 		elif result isFailure ()
 			let r = result lastMatchRange ()
 			let t = result text
-			print ("XXX Parsing stopped at {0}, matching {1}" format (result textOffset, r))
-			print ("XXX", result textAround ())
+			print (result describe ())
 			return [text, None]
 		elif result isSuccess ()
 			var module    = builder process (result match)
 			# # FIXME: Proper error reporting when parsing fails
 			return [text, module]
-		else
-			assert (False, "Should not be there")
 		end
 	@end
 
