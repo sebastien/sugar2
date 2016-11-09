@@ -230,7 +230,7 @@
 	# Closures
 	g rule      ("ClosureStatement")
 	g rule      ("ClosureLine",       s EOL, s CheckIndent, g agroup (s COMMENT, s ClosureStatement))
-	g rule      ("ClosureParameters", s ParameterList, s PIPE)
+	g rule      ("ClosureParameters", s ParameterList optional(), s PIPE)
 	g rule      ("InlineClosure",     s LB, s ClosureParameters optional (), s ClosureStatement, s RB)
 	g rule      ("BlockClosure",      s LB, s ClosureParameters optional (), s Indent, s ClosureLine zeroOrMore (), s EOL,  s Dedent, s CheckIndent, s RB)
 	g group     ("Closure",           s BlockClosure, s InlineClosure)

@@ -73,11 +73,14 @@
 	@end
 
 	@method access value, keys...
+		if not value
+			return None
+		end
 		for k in keys
 			if value
 				value = value[k]
 			else
-				return value
+				return None
 			end
 		end
 		return value
@@ -245,7 +248,7 @@
 		var value = process(match["value"])
 		var doc   = process(match["documentation"])
 		var res   = F _attr (name[0] getReferenceName (), None, value and value[0])
-		res setDocumentation (doc and doc[0])
+		res setDocumentation (doc)
 		_bind (res)
 		return res
 	@end
