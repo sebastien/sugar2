@@ -226,9 +226,9 @@
 	@method onClass match
 		# We start by binding the scope
 		var name      = process (match["name"])
-		let inherits  = process (match["inherits"])
+		let inherits  = []
 		let parents   = []
-		for _ in access(inherits, 1) or []
+		for _ in access (process (match["inherits"]), 1) or []
 			if _ -> inherits append (_)
 		end
 		var res         = F createClass (name, inherits)
