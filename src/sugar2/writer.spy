@@ -173,6 +173,49 @@
 		return element
 	@end
 
+	@method _ensureReturns process
+	| Ensures that the given process returns a value at the end
+		# NOTE: This is a straight port from Sugar-1 `p_ensureReturns`
+		if not isinstance(process, interfaces IProcess) or not process operations
+			return process
+		end
+		let last_operation = process operations[-1]
+		let ret            = None
+		if last_operation
+			if isinstance(last_operation, interfaces INOP)
+				return process
+			elif isinstance(last_operation, interfaces IIteration)
+				return process
+			elif isinstance(last_operation, interfaces ITermination)
+				return process
+			elif isinstance(last_operation, interfaces ISelection)
+				return process
+			elif isinstance(last_operation, interfaces IInterception)
+				return process
+			elif isinstance(last_operation, interfaces IInterruption)
+				return process
+			elif isinstance(last_operation, interfaces IEmbed)
+				return process
+			elif isinstance(last_operation, interfaces IAllocation)
+				return process
+			elif isinstance(last_operation, interfaces IAssignment)
+				return process
+			elif isinstance(last_operation, interfaces IRepetition) or isinstance(last_operation, interfaces IIteration)
+				# We don't do anything with a repetition, but we annotate them as # last
+				last_operation addAnnotation "last"
+				return process
+			elif isinstance(last_operation, interfaces IOperation)
+				process removeOperationAt(-1)
+				ret = F returns (last_operation)
+			end
+		end
+		if ret
+			ret addAnnotation "implicit"
+			process addOperation(ret)
+		end
+		return process
+	@end
+
 	# =========================================================================
 	# STRUCTURE
 	# =========================================================================
@@ -220,7 +263,8 @@
 	@end
 
 	@method onVersionAnnotation match
-		return F annotation ("version", match[1] group ())
+		let version = process(match[1][0])
+		return F annotation ("version", version)
 	@end
 
 	@method onClass match
@@ -247,7 +291,7 @@
 		var name  = process(match["name"])
 		var value = process(match["value"])
 		var doc   = process(match["documentation"])
-		var res   = F _attr (name[0] getReferenceName (), None, value and value[0])
+		var res   = F _attr (name[0] getReferenceName (), None, value and value[1])
 		res setDocumentation (doc)
 		_bind (res)
 		return res
@@ -257,7 +301,7 @@
 		var name  = process(match["name"])
 		var value = process(match["value"])
 		var doc   = process(match["documentation"])
-		var res   = F _classattr (name[0] getReferenceName (), None, value and value[0])
+		var res   = F _classattr (name[0] getReferenceName (), None, value and value[1])
 		res setDocumentation (doc and doc[0])
 		_bind (res)
 		return res
@@ -343,7 +387,7 @@
 	@end
 
 	@method onClosure match
-		return process(match[0])
+		return _ensureReturns (process(match[0]))
 	@end
 
 	@method onInlineClosure match
@@ -351,7 +395,7 @@
 		let line   = [process (match[2])]
 		var res    = F createClosure (params)
 		_addCode( res, line)
-		return res
+		return _ensureReturns (res)
 	@end
 
 	@method onBlockClosure match
@@ -946,11 +990,16 @@
 				res setValue (_[0], _[1])
 			end
 		end
+		if len(tail) > 0
+			res addAnnotation "block"
+		else
+			res addAnnotation "line"
+		end
 		return res
 	@end
 
 	@method onKeyValueList match
-		var res  = []
+		let res = [process(match[0])]
 		for _ in process(match[1])
 			# We have _ = [COMMA, <model.KeyValue>]
 			#              0       1
