@@ -5,7 +5,7 @@
 # License           : BSD License
 # -----------------------------------------------------------------------------
 # Creation date     : 2016-11-01
-# Last modification : 2016-11-01
+# Last modification : 2016-11-14
 # -----------------------------------------------------------------------------
 
 @module  sugar2.writer
@@ -23,7 +23,7 @@
 #
 # -----------------------------------------------------------------------------
 
-@class LambdaFactoryBuilder: libparsing.Processor
+@class LambdaFactoryBuilder: libparsing.FastProcessor
 | Converts a parse tree into a Lambda Factory program model, which can then
 | be translated to one of Lambda Factory's target language.
 |
@@ -431,7 +431,7 @@
 	@method onStatements match
 		var res        = [process (match[0])]
 		let tail       = process (match[1])
-		for _ in tail
+		for _ in (tail or [])
 			res append (_[1])
 		end
 		return res
@@ -765,7 +765,7 @@
 
 	@method onComputationInfix match
 	| Returns ("ComputationInfix", OPERATOR:String, Expression)
-		return [match element name, match[0] group 0, process (match[1])]
+		return [match element name, match[0][0] strip (), process (match[1])]
 	@end
 
 	@method onAccess match
@@ -776,7 +776,7 @@
 	@method onDecomposition match
 	| Returns [("Decomposition", [ref:Reference])]
 		let slots  = [process (match[1])]
-		for _ in process(match[2])
+		for _ in (process(match[2]) or [])
 			slots append (_[1])
 		end
 		return [match element name, slots]
@@ -797,10 +797,10 @@
 	| then it is a single allocation, otherwise it will be a mutliple
 	| allocation with an automatic variable name.
 		# We resolve "var SYMBOLS | REST = VALUE"
-		var res          = None
+		var res     = None
 		let symbols = process (match[2])
 		let rest    = process (match[3])
-		let value   = access (process (match[4]), 1)
+		let value   = access (process (match[4]), 0, 1)
 		if (len(symbols) == 1) and (not rest)
 			# This is a single allocation with no rest
 			var slot = F _slot (symbols[0] getReferenceName())
@@ -951,7 +951,7 @@
 	@method onSymbolList match
 	| Returns `[model.Reference]`
 		let head = process (match[0])
-		let tail = process (match[1])
+		let tail = process (match[1]) or []
 		let more = process (match[2])
 		let res  = [head]
 		for _ in tail
