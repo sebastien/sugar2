@@ -606,9 +606,12 @@
 		var b = value getRightOperand ()
 		# When we have: A op1 B
 		# where               B = (C op2 D)
-		if isinstance (b, interfaces IComputation)
-			var op1_p  = value getOperator () getPriority ()
-			var op2_p  = b     getOperator () getPriority ()
+		if isinstance (b, interfaces IComputation) and (not b hasAnnotation "parens")
+			let op1    = value getOperator ()
+			let op2    = b     getOperator ()
+			var op1_p  = op1 getPriority ()
+			var op2_p  = op2 getPriority ()
+			print (op1 getName (), op1_p, op2 getName (), op2_p)
 			# ...and that priority(op1) >= priority(op2)
 			if op1_p >= op2_p
 				# We refactor the current computation so that it becomes
@@ -714,7 +717,9 @@
 	@end
 
 	@method onParentheses match
-		return process (match[1])
+		let expr = process (match[1])
+		expr addAnnotation "parens"
+		return expr
 	@end
 
 	@method onException match
