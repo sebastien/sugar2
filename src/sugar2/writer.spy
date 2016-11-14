@@ -176,8 +176,11 @@
 	@method _ensureReturns process
 	| Ensures that the given process returns a value at the end
 		# NOTE: This is a straight port from Sugar-1 `p_ensureReturns`
-		if not isinstance(process, interfaces IProcess) or not process operations
+		if (not isinstance(process, interfaces IProcess)) or (not process operations) or len(process operations) == 0
 			return process
+		end
+		if len(process operations) == 0
+	 		return process
 		end
 		let last_operation = process operations[-1]
 		let ret            = None
@@ -883,7 +886,17 @@
 	@method onIterationLine match
 		let op = process(match[1])
 		if op == "::"
-			return F iterate (process(match[0]), process(match[2]))
+			# For a straight iterate, we don't need an implicit return, so
+			# we make sure they're removed
+			let closure = process(match[2])
+			if len(closure operations) > 0
+				let lop = closure operations [-1]
+				if lop hasAnnotation "implicit"
+					closure removeOperationAt -1
+					closure addOperation (lop getOpArgument 0)
+				end
+			end
+			return F iterate (process(match[0]), closure)
 		elif op == "::?"
 			return F filter  (process(match[0]), process(match[2]))
 		elif op == "::="
