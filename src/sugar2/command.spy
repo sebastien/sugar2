@@ -49,6 +49,8 @@
 @end
 
 @embed Python
+|import sys
+|sys.setrecursionlimit(2500)
 |if __name__ == "__main__":
 |	import sys
 |	run(sys.argv[1:])

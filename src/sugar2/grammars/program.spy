@@ -244,7 +244,7 @@
 	g rule      ("ComputationInfix", s INFIX_OPERATOR, s Expression)
 	g rule      ("Access",           s LSB,            s Expression, s RSB)
 	g rule      ("Slice",            s LSB,            s Expression optional (), s COLON, s Expression optional (), s RSB)
-	g group     ("Invocation",       g arule (s SPACE, s Literal), s ArgumentsEmpty, s ArgumentsMany )
+	g group     ("Invocation",       s Literal, s ArgumentsEmpty, s ArgumentsMany )
 	g rule      ("Parentheses",      s LP,    s Expression, s RP)
 	g group     ("Prefixes"
 		s Literal

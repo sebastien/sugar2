@@ -23,7 +23,7 @@
 #
 # -----------------------------------------------------------------------------
 
-@class LambdaFactoryBuilder: libparsing.FastProcessor
+@class LambdaFactoryBuilder: libparsing.Processor
 | Converts a parse tree into a Lambda Factory program model, which can then
 | be translated to one of Lambda Factory's target language.
 |
@@ -61,14 +61,12 @@
 
 	@property module
 	@property path      = None
-	@property scopes    = []
 	@property processes = []
 
 	@constructor grammar, path=None
 		super (grammar)
 		self path = path
 		program = F createProgram ()
-		scopes append (program)
 		program setFactory (F)
 	@end
 
@@ -138,9 +136,19 @@
 		end
 	@end
 
-	@method _bind referanceable
+	@method _bind scope, referanceable
 	| Assigns the given referenceable to the current scope
-		scopes[-1] setSlot (referanceable getName (), referanceable)
+		if isinstance(referanceable, list) or isinstance(referanceable, tuple)
+			for _ in referanceable
+				_bind (scope, _)
+			end
+			return scope
+		elif isinstance(referanceable, interfaces IReferencable)
+			scope setSlot (referanceable getName (), referanceable)
+			return scope
+		else
+			return scope
+		end
 	@end
 
 	@method filterNull result
@@ -171,6 +179,14 @@
 			assert (False, "Code element type not supported: {0}" format (repr(code)))
 		end
 		return element
+	@end
+
+	@method _ensureList value
+		if not (isinstance(value, list) or  isinstance(value, tuple))
+			return [value]
+		else
+			return value
+		end
 	@end
 
 	@method _ensureReturns process
@@ -238,12 +254,9 @@
 		# TODO: Support module dosctring from annotation
 		let module = F createModule (annotations get "module" or getDefaultModuleName())
 
-		# A module is a scope, so we add it to the scopes stack
-		scopes append (module)
-
 		# We take care of the version number
 		if annotations get "version"
-			_bind (F _moduleattr ("VERSION", None, F _string (annotations get "version")))
+			_bind (module, F _moduleattr ("VERSION", None, F _string (annotations get "version")))
 		end
 
 		let structure   = process (match[1])
@@ -252,10 +265,8 @@
 		# We create the init function
 		var init_function  = F createFunction (F ModuleInit)
 		_addCode (init_function, code)
-		_bind    (init_function)
-
-		# We pop the scopes as we're done with the module
-		scopes pop ()
+		_bind (module, structure)
+		_bind (module, init_function)
 
 		return module
 	@end
@@ -279,14 +290,12 @@
 			if _ -> inherits append (_)
 		end
 		var res         = F createClass (name, inherits)
-		scopes append (res)
-		let is_abstract = match[0] length
+		let is_abstract = match[0]
 		let doc         = process(match[5])
 		let body        = process(match[7])
 		res setDocumentation (doc)
 		res setAbstract      (is_abstract and True)
-		scopes pop ()
-		_bind (res)
+		_bind (res, body)
 		return res
 	@end
 
@@ -296,7 +305,6 @@
 		var doc   = process(match["documentation"])
 		var res   = F _attr (name[0] getReferenceName (), None, value and value[1])
 		res setDocumentation (doc)
-		_bind (res)
 		return res
 	@end
 
@@ -306,7 +314,6 @@
 		var doc   = process(match["documentation"])
 		var res   = F _classattr (name[0] getReferenceName (), None, value and value[1])
 		res setDocumentation (doc and doc[0])
-		_bind (res)
 		return res
 	@end
 
@@ -316,7 +323,6 @@
 		let doc       = process (match[5])
 		var res       = F _moduleattr (name_type[0] getReferenceName(), None, value)
 		res setDocumentation (doc and doc[0])
-		_bind (res)
 		return res
 	@end
 
@@ -344,10 +350,7 @@
 			fun    = factory (name_type[0] getReferenceName (), params)
 		end
 		fun setDocumentation (doc)
-		scopes append (fun)
 		_addCode (fun, body)
-		scopes pop ()
-		_bind    (fun)
 		return fun
 	@end
 
@@ -567,7 +570,7 @@
 		end
 		var lines    = []
 		for line in body
-			lines append (line[1][1:])
+			lines append (line[1][0][1:])
 		end
 		return F embed (language, "\n" join (lines))
 	@end
@@ -614,7 +617,6 @@
 			let op2    = b     getOperator ()
 			var op1_p  = op1 getPriority ()
 			var op2_p  = op2 getPriority ()
-			print (op1 getName (), op1_p, op2 getName (), op2_p)
 			# ...and that priority(op1) >= priority(op2)
 			if op1_p >= op2_p
 				# We refactor the current computation so that it becomes
@@ -714,7 +716,7 @@
 	@end
 
 	@method onComputationPrefix match
-		var operator = normalizeOperator (process(match[0]))
+		var operator = normalizeOperator (process (match[0][0]))
 		var operand  = process(match[1])
 		return F compute (F _op (operator, getOperatorPriority (operator)), operand)
 	@end
@@ -744,33 +746,27 @@
 	# SUFFIXES
 	# =========================================================================
 
-	@method onSuffixes match
-	| This rule returns the data AS-IS, without modifying it. This is necessary
-	| because suffixes need a prefix to be turned into a proper expression.
-		return process (match[0])
-	@end
-
 	@method onInvocation match
 	| Returns ("Invocation", [args])
-		let arguments_or_litteral = process (match[0])
-		var args                  = []
-		for _ in process (match[0])
+		let value = process (match[0])
+		var args  = []
+		for _ in _ensureList(value)
 			if isinstance(_, interfaces IElement)
 				args append (_)
 			end
 		end
-		return [match element name, args]
+		return [match name, args]
 	@end
 
 
 	@method onComputationInfix match
 	| Returns ("ComputationInfix", OPERATOR:String, Expression)
-		return [match element name, match[0][0] strip (), process (match[1])]
+		return [match name, match[0][0] strip (), process (match[1])]
 	@end
 
 	@method onAccess match
 	| Returns [("Access", INDEX:Element)]
-		return [match element name, process(match[1])]
+		return [match name, process(match[1])]
 	@end
 
 	@method onDecomposition match
@@ -779,7 +775,7 @@
 		for _ in (process(match[2]) or [])
 			slots append (_[1])
 		end
-		return [match element name, slots]
+		return [match name, slots]
 	@end
 
 	@method onSlice match
@@ -800,7 +796,7 @@
 		var res     = None
 		let symbols = process (match[2])
 		let rest    = process (match[3])
-		let value   = access (process (match[4]), 0, 1)
+		let value   = access (process (match[4]), 1)
 		if (len(symbols) == 1) and (not rest)
 			# This is a single allocation with no rest
 			var slot = F _slot (symbols[0] getReferenceName())
@@ -832,10 +828,10 @@
 	@end
 
 	@method onAssignment match
-		var before      = process(match["before"])
-		var main        = process(match["main"])
-		var rest        = process(match["rest"])
-		var rvalue      = process(match["op"])
+		var before      = process (match["before"])
+		var main        = process (match["main"])
+		var rest        = process (match["rest"])
+		var rvalue      = process (match["op"])
 		var lvalue      = main
 		let op          = rvalue[0]
 		rvalue          = rvalue[1]
@@ -943,8 +939,8 @@
 	@end
 
 	@method onArgumentsMany match
-		let line = process (match[1])
-		let body = process (match[2])
+		let line = process (match["line"]) or []
+		let body = process (match["body"]) or []
 		return filterNull (line + body)
 	@end
 
@@ -1001,8 +997,8 @@
 
 	@method onMap match
 		var res  = F _dict ()
-		let head = process(match["head"])
-		let tail = process(match["tail"])
+		let head = process (match["head"]) or []
+		let tail = process (match["tail"]) or []
 		for _ in (head + tail)
 			if _
 				res setValue (_[0], _[1])
@@ -1085,11 +1081,11 @@
 	@end
 
 	@method onNAME match
-		return F _ref (match group 2)
+		return F _ref (process(match[2]))
 	@end
 
 	@method onKEY match
-		return F _string (match group ())
+		return F _string (process(match[0]))
 	@end
 
 	# =========================================================================
@@ -1099,7 +1095,7 @@
 	@method onDocumentation match
 		let lines = []
 		for l in process (match[0])
-			lines append (l[1][1:])
+			lines append (l[1][0][1:])
 		end
 		return F doc ("\n" join (lines))
 	@end

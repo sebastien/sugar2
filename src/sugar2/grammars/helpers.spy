@@ -51,7 +51,6 @@
 @end
 
 @function doBlockLastIsLine  element, context
-	print ("BLOCK LAST", context )
 	return context get "blockLast" == 1
 @end
 
