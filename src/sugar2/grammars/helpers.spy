@@ -31,9 +31,13 @@
 	|so     = max(o - indent, 0)
 	|eo     = o
 	|tabs   = 0
+	|# This is a fix
+	|if so == eo and so > 0:
+	|	so = eo
 	|for i in xrange(so, eo):
 	|	if context[i] == "\t":
 	|		tabs += 1
+	|print ("CHECK INDENT EXPECTED", indent, "GOT", tabs, "At", so, eo, context[so])
 	|return tabs == indent
 	@end
 @end

@@ -60,8 +60,9 @@
 	]
 
 	@property module
-	@property path      = None
-	@property processes = []
+	@property path       = None
+	@property processes  = []
+	@property varcounter = 0
 
 	@constructor grammar, path=None
 		super (grammar)
@@ -658,7 +659,7 @@
 					else
 						value = F invoke (value, args[1])
 					end
-				if name == "ComputationInfix"
+				elif name == "ComputationInfix"
 					# FIXME: Re-ordering should be appled here
 					var op = normalizeOperator (args[1])
 					if op == ".."
@@ -666,14 +667,31 @@
 					else
 						value = F compute (F _op (op, getOperatorPriority(op)), value, args[2])
 					end
-				if name == "Decomposition"
+				elif name == "Decomposition"
 					for _ in args[1]
 						value = F resolve (_, value)
 					end
-				if name == "Access"
+				elif name == "Access"
 					value = F access (value, args[1])
-				if name == "Slice"
+				elif name == "Slice"
 					value = F slice  (value, args[1], args[2])
+				elif name == "Chain"
+					# TODO: Should be an automatic variable
+					var alloc = value
+					var ref   = None
+					if not isinstance(alloc, interfaces IAllocation)
+						var name  = "_c" + str(varcounter) + "_" ; varcounter += 1
+						var slot  = F _slot (name)
+						var alloc = F allocate (slot, value)
+						ref       = F _ref  (name)
+					else
+						ref   = alloc getSlot ()
+					end
+					var res   = [alloc]
+					for g in args[1] or []
+						res append (_applySuffixes (ref copy (), g))
+					end
+					value = res
 				else
 					# ipdb set_trace ()
 					raise new Exception ("sugar2.writer._applySuffixes: Suffix not supported yet: " + str(name) + " in " + str(args))
@@ -778,19 +796,41 @@
 		return [match name, process(match[1])]
 	@end
 
-	@method onDecomposition match
-	| Returns [("Decomposition", [ref:Reference])]
-		let slots  = [process (match[1])]
-		for _ in (process(match[2]) or [])
+	@method onReference match
+		let slots  = [process (match[0])]
+		for _ in (process(match[1]) or [])
 			slots append (_[1])
 		end
-		return [match name, slots]
+		return slots
+	@end
+
+	@method onDecomposition match
+	| Returns [("Decomposition", [ref:Reference])]
+		return [match name, process(match[1])]
 	@end
 
 	@method onSlice match
 		var start_index = process(match[1])
 		var end_index   = process(match[3])
 		return [element name, start_index, end_index]
+	@end
+
+	@method onChainLine match
+		let suffixes = []
+		for _ in process(match[3])
+			_ = _[0]
+			if len(_) == 1 and isinstance(_[0], interfaces IReference)
+				_ = ["Decomposition", _]
+			end
+			suffixes append (_)
+		end
+		return suffixes
+	@end
+
+	@method onChain match
+	| Returns [("Decomposition", [ref:Reference])]
+		let lines = process(match[1])
+		return [match name, lines]
 	@end
 
 	# =========================================================================
@@ -1112,6 +1152,10 @@
 			lines append (l[1][0][1:])
 		end
 		return F doc ("\n" join (lines))
+	@end
+
+	@method onCOMMENT match
+		return F comment (process(match)[1:0])
 	@end
 
 	# =========================================================================

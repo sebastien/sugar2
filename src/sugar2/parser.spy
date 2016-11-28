@@ -15,7 +15,7 @@
 
 @class Parser
 
-	@shared  G = createProgramGrammar (new libparsing Grammar ("Sugar", False))
+	@shared  G = createProgramGrammar (new libparsing Grammar ("Sugar", True))
 
 	@property command
 	@property logger

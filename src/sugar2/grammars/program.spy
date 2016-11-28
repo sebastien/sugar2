@@ -199,7 +199,7 @@
 	g rule      ("CheckIndent",      s TABS _as "tabs", g acondition (doCheckIndent))
 
 	# Documentation & Comments
-	# g rule      ("CommentLine",      s COMMENT,     s EOL)
+	g rule      ("Comment",          s COMMENT,  s EOL)
 	g rule      ("EmptyLines",       s EMPTY_LINES)
 	g rule      ("DocumentationLine",s CheckIndent, s DOCSTRING, s EOL)
 	g rule      ("Documentation",    s DocumentationLine oneOrMore ())
@@ -238,7 +238,8 @@
 	# Expression prefixes
 	g group     ("Literal",         s NUMBER, s SYMBOLIC, s String, s Array, s Map, s Closure)
 	# We only allow dots to chain notations
-	g rule      ("Decomposition",    s DOT_OR_SPACE, s NAME, g arule (s DOT, s NAME) zeroOrMore ())
+	g rule      ("Reference",        s NAME, g arule (s DOT, s NAME) zeroOrMore ())
+	g rule      ("Decomposition",    s DOT_OR_SPACE, s Reference)
 	# FIXME: Decomposition and resolution should be the same, no?
 	#g rule      ("Resolution",       s SPACE, s NAME,  g rule ("ResolutionTail", s SPACE, s NAME) zeroOrMore ())
 	g rule      ("ComputationInfix", s INFIX_OPERATOR, s Expression)
@@ -246,6 +247,9 @@
 	g rule      ("Slice",            s LSB,            s Expression optional (), s COLON, s Expression optional (), s RSB)
 	g group     ("Invocation",       s Literal, s ArgumentsEmpty, s ArgumentsMany )
 	g rule      ("Parentheses",      s LP,    s Expression, s RP)
+	g group     "Suffixes"
+	g rule      ("ChainLine",        s EOL, s Indent, s CheckIndent, g agroup (s COMMENT, s Reference, s Suffixes) oneOrMore (), s Dedent)
+	g rule      ("Chain",            s COLON, s ChainLine zeroOrMore ())
 	g group     ("Prefixes"
 		s Literal
 		g rule  ("Exception",        s THROW_OPERATOR, s Expression _as "expression")
@@ -254,7 +258,7 @@
 		s NAME
 		s Parentheses
 	)
-	g group     ("Suffixes", s ComputationInfix, s Decomposition, s Access, s Slice, s Invocation)
+	s Suffixes   set (s Chain, s ComputationInfix, s Decomposition, s Access, s Slice, s Invocation)
 	s Expression set (s Prefixes, s Suffixes zeroOrMore ())
 
 	# Operations
@@ -272,7 +276,6 @@
 	# Blocks
 	g group     ("Block")
 	g group     ("Code")
-	g rule      ("Comment",          s COMMENT, s EOL)
 	g group     ("Statement",   s Comment, s Block, s Allocation, s Assignment, s Termination, s IterationLine, s Expression)
 	g rule      ("Statements",  s Statement, g arule (s SEMICOLON, s Statement) zeroOrMore ())
 	g rule      ("Line",             s CheckIndent, s Statements optional (), s COMMENT optional (), s EOL)
@@ -377,7 +380,7 @@
 	g group     ("Structure",          s EmptyLines, s Comment, s ModuleAttribute, s Function, s Class)
 	g rule      ("Module",             s ModuleDeclaration,  s Structure zeroOrMore (), s Code zeroOrMore ())
 
-	g skip      = g agroup (s SPACE, s COMMENT)
+	g skip      = g agroup (s SPACE)
 
 	# NOTE: Right now, MODULE does not work, we're using Code instea
 	g axiom     = s Module
