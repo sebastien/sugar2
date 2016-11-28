@@ -56,7 +56,7 @@
 		["+"  , "-"]
 		["not"]
 		["/"  , "*"  , "%" , "//" ]
-		["/=", "*=", "%=", "+=" , "-="]
+		["/=", "*=", "%=", "+=" , "-=", "="]
 	]
 
 	@property module
@@ -117,13 +117,14 @@
 
 	@method getOperatorPriority operator
 		var i = 0
+		operator = libparsing ensure_str (operator)
 		for line in OPERATORS
 			if operator in line
 				return i
 			end
 			i += 1
 		end
-		raise (new Exception ("Unknown operator: " + str(operator)))
+		raise (new Exception ("getOperatorPriority: Unknown operator " + repr(operator) + ", must be one of " + repr(OPERATORS)))
 	@end
 
 	@method _var name=None, context=(self context)
@@ -340,10 +341,11 @@
 
 	@method _createCallable factory, match
 		let name_type  = process (match["name"])
-		var params     = access(process (match["parameters"]), 0)
+		var params     = access (process (match["parameters"])[0], 0)
 		let doc        = process (match["documentation"])
 		let body       = process (match["body"])
 		var fun        = None
+		print ("XXX PARAMS", params)
 		if name_type is True
 			fun    = factory (params)
 		else
@@ -596,7 +598,7 @@
 			current  = F resolve (prefix)
 		else
 			# ipdb set_trace ()
-			raise Exception("Prefix not supported yet: " + str(current))
+			raise Exception("Prefix not supported yet: " + str(prefix))
 		end
 		current = _applySuffixes (current, suffixes)
 		if isinstance (current, interfaces IComputation)
@@ -675,7 +677,7 @@
 					value = F slice  (value, args[1], args[2])
 				else
 					# ipdb set_trace ()
-					raise new Exception ("Suffix not supported yet: " + str(name))
+					raise new Exception ("sugar2.writer._applySuffixes: Suffix not supported yet: " + str(name) + " in " + str(args))
 				end
 			end
 		end
@@ -711,7 +713,15 @@
 	# PREFIXES
 	# =========================================================================
 
+	@method onLiteral match
+		return process(match[0])
+	@end
+
 	@method onPrefixes match
+		return process(match[0])
+	@end
+
+	@method onSuffixes match
 		return process(match[0])
 	@end
 
@@ -761,7 +771,7 @@
 
 	@method onComputationInfix match
 	| Returns ("ComputationInfix", OPERATOR:String, Expression)
-		return [match name, match[0][0] strip (), process (match[1])]
+		return [match name, process(match[0])[0] strip (), process (match[1])]
 	@end
 
 	@method onAccess match
@@ -876,11 +886,15 @@
 	@end
 
 	@method onAssignable match
-		return _applySuffixes (process(match[0]), process(match[1]))
+		var suffixes = []
+		for _ in process(match[1]) or []
+			suffixes append (_[0])
+		end
+		return _applySuffixes (process(match[0]), suffixes)
 	@end
 
 	@method onIterationLine match
-		let op = process(match[1])
+		let op = libparsing ensure_str (process(match[1])[0])
 		if op == "::"
 			# For a straight iterate, we don't need an implicit return, so
 			# we make sure they're removed
@@ -900,7 +914,7 @@
 		elif op == "::<"
 			return F reduce  (process(match[0]), process(match[2]))
 		else
-			throw ValueError("Unsupported iteration operator: {0}" format(op))
+			raise ValueError("onIterationLine: Unsupported iteration operator: {0}" format(op))
 		end
 	@end
 
@@ -1052,14 +1066,14 @@
 	# =========================================================================
 
 	@method onString match
-		let raw     = process (match[0])
+		let raw     = process (match[0])[0]
 		# FIXME: Proper string decoding
 		let decoded = eval (raw)
 		return F _string (decoded)
 	@end
 
 	@method onNUMBER match
-		let raw     = match[0]
+		let raw     = process(match)[0]
 		# FIXME: Proper number decoding
 		let decoded = eval (raw)
 		return F _number (decoded)
@@ -1081,11 +1095,11 @@
 	@end
 
 	@method onNAME match
-		return F _ref (process(match[2]))
+		return F _ref (process(match)[2])
 	@end
 
 	@method onKEY match
-		return F _string (process(match[0]))
+		return F _string (process(match)[0])
 	@end
 
 	# =========================================================================
