@@ -47,7 +47,6 @@
 			return [text, None]
 		elif result isSuccess ()
 			var module    = builder process (result match)
-			print ("RESULT", result match, "=", module)
 			# # FIXME: Proper error reporting when parsing fails
 			return [text, module]
 		end

@@ -278,7 +278,7 @@
 	@end
 
 	@method onVersionAnnotation match
-		let version = process(match[1][0])
+		let version = process(match[1])[0]
 		return F annotation ("version", version)
 	@end
 
@@ -345,7 +345,6 @@
 		let doc        = process (match["documentation"])
 		let body       = process (match["body"])
 		var fun        = None
-		print ("XXX PARAMS", params)
 		if name_type is True
 			fun    = factory (params)
 		else
@@ -726,7 +725,7 @@
 	@end
 
 	@method onComputationPrefix match
-		var operator = normalizeOperator (process (match[0][0]))
+		var operator = normalizeOperator (process (match[0])[0])
 		var operand  = process(match[1])
 		return F compute (F _op (operator, getOperatorPriority (operator)), operand)
 	@end
@@ -744,7 +743,7 @@
 	@method onInstanciation match
 		# Both name and params are suffixes so they're returned as couples,
 		# where we want the second value
-		var name   = process(match["target"])
+		var name   = process(match["target"])[0]
 		var params = process(match["params"])[1]
 		@embed Python
 		|if not (isinstance(params, list) or isinstance(params, tuple)): params = (params,)
@@ -843,7 +842,7 @@
 		var rest        = process (match["rest"])
 		var rvalue      = process (match["op"])
 		var lvalue      = main
-		let op          = rvalue[0]
+		let op          = libparsing ensure_str (rvalue[0][0])
 		rvalue          = rvalue[1]
 		if op == "="
 			# We have an regular assignment
@@ -890,7 +889,8 @@
 		for _ in process(match[1]) or []
 			suffixes append (_[0])
 		end
-		return _applySuffixes (process(match[0]), suffixes)
+		let prefix = process(match[0])
+		return _applySuffixes (prefix, suffixes)
 	@end
 
 	@method onIterationLine match
@@ -1080,7 +1080,7 @@
 	@end
 
 	@method onSYMBOLIC match
-		var raw_symbol     = match group ()
+		var raw_symbol     = process (match) [0]
 		if raw_symbol == "Undefined"
 			return F _symbol (raw_symbol)
 		if raw_symbol == "None"
