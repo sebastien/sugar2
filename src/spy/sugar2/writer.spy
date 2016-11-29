@@ -178,8 +178,11 @@
 			end
 		elif isinstance(code, interfaces IOperation)
 			element addOperation (code)
+		elif isinstance(code, interfaces IComment)
+			# We do nothing, but we should support inline comments
+			pass
 		elif code
-			throw (new Exception ("Code element type not supported: {0}" format (repr(code))))
+			raise new Exception ("Code element type not supported: {0}" format (repr(code)))
 		end
 		return element
 	@end
@@ -316,7 +319,7 @@
 		var value = process(match["value"])
 		var doc   = process(match["documentation"])
 		var res   = F _classattr (name[0] getReferenceName (), None, value and value[1])
-		res setDocumentation (doc and doc[0])
+		res setDocumentation (doc)
 		return res
 	@end
 
@@ -325,7 +328,7 @@
 		let value     = _tryGet (process (match[3]), 1, None)
 		let doc       = process (match[5])
 		var res       = F _moduleattr (name_type[0] getReferenceName(), None, value)
-		res setDocumentation (doc and doc[0])
+		res setDocumentation (doc)
 		return res
 	@end
 
