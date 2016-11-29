@@ -8,8 +8,8 @@
 # Last modification : 2016-11-01
 # -----------------------------------------------------------------------------
 
-@module sugar2.grammars.program
-@import doIndent, doCheckIndent, doDedent, doBlockStart, doBlockLastSetLine, doBlockLastSetBody, doBlockLastIsLine from sugar2.grammars.helpers
+@module sugar2.grammar.program
+@import doIndent, doCheckIndent, doDedent, doBlockStart, doBlockLastSetLine, doBlockLastSetBody, doBlockLastIsLine from sugar2.grammar.helpers
 
 # TODO: Break down the grammar in Expression, Structure and Types
 

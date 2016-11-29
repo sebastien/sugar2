@@ -8,7 +8,7 @@
 # Last modification : 2016-11-03
 # -----------------------------------------------------------------------------
 
-@module sugar2.grammars.helpers
+@module sugar2.grammar.helpers
 | A collection of helper functions used by the grammar submodules
 
 @import sys
@@ -37,7 +37,6 @@
 	|for i in xrange(so, eo):
 	|	if context[i] == "\t":
 	|		tabs += 1
-	|print ("CHECK INDENT EXPECTED", indent, "GOT", tabs, "At", so, eo, context[so])
 	|return tabs == indent
 	@end
 @end

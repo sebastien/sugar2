@@ -8,17 +8,34 @@
 #
 # -----------------------------------------------------------------------------
 
-PROJECT        ?= sugar2
-SOURCES_PATH   ?= src
-BUILD_PATH     ?= build
-DIST_PATH      ?= dist
+PROJECT          ?=sugar2
+SOURCES_PATH     ?=src
+BUILD_PATH       ?=.build
+DIST_PATH        ?=dist
 
-SOURCES_SUGAR   = $(shell find $(SOURCES_PATH)/ -name "*.spy")
-SOURCES_MODULES = $(filter-out $(SOURCES_PATH)/,$(shell find $(SOURCES_PATH)/ -type "d")) 
+# === SOURCES =================================================================
 
-BUILD_FILES      = $(SOURCES_SUGAR:$(SOURCES_PATH)/%.spy=$(BUILD_PATH)/%.py) $(SOURCES_MODULES:$(SOURCES_PATH)/%=$(BUILD_PATH)/%/__init__.py)
+SOURCES_SUGAR_PY =$(shell find $(SOURCES_PATH)/spy -name "*.spy")
+SOURCES_MD       =$(wildcard *.md)
+SOURCES_MODULES  =$(filter-out $(SOURCES_PATH)/spy/,$(shell find $(SOURCES_PATH)/spy/ -type "d")) 
+SOURCES_ALL      =$(SOURCES_SUGAR)
 
-PRODUCT          = $(BUILD_FILES)
+# === BUILD ===================================================================
+
+BUILD_ALL       =$(SOURCES_SUGAR:$(SOURCES_PATH)/%.spy=$(BUILD_PATH)/%.py) $(SOURCES_MODULES:$(SOURCES_PATH)/%=$(BUILD_PATH)/%/__init__.py)
+
+# === PRODUCT =================================================================
+
+PRODUCT_PY      =$(SOURCES_SUGAR_PY:$(SOURCES_PATH/spy/%.spy=$(SOURCES)/py/%.py)\
+                 $(SOURCES_MODULES:$(SOURCES_PATH)/spy/%=$(SOURCES_PATH)/py/%/__init__.py)
+PRODUCT_HTML    =$(SOURCES_MD:%.md=%.html)
+PRODUCT         =$(PRODUCT_PY)
+
+# === TOOLS ===================================================================
+
+SUGAR           =sugar
+PYTHON          =PYTHONPATH=$(SOURCES)/py:$(PYTHONPATH) && python3.5
+PANDOC          =pandoc
 
 # === HELPERS =================================================================
 
@@ -62,16 +79,21 @@ clean: ## Cleans the build files
 #
 # -----------------------------------------------------------------------------
 
-$(BUILD_PATH)/%.py: $(SOURCES_PATH)/%.spy
+$(SOURCES_PATH)/py/%.py: $(SOURCES_PATH)/%.spy
 	@echo "$(GREEN)📝  $@ [PY]$(RESET)"
 	@mkdir -p `dirname $@`
-	@sugar -clpy $< > $@
+	@$(SUGAR) -clpy $< > $@
 	@cp --attributes-only --preserve=mode $< $@
 
-$(BUILD_PATH)/%/__init__.py: $(SOURCES_PATH)/%
+$(SOURCES_PATH)/py/%/__init__.py: $(SOURCES_PATH)/spy/%
 	@echo "$(GREEN)📝  $@ [PY]$(RESET)"
 	@mkdir -p `dirname $@`
 	@touch $@
+
+%.html: %.md
+	@echo "$(GREEN)📝  $@ [PANDOC]$(RESET)"
+	@mkdir -p `dirname $@`
+	@$(PANDOC) $< -thtml -s -c "https://cdn.rawgit.com/sindresorhus/github-markdown-css/gh-pages/github-markdown.css"  | sed 's|<body>|<body><div class=markdown-body style="padding:4em;max-width:55em;">|g' > $@
 
 # -----------------------------------------------------------------------------
 #

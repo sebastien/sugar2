@@ -11,7 +11,7 @@
 @module sugar2.parser
 @import libparsing
 @import LambdaFactoryBuilder from sugar2.writer
-@import  createProgramGrammar from sugar2.grammars.program
+@import  createProgramGrammar from sugar2.grammar.program
 
 @class Parser
 

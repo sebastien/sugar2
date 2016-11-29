@@ -10,7 +10,7 @@
 # -----------------------------------------------------------------------------
 
 @module  sugar2
-@version 0.9
+@version 0.9.1
 @target  Python
 @import  sys
 @import  Command  from lambdafactory.main

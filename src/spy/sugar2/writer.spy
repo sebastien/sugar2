@@ -9,6 +9,7 @@
 # -----------------------------------------------------------------------------
 
 @module  sugar2.writer
+@version 0.9
 @import  libparsing
 @import  interfaces           from lambdafactory
 @import  Factory              from lambdafactory.modelbase
@@ -584,7 +585,7 @@
 	@method onExpression match
 		# Prefix is the current value of the expression, and suffixes is
 		# a sequence of operations on the value (invocation, resolution, etc).
-		# Suffixes is because we wanted to avoid recursive grammars, which
+		# Suffixes is because we wanted to avoid recursive grammar, which
 		# is not well supported in PEG parsers.
 		let prefix   = process (match[0])
 		let suffixes = process (match[1])
