@@ -179,7 +179,7 @@
 		elif isinstance(code, interfaces IOperation)
 			element addOperation (code)
 		elif code
-			assert (False, "Code element type not supported: {0}" format (repr(code)))
+			throw (new Exception ("Code element type not supported: {0}" format (repr(code))))
 		end
 		return element
 	@end

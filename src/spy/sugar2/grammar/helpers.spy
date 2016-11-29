@@ -34,7 +34,7 @@
 	|# This is a fix
 	|if so == eo and so > 0:
 	|	so = eo
-	|for i in xrange(so, eo):
+	|for i in range(so, eo):
 	|	if context[i] == "\t":
 	|		tabs += 1
 	|return tabs == indent
