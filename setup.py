@@ -27,7 +27,7 @@ setup(
 		'Programming Language :: Python :: 3',
 		'Programming Language :: Python :: 3.4',
 	],
-	package_dir = {"":"src/py"},
+	package_dir = {"":"dist"},
 	packages    = ["sugar2", "sugar2.grammar"],
 	install_requires=["libparsing>=0.8.2","lambdafactory>=0.8.0"],
 )
