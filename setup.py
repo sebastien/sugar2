@@ -7,16 +7,9 @@
 # Upload using setup.py: setup.py sdist bdist_wheel upload
 from distutils.core import setup
 
-# from distutils.core import setup
-# setup(name='foobar',
-#       version='1.0',
-#       package_dir={'': 'src/py'},
-#       packages=['sugar2', ""],
-#       )
-VERSION            = "0.8.12"
 setup(
 	name             = "sugar2",
-	version          = VERSION,
+	version          = "0.9.1",
 	url              = "https://github.com/sebastien/sugar2",
 	author           = 'Sébastien Pierre',
 	author_email     = 'sebastien.pierre@gmail.com',
@@ -36,9 +29,7 @@ setup(
 	],
 	package_dir = {"":"src/py"},
 	packages    = ["sugar2", "sugar2.grammar"],
-	# scripts     = ["bin/sugar2"],
-	# py_modules  = ["pouet"],
-	#install_requires=["libparsing>=0.8.2"],
+	install_requires=["libparsing>=0.8.2","lambdafactory>=0.8.0"],
 )
 
 # EOF

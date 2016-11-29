@@ -1,0 +1,14 @@
+@module hello
+
+@class Hello
+| A simple object-oriented hello world
+
+	@property message = "hello, "
+
+	@method greet name:String
+		print (message + name)
+	@end
+
+@end
+
+new Hello () greet "world"
