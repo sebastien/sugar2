@@ -35,7 +35,7 @@
 	|if so == eo and so > 0:
 	|	so = eo
 	|for i in range(so, eo):
-	|	if context[i] == "\t":
+	|	if context[i] == b"\t":
 	|		tabs += 1
 	|return tabs == indent
 	@end
