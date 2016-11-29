@@ -16,20 +16,20 @@ DIST_PATH        ?=dist
 # === SOURCES =================================================================
 
 SOURCES_SUGAR_PY =$(shell find $(SOURCES_PATH)/spy -name "*.spy")
-SOURCES_MD       =$(wildcard *.md)
 SOURCES_MODULES  =$(filter-out $(SOURCES_PATH)/spy/,$(shell find $(SOURCES_PATH)/spy/ -type "d")) 
-SOURCES_ALL      =$(SOURCES_SUGAR)
+SOURCES_MD       =$(wildcard *.md)
+SOURCES_ALL      =$(SOURCES_SUGAR_PY) $(SOURCES_MODULES) $(SOURCES_MD)
 
 # === BUILD ===================================================================
 
-BUILD_ALL       =$(SOURCES_SUGAR:$(SOURCES_PATH)/%.spy=$(BUILD_PATH)/%.py) $(SOURCES_MODULES:$(SOURCES_PATH)/%=$(BUILD_PATH)/%/__init__.py)
+BUILD_ALL       =
 
 # === PRODUCT =================================================================
 
-PRODUCT_PY      =$(SOURCES_SUGAR_PY:$(SOURCES_PATH/spy/%.spy=$(SOURCES)/py/%.py)\
-                 $(SOURCES_MODULES:$(SOURCES_PATH)/spy/%=$(SOURCES_PATH)/py/%/__init__.py)
+PRODUCT_PY      =$(SOURCES_SUGAR_PY:$(SOURCES_PATH)/spy/%.spy=$(SOURCES_PATH)/py/%.py)
+PRODUCT_MODULES =$(SOURCES_MODULES:$(SOURCES_PATH)/spy/%=$(SOURCES_PATH)/py/%/__init__.py)
 PRODUCT_HTML    =$(SOURCES_MD:%.md=%.html)
-PRODUCT         =$(PRODUCT_PY)
+PRODUCT_ALL     =$(PRODUCT_PY) $(PRODUCT_MODULES) $(PRODUCT_HTML)
 
 # === TOOLS ===================================================================
 
@@ -41,6 +41,7 @@ PANDOC          =pandoc
 
 YELLOW           =`tput setaf 11`
 GREEN            =`tput setaf 10`
+BLUE             =`tput setaf 12`
 CYAN             =`tput setaf 14`
 RED              =`tput setaf 1`
 GRAY             =`tput setaf 7`
@@ -63,14 +64,16 @@ MAKEFILE_DIR    := $(notdir $(patsubst %/,%,$(dir $(MAKEFILE_PATH))))
 # -----------------------------------------------------------------------------
 
 
-all: $(PRODUCT) ## Builds all the project assets
+all: $(PRODUCT_ALL) ## Builds all the project assets
 
 help: ## Displays a description of the different Makefile rules
 	@echo "$(CYAN)★★★ $(PROJECT) Makefile ★★★$(RESET)"
 	@grep -E -o '((\w|-)+):[^#]+(##.*)$$'  $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":|##"}; {printf "make \033[01;32m%-15s\033[0m🕮 %s\n", $$1, $$3}'
 
 clean: ## Cleans the build files
-	@echo "$(RED)♻  clean: Cleaning $(words $(PRODUCT)) files $(RESET)"
+	@echo "$(RED)♻  clean: Cleaning $(words $(PRODUCT_ALL)) files $(RESET)"
+	@echo "$(BLUE)♻  $(PRODUCT_ALL) $(RESET)"
+	@echo $(PRODUCT_ALL) $(BUILD_ALL) | xargs -n1 rm 2> /dev/null ; true
 	@test -e $(BUILD_PATH) && rm -r $(BUILD_PATH) ; true
 
 # -----------------------------------------------------------------------------
@@ -79,7 +82,7 @@ clean: ## Cleans the build files
 #
 # -----------------------------------------------------------------------------
 
-$(SOURCES_PATH)/py/%.py: $(SOURCES_PATH)/%.spy
+$(SOURCES_PATH)/py/%.py: $(SOURCES_PATH)/spy/%.spy
 	@echo "$(GREEN)📝  $@ [PY]$(RESET)"
 	@mkdir -p `dirname $@`
 	@$(SUGAR) -clpy $< > $@
