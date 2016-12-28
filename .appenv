@@ -1,0 +1,4 @@
+appenv_declare SUGAR2        `dirname $APPENV_FILE`
+appenv_prepend PATH          $SUGAR2/bin 
+appenv_prepend PYTHONPATH    $SUGAR2/.build
+appenv_append  APPENV_STATUS sugar2

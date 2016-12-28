@@ -1,0 +1,388 @@
+== Sugar 2.0
+-- To-do
+
+
+
+Syntax 
+======
+
+Remove mandatory ends::
+
+	At the end of the day, they don't serve any real purpose besides
+	guarding against copy-paste.
+
+Comments in maps/lists::
+
+	```
+	{
+		value: 1 # Some comment
+		# value: 1 -- Value commented out
+	}
+	```
+
+Multi-line strings::
+
+	```
+	# Just like in Python
+	"""asdsads
+	asdsadas"""
+	```
+
+	```
+	let a = """
+	string on 
+	multiple lines
+	"""
+
+	if c:
+		let b = """
+		string
+		on 
+		multiple
+		lines
+		"""
+	```
+
+String format/interpolation::
+
+
+	We could use inline expressions
+
+	```
+	f"{some code}, {1 + 2}" 
+	```
+
+	Or format with positional arguments
+
+	```
+	"{0:d} {1:d}" % ()     # Uses the local scope
+	"{0:d} {1:d}" % {dict} # Uses the given dict as a scope
+	```
+
+Tuples::
+
+	```
+	(1,2,3,4)
+	```
+
+	```
+	() 
+	(1)
+	(1, 2, 3)
+	(,) 
+	(1,) 
+	```
+
+Named tuples::
+
+	```
+	(a=1, b=2, c=3, 4)
+	```
+
+Primitive alternative constructors::
+
+	```
+	[1,2,3,4]@AltClass
+	```
+
+Chaining::
+
+	```
+	d3 selection () 
+		a ()          # a is called on the result of d3 selection ()
+		b ()          # b is called on the result of ()
+
+	d3 selection () :
+		a ()          # both a and b are with the same result
+		b ()
+	```
+
+	```
+	value:
+		a ()
+		b ()
+	```
+	
+	is equal to
+
+	```
+	value a () b ()
+	```
+
+	and you can also affect that
+
+	```
+	var r = value:
+		a ()
+		b ()
+	```
+
+	and chain it
+
+	```
+	var r = value:
+		a ()
+		b () :
+			c ()
+	```
+	
+	which equals to
+
+	```
+	var r = value ()
+	r a ()
+	var t = r b ()
+	t c ()
+	```
+
+
+Pattern matching::
+
+	as a keyword
+
+	```
+	match getResult()
+		<string>
+			"A string"
+		<number> and _ > 10	
+			"A number"
+		<number> and _ < 0	
+			"A negative number"
+		*
+			"Rest"
+	end
+	```
+
+	as a specific chain type
+
+	```
+	expression |
+		predicate
+			block
+		predicate → line
+		<type>
+	```
+
+	alternate syntax:
+
+	```
+	match value as f
+		case 1.0
+			code
+		case f like (_, _, _)
+			code
+		else
+			code
+	end
+	```
+
+Absence of value:
+
+	```
+	var a = (asdas sadasd ? {})
+	```
+
+Setdefault::
+
+	```
+	var a = {}
+	a ["asdsa" ?= {}]["pouet"] = 10
+	```
+
+Hex/Bit notation::
+
+	```
+	0xFF
+	0b011010101
+	```
+
+Bit-logic operator::
+	
+	```
+	&&
+	||
+	!
+	```
+
+Infix operator::
+
+	```
+	e ~map extractor 
+	```
+
+	would be rewritten as
+
+	```
+	map (e, extractor)
+	```
+
+ Infix functions::
+ 
+ 	@infix @function fold XXXX fold XXXX -> fold (XXX,XXX)
+
+Like operation::
+	
+	v like (_, _, _)
+
+	like takes a structural expression that will tell if the left-hand value
+	is "like" the right hand value
+
+List comprehensions / generators::
+
+	 [x * 2 for x in COLLECTION if CONDITION]
+	 (x * 2 for x in COLLECTION if CONDITION)
+
+Select/match::
+
+
+Streamlined mappings::
+
+	_ :: connector Project fold :: {_| (group[_ discipline [-1]] ?= []) push (_)}
+
+Design-by-contract Assert/pre/post/error::	
+
+	@function f
+	@pre   expresssion error message
+	@post  expression  error message
+		body
+	@where
+		Test case
+	@end
+
+Dictionary setdefault/assign if not null::
+
+	a[1] ?= 1.0
+	
+	equals to
+
+	if not isDefined(a[1]) -> a[1] = 1.0
+
+
+Generators::
+
+	```
+	var f = {
+		for a in 0..100
+			yield a
+		end
+	}
+	```
+
+Special variables::
+
+	```
+	__scope_name__ (ex: widgets.Widget.ensure)
+	__scope__ 
+
+	__module__
+	__module_name__
+
+	__class__
+	__class_name__
+
+	__method__
+	__method_name__
+
+	__function__
+	__function_name__
+
+	__class__
+	__class_name__
+
+	__line__
+	__file__
+	```
+
+
+	and so in code
+
+
+	```
+	error ("{__scope_name__}:{__line__}: Error message")
+	```
+
+
+Named arguments::
+	
+	```
+	@function i a, b, rest...
+	@end
+	```
+
+	```
+	@function i a, b, rest..., options=...
+	@end
+	```
+
+Macros::
+
+	```
+	@macro name( a, b, c )
+		$a = pouet
+		$b = pouet
+		$c = pouet
+	@end
+
+	@function f
+		@name(a,b,c)
+	@end
+	```
+
+	will produce the code $a, $b, $c
+
+	```
+	@function f
+		a = pouet
+		b = pouet
+		c = pouet
+	@end
+	```
+
+Implemented
+===========
+
+Default arguments::
+
+	```
+	@function f a=0, b=1, c=2
+	@end
+	```
+
+Automatic variables::
+
+	```
+	_  == arguments[0]
+	_0 == arguments[0]
+	_1 == arguments[1]
+	_2 == arguments[2]
+	```
+
+Implicit return::
+
+	```
+	{_| _ + 1}
+	```
+
+Continue/break::
+
+	```
+	for a,b in 0..10
+		if a == 5
+			continue
+		elif a > 7
+			break
+		end
+	end
+	```
+
+Map/filter/... operators::
+
+	```
+	Filter  VALUE ::? PREDICATE
+	Map     VALUE ::= EXTRACTOR
+	Reduce  VALUE ::> EXTRACTOR
+	ReduceR VALUE ::< EXTRACTOR
+	```
+
+# EOF
+
