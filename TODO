@@ -2,14 +2,45 @@
 -- To-do
 
 
+Tools
+=====
+
+- `ctags-like` wrapper
+- syntax highlighting for many editors
 
 Syntax 
 ======
+
+Incompatible changes
+--------------------
+
+Inline conditionals::
+
+	currently
+
+	```
+	if CONDITION -> EXPRESSION (| CONDITION -> EXPRESSION)* | EXPRESSION
+	```
+
+	better would be 
+
+	```
+	CONDITION ? EXPRESSION : EXPRESSION
+	```
+
+	or 
+
+	```
+	EXPRESSION if CONDITION else EXPRESSION
+	```
 
 Remove mandatory ends::
 
 	At the end of the day, they don't serve any real purpose besides
 	guarding against copy-paste.
+
+New features
+------------
 
 Comments in maps/lists::
 
@@ -176,7 +207,19 @@ Pattern matching::
 	end
 	```
 
-Absence of value:
+Decorators::
+
+	```
+	@function decorate f, a
+		f __value = a
+		return f
+	@end
+
+	@function pouet
+	@decorate 10
+	```
+	
+Absence of value::
 
 	```
 	var a = (asdas sadasd ? {})
