@@ -157,7 +157,7 @@
 	@method filterNull result
 	| Returns only the elements of result that have a value
 		@embed Python
-		|return filter(lambda _:_, result)
+		|return [_ for _ in result if _]
 		@end
 	@end
 
@@ -178,6 +178,8 @@
 			end
 		elif isinstance(code, interfaces IOperation)
 			element addOperation (code)
+		elif isinstance(code, interfaces IReference)
+			element addOperation (F resolve (code))
 		elif isinstance(code, interfaces IComment)
 			# We do nothing, but we should support inline comments
 			pass
@@ -250,15 +252,25 @@
 
 		# We parse the annotations
 		let annotations = {}
+		var imports     = []
 		for _ in declaration
 			if isinstance (_, interfaces IAnnotation)
 				annotations[_ getName ()] = _ getContent ()
+			elif type(_) is list
+				# FIXME: This is quite brittle
+				imports += _
+			elif _
+				raise (new Exception("Module operation not implemented: {0}" format(_)))
 			end
 		end
 
 		# We create the module
 		# TODO: Support module dosctring from annotation
 		let module = F createModule (annotations get "module" or getDefaultModuleName())
+		for _ in imports
+			assert (isinstance(_, interfaces IImportOperation))
+			module addImportOperation (_)
+		end
 
 		# We take care of the version number
 		if annotations get "version"
@@ -416,6 +428,52 @@
 		var res    = F createClosure (params)
 		_addCode( res, code)
 		return res
+	@end
+
+	# =========================================================================
+	# IMPORTS
+	# =========================================================================
+
+	@method onImportSymbol match
+		return [
+			process (match[0])[0]
+			process (match[1])
+		]
+	@end
+
+	@method onImportOrigin match
+		return process (match[1])[0]
+	@end
+
+	@method onImportAlias match
+		return process (match[1])
+	@end
+
+	@method onImportOperation match
+		let name   = process (match[1])
+		let names  = process (match[2])
+		let origin = process (match[3])
+		var symbols = []
+		@embed Python
+		|symbols = [_[0] for _ in [name] + (names or [])]
+		@end
+		print ("IMPORT", name, names, origin, "SYMBOLS", symbols)
+		# FIXME: LF's import system should be rewritten
+		# TODO: Support 'as' for multiple symbols
+		if not origin
+			if len(names) == 0
+				return F importModule (name[0], name[1])
+			else
+				assert (not origin)
+				return F importModules (symbols)
+			end
+		else
+			if len(names) == 0
+				return F importSymbol  (name[0], origin, name[1])
+			else
+				return F importSymbols (symbols, origin)
+			end
+		end
 	@end
 
 	# =========================================================================
@@ -680,6 +738,12 @@
 				elif name == "Slice"
 					value = F slice  (value, args[1], args[2])
 				elif name == "Chain"
+					print ("CHAIN", value, args)
+					if type(value) is list
+						ipdb set_trace()
+					end
+
+					# FIXME: This does not work value is not expected to be a list
 					# TODO: Should be an automatic variable
 					var alloc = value
 					var ref   = None
@@ -816,7 +880,7 @@
 	@method onSlice match
 		var start_index = process(match[1])
 		var end_index   = process(match[3])
-		return [element name, start_index, end_index]
+		return [match name, start_index, end_index]
 	@end
 
 	@method onChainLine match
@@ -938,25 +1002,31 @@
 	@end
 
 	@method onIterationLine match
-		let op = libparsing ensure_str (process(match[1])[0])
+		let lvalue = process(match[0])
+		let op     = libparsing ensure_str (process(match[1])[0])
+		let rvalue = process(match[2])
 		if op == "::"
 			# For a straight iterate, we don't need an implicit return, so
 			# we make sure they're removed
-			let closure = process(match[2])
-			if len(closure operations) > 0
-				let lop = closure operations [-1]
-				if lop hasAnnotation "implicit"
-					closure removeOperationAt -1
-					closure addOperation (lop getOpArgument 0)
+			if isinstance( rvalue, interfaces IClosure)
+				let closure = rvalue
+				if len(closure operations) > 0
+					let lop = closure operations [-1]
+					if lop hasAnnotation "implicit"
+						closure removeOperationAt -1
+						closure addOperation (lop getOpArgument 0)
+					end
 				end
 			end
-			return F iterate (process(match[0]), closure)
+			return F iterate (lvalue, rvalue)
 		elif op == "::?"
-			return F filter  (process(match[0]), process(match[2]))
+			return F filter  (lvalue, rvalue)
 		elif op == "::="
-			return F map     (process(match[0]), process(match[2]))
+			return F map     (lvalue, rvalue)
+		elif op == "::>"
+			return F reduce  (lvalue, rvalue)
 		elif op == "::<"
-			return F reduce  (process(match[0]), process(match[2]))
+			return F reduce  (lvalue, rvalue)
 		else
 			raise ValueError("onIterationLine: Unsupported iteration operator: {0}" format(op))
 		end

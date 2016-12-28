@@ -128,6 +128,7 @@
 	# FIXME: Support 0xFFAAEE
 	g token     ("NUMBER",           "\-?(0x)?[0-9]+(\.[0-9]+)?")
 	g token     ("NAME",             "(\\\?)([\$_A-Za-z][_\w]*)")
+	g token     ("FQNAME",           "(\\\?)([\$_A-Za-z][\._\w]*)")
 	g token     ("KEY",              "[\$_\-A-Za-z][_\-\w]*")
 	# TODO: Add "not in"
 	g token     ("INFIX_OPERATOR",   "([\-\+\*\/\%]|\<=|\>=|\<|\>|==|\!=|\.\.|not\s+in\s+|in\s+|and\s+|or\s+|is\s+not\s+|is\s+|\*\*)")
@@ -142,7 +143,7 @@
 	g token     ("EMBED_LINE",       "\|([^\n]*)")
 	g token     ("VERSION",          "[0-9]+(\.[0-9]+)?(\.[0-9]+)?[a-zA-Z_]*")
 	g token     ("DOT_OR_SPACE",     "\.|[ \t]+")
-	g token     ("ITERATOR",         "::[\?=\<]?")
+	g token     ("ITERATOR",         "::[\?=\<\>]?")
 	g token     ("ELLIPSIS",         "\.\.\.|‥")
 	g token     ("BLOCKLINE",        "\-\>|→")
 	# Punctuation
@@ -158,7 +159,7 @@
 	g word      ("SEMICOLON",        ";")
 	g word      ("PIPE",             "|")
 	g word      ("EQUALS",           "=")
-	g word      ("WILDCARD",         "*")
+	# g word      ("WILDCARD",         "*")
 	g condition ("NOTHING")
 	# Keywords
 	g word      ("_var",             "var")
@@ -249,7 +250,7 @@
 	g rule      ("Parentheses",      s LP,    s Expression, s RP)
 	g group     "Suffixes"
 	g rule      ("ChainLine",        s EOL, s Indent, s CheckIndent, g agroup (s COMMENT, s Reference, s Suffixes) oneOrMore (), s Dedent)
-	g rule      ("Chain",            s COLON, s ChainLine zeroOrMore ())
+	g rule      ("Chain",            s COLON, s ChainLine oneOrMore ())
 	g group     ("Prefixes"
 		s Literal
 		g rule  ("Exception",        s THROW_OPERATOR, s Expression _as "expression")
@@ -357,15 +358,17 @@
 	g rule  ("VersionAnnotation",     s oversion,  s VERSION, s EOL)
 	g rule  ("RequiresAnnotation",    s orequires, s FQName, g arule (s COMMA, s FQName) zeroOrMore (), s EOL)
 	g rule  ("TargetAnnotation",      s otarget,   s NAME oneOrMore (), s EOL)
-	g rule  ("ImportSingleSymbol",    s oimport,   s NAME,     s _from, s FQName, g arule (s _as, s NAME) optional (), s EOL)
-	g rule  ("ImportSingleFQSymbol",  s oimport,   s FQName,   g arule (s _as,    s NAME) optional (), s EOL)
-	g rule  ("ImportMultipleSymbols", s oimport,   s NAME,     g arule (s COMMA,  s NAME) zeroOrMore (), s _from, s FQName, s EOL)
-	g rule  ("ImportAllSymbols",      s oimport,   s WILDCARD, s _from, s FQName, s EOL)
-	g group ("ImportOperation"
-		s ImportAllSymbols
-		s ImportMultipleSymbols
-		s ImportSingleFQSymbol
-		s ImportSingleSymbol
+	g rule  ("ImportAlias",           s _as,       s NAME)
+	g rule  ("ImportSymbol",          s FQNAME,    s ImportAlias optional ())
+	g rule  ("ImportOrigin",          s _from,     s FQNAME)
+	g rule  ("ImportOperation"
+		s oimport
+		s ImportSymbol
+		g arule (
+			s COMMA
+			s ImportSymbol
+		) zeroOrMore ()
+		s ImportOrigin optional ()
 	)
 	g rule ("ModuleDeclaration"
 		s EmptyLines         zeroOrMore ()
@@ -375,7 +378,7 @@
 		s Documentation      optional   () _as "documentation"
 		s RequiresAnnotation optional   ()
 		s TargetAnnotation   optional   ()
-		s ImportOperation    zeroOrMore ()
+		s ImportOperation    zeroOrMore () _as "imports"
 	)
 	g group     ("Structure",          s EmptyLines, s Comment, s ModuleAttribute, s Function, s Class)
 	g rule      ("Module",             s ModuleDeclaration,  s Structure zeroOrMore (), s Code zeroOrMore ())
