@@ -183,6 +183,8 @@
 		elif isinstance(code, interfaces IComment)
 			# We do nothing, but we should support inline comments
 			pass
+		elif isinstance(code, interfaces IValue)
+			element addOperation (F evaluate (code))
 		elif code
 			raise new Exception ("Code element type not supported: {0}" format (repr(code)))
 		end
@@ -247,38 +249,39 @@
 	# STRUCTURE
 	# =========================================================================
 
-	@method onModule match
-		let declaration = process (match[0])
+	@method onModuleDeclaration match
+		return {
+			comments      : process(match["comments"])
+			module        : process(match["module"])
+			version       : process(match["version"])
+			documentation : process(match["documentation"])
+			imports       : process(match["imports"])
+		}
+	@end
 
-		# We parse the annotations
-		let annotations = {}
-		var imports     = []
-		for _ in declaration
-			if isinstance (_, interfaces IAnnotation)
-				annotations[_ getName ()] = _ getContent ()
-			elif type(_) is list
-				# FIXME: This is quite brittle
-				imports += _
-			elif _
-				raise (new Exception("Module operation not implemented: {0}" format(_)))
-			end
-		end
+	@method onModule match
+		let declarations = process (match[0])
 
 		# We create the module
-		# TODO: Support module dosctring from annotation
-		let module = F createModule (annotations get "module" or getDefaultModuleName())
-		for _ in imports
+		let name   = declarations["module"]
+		let module = F createModule (name and name getContent () or getDefaultModuleName())
+		_addCode( module, declarations["comments"])
+		for _ in declarations["imports"]
 			assert (isinstance(_, interfaces IImportOperation))
 			module addImportOperation (_)
 		end
 
+		module setDocumentation (declarations["documentation"])
+
 		# We take care of the version number
-		if annotations get "version"
-			_bind (module, F _moduleattr ("VERSION", None, F _string (annotations get "version")))
+		let version = declarations ["version"]
+		if version
+			module addAnnotation (version)
 		end
 
 		let structure   = process (match[1])
 		let code        = process (match[2])
+
 
 		# We create the init function
 		var init_function  = F createFunction (F ModuleInit)
@@ -361,11 +364,15 @@
 		var params     = access (process (match["parameters"])[0], 0)
 		let doc        = process (match["documentation"])
 		let body       = process (match["body"])
+		let dec        = process (match["decorators"])
 		var fun        = None
 		if name_type is True
 			fun    = factory (params)
 		else
 			fun    = factory (name_type[0] getReferenceName (), params)
+		end
+		for d in dec
+			fun addAnnotation (d)
 		end
 		fun setDocumentation (doc)
 		_addCode (fun, body)
@@ -449,15 +456,15 @@
 		return process (match[1])
 	@end
 
-	@method onImportOperation match
+	@method onImport match
 		let name   = process (match[1])
 		let names  = process (match[2])
 		let origin = process (match[3])
 		var symbols = []
 		@embed Python
+		|names   = [_[1] for _ in names]
 		|symbols = [_[0] for _ in [name] + (names or [])]
 		@end
-		print ("IMPORT", name, names, origin, "SYMBOLS", symbols)
 		# FIXME: LF's import system should be rewritten
 		# TODO: Support 'as' for multiple symbols
 		if not origin
@@ -514,6 +521,28 @@
 	# CONTROL STRUCTURES
 	# =========================================================================
 
+
+	@method onConditionalExpression match
+		var c = process(match["condition"])
+		var t = process(match["true"])
+		var f = process(match["false"])
+		var res = F select ()
+		res addRule (F matchExpression (c, t))
+		# TODO
+		# for _ in _elifs
+		# 	res addRule (F matchProcess (_[0], _[1]))
+		# end
+		if f
+			# FIXME: Should be "res setFallback"
+			let e = F matchExpression (F _ref "True", f)
+			e addAnnotation "else"
+			res addRule (e)
+		end
+		# TODO: Should probably have a separate model element
+		res addAnnotation("if-expression")
+		return res
+	@end
+
 	@method onConditionalLine match
 		return onConditionalBlock (match)
 	@end
@@ -529,7 +558,9 @@
 		end
 		if _else
 			# FIXME: Should be "res setFallback"
-			res addRule (F matchProcess (F _ref "True", _else[0]))
+			let e = F matchProcess (F _ref "True", _else[0])
+			e addAnnotation "else"
+			res addRule (e)
 		end
 		return res
 	@end
@@ -654,7 +685,7 @@
 		# NOTE: This should be abstracted
 		if isinstance(prefix, interfaces ILiteral) or isinstance(prefix, interfaces IValue) or isinstance(prefix, interfaces IClosure)
 			current  = prefix
-		elif isinstance(prefix, interfaces IComputation) or isinstance(prefix, interfaces IResolution) or isinstance(prefix, interfaces IInvocation) or isinstance (prefix, interfaces IInstanciation) or isinstance (prefix, interfaces IAccessOperation) or isinstance(prefix, interfaces IExcept)
+		elif isinstance(prefix, interfaces IComputation) or isinstance(prefix, interfaces IResolution) or isinstance(prefix, interfaces IInvocation) or isinstance (prefix, interfaces IInstanciation) or isinstance (prefix, interfaces IAccessOperation) or isinstance(prefix, interfaces IExcept) or isinstance(prefix, interfaces ISelection)
 			current  = prefix
 		elif isinstance(prefix, interfaces IReference)
 			current  = F resolve (prefix)
@@ -737,6 +768,8 @@
 					value = F access (value, args[1])
 				elif name == "Slice"
 					value = F slice  (value, args[1], args[2])
+				elif name == "IterationSuffix"
+					value = args[1](value, args[2])
 				elif name == "Chain"
 					print ("CHAIN", value, args)
 					if type(value) is list
@@ -872,6 +905,11 @@
 		return slots
 	@end
 
+	@method onOWhen match
+		return F annotation ("when", process (match ["expression"]))
+	@end
+
+
 	@method onDecomposition match
 	| Returns [("Decomposition", [ref:Reference])]
 		return [match name, process(match[1])]
@@ -1001,10 +1039,9 @@
 		return _applySuffixes (prefix, suffixes)
 	@end
 
-	@method onIterationLine match
-		let lvalue = process(match[0])
-		let op     = libparsing ensure_str (process(match[1])[0])
-		let rvalue = process(match[2])
+	@method onIterationSuffix match
+		let op     = libparsing ensure_str (process(match["op"])[0])
+		let rvalue = process(match["rvalue"])
 		if op == "::"
 			# For a straight iterate, we don't need an implicit return, so
 			# we make sure they're removed
@@ -1018,15 +1055,15 @@
 					end
 				end
 			end
-			return F iterate (lvalue, rvalue)
+			return [match name, F iterate, rvalue]
 		elif op == "::?"
-			return F filter  (lvalue, rvalue)
+			return [match name, F filter, rvalue]
 		elif op == "::="
-			return F map     (lvalue, rvalue)
+			return [match name, F map, rvalue]
 		elif op == "::>"
-			return F reduce  (lvalue, rvalue)
+			return [match name, F reduce, rvalue]
 		elif op == "::<"
-			return F reduce  (lvalue, rvalue)
+			return [match name, F reduce, rvalue]
 		else
 			raise ValueError("onIterationLine: Unsupported iteration operator: {0}" format(op))
 		end
@@ -1230,6 +1267,10 @@
 
 	@method onCOMMENT match
 		return F comment (process(match)[1:0])
+	@end
+
+	@method onComment match
+		return process(match["text"])
 	@end
 
 	# =========================================================================

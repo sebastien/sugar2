@@ -57,6 +57,7 @@
 					s EOL
 				)
 			) _as "parameters"
+			s Decorator zeroOrMore   () _as "decorators"
 			s Documentation optional () _as "documentation"
 			s Body _as "body"
 			s OEnd
@@ -73,6 +74,7 @@
 					s EOL
 				)
 			) _as "parameters"
+			s Decorator zeroOrMore   () _as "decorators"
 			s Documentation optional () _as "documentation"
 			s Body _as "body"
 			s OEnd
@@ -145,7 +147,7 @@
 	g token     ("DOT_OR_SPACE",     "\.|[ \t]+")
 	g token     ("ITERATOR",         "::[\?=\<\>]?")
 	g token     ("ELLIPSIS",         "\.\.\.|‥")
-	g token     ("BLOCKLINE",        "\-\>|→")
+	g token     ("ARROW",            "\-\>|→")
 	# Punctuation
 	g word      ("LP",               "(")
 	g word      ("RP",               ")")
@@ -179,8 +181,6 @@
 	g word      ("oabstract",        "@abstract")
 	g word      ("oimport",          "@import")
 	g word      ("omodule",          "@module")
-	g word      ("otarget",          "@target")
-	g word      ("orequires",        "@requires")
 	g word      ("oversion",         "@version")
 	# g word      ("olicense",         "@license")
 	g word      ("ofunction",        "@function")
@@ -193,6 +193,7 @@
 	g word      ("ogroup",           "@group")
 	g word      ("oend",             "@end")
 	g word      ("oembed",           "@embed")
+	g word      ("owhen",            "@when")
 
 	# Indentation
 	g procedure ("Indent",           doIndent)
@@ -200,7 +201,7 @@
 	g rule      ("CheckIndent",      s TABS _as "tabs", g acondition (doCheckIndent))
 
 	# Documentation & Comments
-	g rule      ("Comment",          s COMMENT,  s EOL)
+	g rule      ("Comment",          s COMMENT _as "text",  s EOL)
 	g rule      ("EmptyLines",       s EMPTY_LINES)
 	g rule      ("DocumentationLine",s CheckIndent, s DOCSTRING, s EOL)
 	g rule      ("Documentation",    s DocumentationLine oneOrMore ())
@@ -251,15 +252,18 @@
 	g group     "Suffixes"
 	g rule      ("ChainLine",        s EOL, s Indent, s CheckIndent, g agroup (s COMMENT, s Reference, s Suffixes) oneOrMore (), s Dedent)
 	g rule      ("Chain",            s COLON, s ChainLine oneOrMore ())
+	g rule      ("ConditionalExpression",  s _if, s Expression _as "condition", s ARROW, s Expression _as "true", s PIPE, s Expression _as "false")
+	g rule      ("IterationSuffix",  s ITERATOR _as "op", s Expression _as "rvalue")
 	g group     ("Prefixes"
 		s Literal
 		g rule  ("Exception",        s THROW_OPERATOR, s Expression _as "expression")
 		g rule  ("Instanciation",    s NEW_OPERATOR,   g agroup (s FQName, s Parentheses) _as "target", s Invocation _as "params")
 		g rule  ("ComputationPrefix",s PREFIX_OPERATOR, s Expression)
+		s ConditionalExpression
 		s NAME
 		s Parentheses
 	)
-	s Suffixes   set (s Chain, s ComputationInfix, s Decomposition, s Access, s Slice, s Invocation)
+	s Suffixes   set (s Chain, s IterationSuffix, s ComputationInfix, s Decomposition, s Access, s Slice, s Invocation)
 	s Expression set (s Prefixes, s Suffixes zeroOrMore ())
 
 	# Operations
@@ -272,12 +276,11 @@
 		g arule (s ASSIGN_OPERATOR, s Expression)  _as "op"
 	)
 	g rule       ("Termination", g aword "return", s Expression optional ())
-	g rule       ("IterationLine", s Expression, s ITERATOR, s Expression)
 
 	# Blocks
 	g group     ("Block")
 	g group     ("Code")
-	g group     ("Statement",   s Comment, s Block, s Allocation, s Assignment, s Termination, s IterationLine, s Expression)
+	g group     ("Statement",   s Comment, s Block, s Allocation, s Assignment, s Termination, s Expression)
 	g rule      ("Statements",  s Statement, g arule (s SEMICOLON, s Statement) zeroOrMore ())
 	g rule      ("Line",             s CheckIndent, s Statements optional (), s COMMENT optional (), s EOL)
 	# NOTE: We use procedures and condition to support single line and block versions of the blocks
@@ -285,10 +288,10 @@
 	# FIXME: This is EOL is causing problems with comments straight after a single-line if
 	# | if (not context) and (not isList(context)) and (not isMap(context)) -> context = {}
 	# | # Support key-value pairs as well
-	g rule      ("BlockLine",        s BLOCKLINE, s Statements _as "body", s COMMENT optional ())
+	g rule      ("BlockLine",        s ARROW, s Statements _as "body", s COMMENT optional ())
 	g rule      ("BlockBody",        s EOL, s Indent, s Code zeroOrMore () _as "body", s Dedent)
 	g group     ("BlockEnd",         g arule (s CheckIndent, s _end) )
-	# disableMemoize ()
+
 	# NOTE: If has no checkindednt to support for {assd|if -> asdsadas ... }
 	# FIXME: Leaving the s CheckIndent optional () here puts the parser in an infinite loop...
 	# g rule      ("IfBranch",         s CheckIndent optional (), s _if,    s Expression, g agroup (s BlockBody, s BlockLine))
@@ -309,6 +312,7 @@
 	g rule      ("ForBlock",        s _for,   s ParameterList _as "params", s _in, s Expression _as "expr", g agroup (s BlockBody, s BlockLine) _as "body")
 
 
+	# TODO: This should be moved to expressions
 	g rule      ("ConditionalLine",  s IfLine _as "if", s ElifLine zeroOrMore () _as "elif", s ElseLine optional () _as "else")
 	g rule      ("ConditionalBlock", s BlockStart, s IfBlock    _as "if",    s ElifBlock zeroOrMore () _as "elif", s ElseBlock optional () _as "else", s BlockEnd)
 	g group     ("Conditional",      s ConditionalLine, s ConditionalBlock)
@@ -322,6 +326,8 @@
 	# Program
 	g rule      ("OEnd",             s CheckIndent, s oend,      s EOL)
 	g rule      ("Body",             s Indent, s Code zeroOrMore () _as "code", s Dedent)
+	g rule      ("OWhen",            s CheckIndent, s owhen, s Expression _as "expression", s EOL)
+	g group     ("Decorator",        s OWhen)
 	s ClosureStatement set (s Statements)
 	declaration      (g, "ClassAttribute",    s oshared)
 	declaration      (g, "ModuleAttribute",   s oshared)
@@ -356,12 +362,10 @@
 	)
 	g rule  ("ModuleAnnotation",      s omodule,   s FQName, s EOL)
 	g rule  ("VersionAnnotation",     s oversion,  s VERSION, s EOL)
-	g rule  ("RequiresAnnotation",    s orequires, s FQName, g arule (s COMMA, s FQName) zeroOrMore (), s EOL)
-	g rule  ("TargetAnnotation",      s otarget,   s NAME oneOrMore (), s EOL)
 	g rule  ("ImportAlias",           s _as,       s NAME)
 	g rule  ("ImportSymbol",          s FQNAME,    s ImportAlias optional ())
 	g rule  ("ImportOrigin",          s _from,     s FQNAME)
-	g rule  ("ImportOperation"
+	g rule  ("Import"
 		s oimport
 		s ImportSymbol
 		g arule (
@@ -369,16 +373,15 @@
 			s ImportSymbol
 		) zeroOrMore ()
 		s ImportOrigin optional ()
+		s EOL
 	)
 	g rule ("ModuleDeclaration"
 		s EmptyLines         zeroOrMore ()
-		s Comment            zeroOrMore ()
-		s ModuleAnnotation   optional   ()
-		s VersionAnnotation  optional   ()
+		s Comment            zeroOrMore () _as "comments"
+		s ModuleAnnotation   optional   () _as "module"
+		s VersionAnnotation  optional   () _as "version"
 		s Documentation      optional   () _as "documentation"
-		s RequiresAnnotation optional   ()
-		s TargetAnnotation   optional   ()
-		s ImportOperation    zeroOrMore () _as "imports"
+		s Import             zeroOrMore () _as "imports"
 	)
 	g group     ("Structure",          s EmptyLines, s Comment, s ModuleAttribute, s Function, s Class)
 	g rule      ("Module",             s ModuleDeclaration,  s Structure zeroOrMore (), s Code zeroOrMore ())
