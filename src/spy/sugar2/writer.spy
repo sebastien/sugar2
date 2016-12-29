@@ -698,7 +698,7 @@
 		# NOTE: This should be abstracted
 		if isinstance(prefix, interfaces ILiteral) or isinstance(prefix, interfaces IValue) or isinstance(prefix, interfaces IClosure)
 			current  = prefix
-		elif isinstance(prefix, interfaces IComputation) or isinstance(prefix, interfaces IResolution) or isinstance(prefix, interfaces IInvocation) or isinstance (prefix, interfaces IInstanciation) or isinstance (prefix, interfaces IAccessOperation) or isinstance(prefix, interfaces IExcept) or isinstance(prefix, interfaces ISelection) or isinstance(prefix, interfaces IEnumeration)
+		elif isinstance(prefix, interfaces IComputation) or isinstance(prefix, interfaces IResolution) or isinstance(prefix, interfaces IInvocation) or isinstance (prefix, interfaces IInstanciation) or isinstance (prefix, interfaces IAccessOperation) or isinstance(prefix, interfaces IExcept) or isinstance(prefix, interfaces ISelection) or isinstance(prefix, interfaces IEnumeration) or isinstance(prefix, interfaces IIteration)
 			current  = prefix
 		elif isinstance(prefix, interfaces IReference)
 			current  = F resolve (prefix)
