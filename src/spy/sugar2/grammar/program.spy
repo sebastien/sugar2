@@ -126,16 +126,17 @@
 	g token     ("SPACE",            "[ ]+")
 	g token     ("TABS",             "\t*")
 	g token     ("EMPTY_LINES",      "([ \t]*\n)+")
-	g token     ("INDENT",           "\t+")
 	g token     ("COMMENT",          "[ \t]*\#[^\n]*")
 	g token     ("EOL",              "[ ]*\n(\s*\n)*")
 	# FIXME: Support 0xFFAAEE
-	g token     ("NUMBER",           "\-?(0x)?[0-9]+(\.[0-9]+)?")
+	g token     ("NUMBER",           "\-?(([0-9]+(\.[0-9]+)?)|(0x[A-Fa-f0-9]+)|(0b[01]+)|(0o[0-8]+))")
+	g token     ("FLOAT",            "\-?[0-9]+(\.[0-9]+)?")
+	g token     ("TIME",             "[0-9]+(\.[0-9]+)?(ms|s|m|h|d|w)")
 	g token     ("NAME",             "(\\\?)([\$_A-Za-z][_\w]*)")
 	g token     ("FQNAME",           "(\\\?)([\$_A-Za-z][\._\w]*)")
 	g token     ("KEY",              "[\$_\-A-Za-z][_\-\w]*")
 	# TODO: Add "not in"
-	g token     ("INFIX_OPERATOR",   "([\-\+\*\/\%]|\<=|\>=|\<|\>|==|\!=|\.\.|not\s+in\s+|in\s+|and\s+|or\s+|is\s+not\s+|is\s+|\*\*)")
+	g token     ("INFIX_OPERATOR",   "([\-\+\*\/\%]|\<=|\>=|\<\<?|\>\>?|==|\!=|\.\.|\|\||&&|not\s+in\s+|in\s+|and\s+|or\s+|is\s+not\s+|is\s+|\*\*)")
 	g token     ("PREFIX_OPERATOR",  "(not\s+|\-)")
 	g token     ("NEW_OPERATOR",     "new\s+")
 	g token     ("THROW_OPERATOR",   "(raise|throw)\s+")
@@ -211,15 +212,18 @@
 	# Basic types
 	g group     ("String",           s STRING_SQ, s STRING_DQ)
 	g rule      ("Expression")
-	g group     ("Key",              s KEY, s NUMBER, s String, g arule( s LP, s Expression, s RP))
+	g group     ("Number",           s TIME, s NUMBER)
+	g group     ("Key",              s KEY, s Number, s String, g arule( s LP, s Expression, s RP))
 	g rule      ("KeyValue",         s Key, s COLON, s Expression)
+	g rule      ("ImplicitKey",      s KEY)
+	g group     ("Entry",         s KeyValue, s ImplicitKey)
 	# TODO: Add support for comments within lines and blocks
-	g rule      ("KeyValueList",     s KeyValue,   g arule (s COMMA, s KeyValue  ) zeroOrMore ())
+	g rule      ("EntryList",     s Entry,   g arule (s COMMA, s Entry  ) zeroOrMore ())
 	g rule      ("ExpressionList",   s Expression, g arule (s COMMA, s Expression) zeroOrMore ())
 	g rule      ("ExpressionBlock",  s Indent,     g arule (s EOL,   s CheckIndent, s ExpressionList) oneOrMore (), s Dedent)
-	g rule      ("KeyValueBlock",    s Indent,     g arule (s EOL,   s CheckIndent, s KeyValueList  ) oneOrMore (), s Dedent)
+	g rule      ("EntryBlock",    s Indent,     g arule (s EOL,   s CheckIndent, s EntryList  ) oneOrMore (), s Dedent)
 	g rule      ("Array",            s LSB, s ExpressionList optional () _as "head", s ExpressionBlock optional () _as "tail", g arule (s EOL, s CheckIndent) optional (), s RSB)
-	g rule      ("Map",              s LB,  s KeyValueList   optional () _as "head", s KeyValueBlock   optional () _as "tail", g arule (s EOL, s CheckIndent) optional (), s RB)
+	g rule      ("Map",              s LB,  s EntryList   optional () _as "head", s EntryBlock   optional () _as "tail", g arule (s EOL, s CheckIndent) optional (), s RB)
 
 	# Declarations
 	g rule      ("TypeStructure",    g atoken "\<[^\>]*\>")
@@ -235,12 +239,13 @@
 	g rule      ("ClosureStatement")
 	g rule      ("ClosureLine",       s EOL, s CheckIndent, g agroup (s COMMENT, s ClosureStatement))
 	g rule      ("ClosureParameters", s ParameterList optional(), s PIPE)
+	g rule      ("EmptyClosure",      s LB, s ClosureParameters, s RB)
 	g rule      ("InlineClosure",     s LB, s ClosureParameters optional (), s ClosureStatement, s RB)
 	g rule      ("BlockClosure",      s LB, s ClosureParameters optional (), s Indent, s ClosureLine zeroOrMore (), s EOL,  s Dedent, s CheckIndent, s RB)
-	g group     ("Closure",           s BlockClosure, s InlineClosure)
+	g group     ("Closure",           s BlockClosure, s InlineClosure, s EmptyClosure)
 
 	# Expression prefixes
-	g group     ("Literal",         s NUMBER, s SYMBOLIC, s String, s Array, s Map, s Closure)
+	g group     ("Literal",          s Number, s SYMBOLIC, s String, s Array, s Map, s Closure)
 	# We only allow dots to chain notations
 	g rule      ("Reference",        s NAME, g arule (s DOT, s NAME) zeroOrMore ())
 	g rule      ("Decomposition",    s DOT_OR_SPACE, s Reference)

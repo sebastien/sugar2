@@ -56,6 +56,7 @@
 		[".."]
 		["+"  , "-"]
 		["not"]
+		["||", "&&", "<<", ">>"]
 		["/"  , "*"  , "%" , "//" ]
 		["/=", "*=", "%=", "+=" , "-=", "="]
 	]
@@ -429,6 +430,10 @@
 		return _ensureReturns (process(match[0]))
 	@end
 
+	@method onEmptyClosure match
+		return F createClosure (process (match[1]))
+	@end
+
 	@method onInlineClosure match
 		let params = process (match[1])
 		let line   = [process (match[2])]
@@ -779,7 +784,6 @@
 				elif name == "IterationSuffix"
 					value = args[1](value, args[2])
 				elif name == "Chain"
-					print ("CHAIN", value, args)
 					if type(value) is list
 						ipdb set_trace()
 					end
@@ -1185,7 +1189,7 @@
 		return res
 	@end
 
-	@method onKeyValueList match
+	@method onEntryList match
 		let res = [process(match[0])]
 		for _ in process(match[1])
 			# We have _ = [COMMA, <model.KeyValue>]
@@ -1195,7 +1199,7 @@
 		return res
 	@end
 
-	@method onKeyValueBlock match
+	@method onEntryBlock match
 		var res  = []
 		for _ in  process (match[1])
 			# We have _ = [EOL, CheckIndent, KeyValueList]
@@ -1205,8 +1209,17 @@
 		return res
 	@end
 
+	@method onEntry match
+		return process (match[0])
+	@end
+
 	@method onKeyValue match
 		return [process(match[0]), process (match[2])]
+	@end
+
+	@method onImplicitKey match
+		let name = process(match[0])
+		return [name, F resolve (F _ref (name getActualValue()))]
 	@end
 
 	@method onKey match
@@ -1236,6 +1249,31 @@
 		# FIXME: Proper number decoding
 		let decoded = eval (raw)
 		return F _number (decoded)
+	@end
+
+	@method onTIME match
+		let t = process(match)[0]
+		var v = 0
+		if  t endswith("ms")
+			v = float(t[0:-2])
+		elif t endswith("s")
+			v = float(t[0:-1]) * 1000
+		elif t endswith("m")
+			v = float(t[0:-1]) * 1000 * 60
+		elif t endswith("h")
+			v = float(t[0:-1]) * 1000 * 60 * 60
+		elif t endswith("d")
+			v = float(t[0:-1]) * 1000 * 60 * 60 * 24
+		elif t endswith("w")
+			v = float(t[0:-1]) * 1000 * 60 * 60 * 24 * 7
+		else
+			raise (new Exception ("Does not recognizes time format {0}" format (t)))
+		end
+		return F _number(v)
+	@end
+
+	@method onNumber match
+		return process (match) [0]
 	@end
 
 	@method onSYMBOLIC match

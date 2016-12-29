@@ -14,7 +14,7 @@ Syntax
 Incompatible changes
 --------------------
 
-Inline conditionals::
+[ ] Inline conditionals::
 
 	currently
 
@@ -34,13 +34,12 @@ Inline conditionals::
 	EXPRESSION if CONDITION else EXPRESSION
 	```
 
-Remove mandatory ends::
+[ ] Remove mandatory ends::
 
 	At the end of the day, they don't serve any real purpose besides
 	guarding against copy-paste.
 
-
-Remove `@protocol` and `@singleton`::
+[ ] Remove `@protocol` and `@singleton`::
 
 	Not sure if they're really necessary, and they can be implemented
 	with a `@class` and a `@shared`.
@@ -48,7 +47,9 @@ Remove `@protocol` and `@singleton`::
 New features
 ------------
 
-Comments in maps/lists::
+### 0. Comments & documentations
+
+[ ] Comments in maps/lists::
 
 	```
 	{
@@ -57,7 +58,9 @@ Comments in maps/lists::
 	}
 	```
 
-Multi-line strings::
+### 0. Litterals
+
+[ ] Multi-line strings::
 
 	```
 	# Just like in Python
@@ -80,8 +83,7 @@ Multi-line strings::
 		"""
 	```
 
-String format/interpolation::
-
+[ ] String format/interpolation::
 
 	We could use inline expressions
 
@@ -96,7 +98,7 @@ String format/interpolation::
 	"{0:d} {1:d}" % {dict} # Uses the given dict as a scope
 	```
 
-Tuples::
+[ ] Tuples::
 
 	```
 	(1,2,3,4)
@@ -110,19 +112,50 @@ Tuples::
 	(1,) 
 	```
 
-Named tuples::
+[ ] Named tuples::
 
 	```
 	(a=1, b=2, c=3, 4)
 	```
 
-Primitive alternative constructors::
+[ ] Map setdefault/assign if not null::
+
+	a[1] ?= 1.0
+	
+	equals to
+
+	if not isDefined(a[1]) -> a[1] = 1.0
+
+[ ] Map implicit keys::
+
+	```
+	let a = 10
+	let d = {a}
+	assert (cmp( d, {a:10} ) == 0)
+	```
+
+[ ] Primitive alternative constructors::
 
 	```
 	[1,2,3,4]@AltClass
 	```
 
-Chaining::
+[ ̧] Hex/Bit notation::
+
+	```
+	0xFF
+	0b011010101
+	```
+
+### Operations
+
+[ ] Absence of value::
+
+	```
+	var a = (asdas sadasd ? {})
+	```
+
+[ ] Chaining::
 
 	```
 	d3 selection () 
@@ -173,7 +206,7 @@ Chaining::
 	```
 
 
-Pattern matching::
+[ ] Pattern matching::
 
 	as a keyword
 
@@ -213,7 +246,43 @@ Pattern matching::
 	end
 	```
 
-Decorators::
+### Declaration/Invocation
+
+[X] Default arguments::
+
+	```
+	@function f a=0, b=1, c=2
+	@end
+	```
+
+
+[ ] Named arguments::
+	
+	```
+	@function i a, b, rest...
+	@end
+	```
+
+	```
+	@function i a, b, rest..., options=...
+	@end
+	```
+
+### Semantics
+
+[ ] Generators::
+
+	```
+	var f = {
+		for a in 0..100
+			yield a
+		end
+	}
+	```
+
+### Structure
+
+[ ] Decorators::
 
 	```
 	@function decorate f, a
@@ -224,100 +293,56 @@ Decorators::
 	@function pouet
 	@decorate 10
 	```
-	
-Absence of value::
+
+[X] Continue/break::
 
 	```
-	var a = (asdas sadasd ? {})
-	```
-
-Setdefault::
-
-	```
-	var a = {}
-	a ["asdsa" ?= {}]["pouet"] = 10
-	```
-
-Hex/Bit notation::
-
-	```
-	0xFF
-	0b011010101
-	```
-
-Bit-logic operator::
-	
-	```
-	&&
-	||
-	!
-	```
-
-Infix operator::
-
-	```
-	e ~map extractor 
-	```
-
-	would be rewritten as
-
-	```
-	map (e, extractor)
-	```
-
- Infix functions::
- 
- 	@infix @function fold XXXX fold XXXX -> fold (XXX,XXX)
-
-Like operation::
-	
-	v like (_, _, _)
-
-	like takes a structural expression that will tell if the left-hand value
-	is "like" the right hand value
-
-List comprehensions / generators::
-
-	 [x * 2 for x in COLLECTION if CONDITION]
-	 (x * 2 for x in COLLECTION if CONDITION)
-
-Select/match::
-
-
-Streamlined mappings::
-
-	_ :: connector Project fold :: {_| (group[_ discipline [-1]] ?= []) push (_)}
-
-Design-by-contract Assert/pre/post/error::	
-
-	@function f
-	@pre   expresssion error message
-	@post  expression  error message
-		body
-	@where
-		Test case
-	@end
-
-Dictionary setdefault/assign if not null::
-
-	a[1] ?= 1.0
-	
-	equals to
-
-	if not isDefined(a[1]) -> a[1] = 1.0
-
-
-Generators::
-
-	```
-	var f = {
-		for a in 0..100
-			yield a
+	for a,b in 0..10
+		if a == 5
+			continue
+		elif a > 7
+			break
 		end
-	}
+	end
 	```
 
-Special variables::
+### Sugar
+
+
+[X] Automatic variables::
+
+	```
+	_  == arguments[0]
+	_0 == arguments[0]
+	_1 == arguments[1]
+	_2 == arguments[2]
+	```
+
+[X] Implicit return::
+
+	```
+	{_| _ + 1}
+	```
+
+[X] Map/filter/... operators::
+
+	```
+	Filter  VALUE ::? PREDICATE
+	Map     VALUE ::= EXTRACTOR
+	Reduce  VALUE ::> EXTRACTOR
+	ReduceR VALUE ::< EXTRACTOR
+	```
+
+[ ] List comprehensions / generators::
+
+	```
+	[x * 2 for x in COLLECTION if CONDITION]
+	(x * 2 for x in COLLECTION if CONDITION)
+	```
+
+### Meta-information/meta-programming
+
+[ ] Special variables::
 
 	```
 	__scope_name__ (ex: widgets.Widget.ensure)
@@ -351,19 +376,7 @@ Special variables::
 	```
 
 
-Named arguments::
-	
-	```
-	@function i a, b, rest...
-	@end
-	```
-
-	```
-	@function i a, b, rest..., options=...
-	@end
-	```
-
-Macros::
+[ ] Macros::
 
 	```
 	@macro name( a, b, c )
@@ -387,51 +400,58 @@ Macros::
 	@end
 	```
 
-Implemented
-===========
 
-Default arguments::
+[ ] Setdefault::
 
 	```
-	@function f a=0, b=1, c=2
+	var a = {}
+	a ["asdsa" ?= {}]["pouet"] = 10
+	```
+
+
+[ ] Bit-logic operator::
+	
+	```
+	&&
+	||
+	!
+	```
+
+[ ] Infix operator::
+
+	```
+	e ~map extractor 
+	```
+
+	would be rewritten as
+
+	```
+	map (e, extractor)
+	```
+
+[ ] Infix functions::
+ 
+ 	@infix @function fold XXXX fold XXXX -> fold (XXX,XXX)
+
+
+[ ] Streamlined mappings::
+
+	```
+	_ :: connector Project fold :: {_| (group[_ discipline [-1]] ?= []) push (_)}
+	```
+
+[ ] Design-by-contract Assert/pre/post/error::	
+
+	```
+	@function f
+	@pre   expresssion error message
+	@post  expression  error message
+		body
+	@where
+		Test case
 	@end
 	```
 
-Automatic variables::
-
-	```
-	_  == arguments[0]
-	_0 == arguments[0]
-	_1 == arguments[1]
-	_2 == arguments[2]
-	```
-
-Implicit return::
-
-	```
-	{_| _ + 1}
-	```
-
-Continue/break::
-
-	```
-	for a,b in 0..10
-		if a == 5
-			continue
-		elif a > 7
-			break
-		end
-	end
-	```
-
-Map/filter/... operators::
-
-	```
-	Filter  VALUE ::? PREDICATE
-	Map     VALUE ::= EXTRACTOR
-	Reduce  VALUE ::> EXTRACTOR
-	ReduceR VALUE ::< EXTRACTOR
-	```
 
 
 # EOF
