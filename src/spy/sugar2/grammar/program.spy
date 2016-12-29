@@ -82,6 +82,7 @@
 	end
 @end
 
+# FIXME: This might be abstracted out with 'function'
 @function abstractFunction grammar, name, prefix
 	var g = grammar ; var s = grammar symbols
 	# NOTE: This is an interesting example of optimizing the grammar,
@@ -96,10 +97,11 @@
 		g agroup (
 			s EOL
 			g arule (
-				s ParameterList optional () _as "parameters"
+				s ParameterList optional ()
 				s EOL
 			)
-		)
+		) _as "parameters"
+		s Decorator zeroOrMore   () _as "decorators"
 		s Documentation optional () _as "documentation"
 	)
 @end
@@ -334,15 +336,15 @@
 	declaration      (g, "Attribute",         s oproperty)
 	# abstractFunction (g, "AbstractFunction",  s ofunction)
 	abstractFunction (g, "AbstractMethod",    s omethod)
-	abstractFunction (g, "AbstractOperation", s ooperation)
+	abstractFunction (g, "AbstractClassMethod", s ooperation)
 	function         (g, "Function",          s ofunction)
 	function         (g, "Constructor",       s oconstructor, True)
 	function         (g, "Method",            s omethod)
-	function         (g, "Operation",         s ooperation)
+	function         (g, "ClassMethod",       s ooperation)
 	# NOTE: Group and Rule are already element names
 	g rule  ("CGroup")
 	# NOTE: Operations and Abstract Operations are also supported in Methods, but this should be deprecated
-	g group ("Methods", s Operation, s AbstractOperation, s Method, s AbstractMethod, s AbstractMethod, s CGroup, s Comment)
+	g group ("Methods", s ClassMethod, s AbstractClassMethod, s Method, s AbstractMethod, s AbstractMethod, s CGroup, s Comment)
 	s CGroup set (s CheckIndent, s ogroup, s NAME _as "name",     s EOL, s Documentation optional (), s Indent, s Methods zeroOrMore () _as "methods", s Dedent, s OEnd)
 	g rule  ("EmbedLine",  s CheckIndent, s EMBED_LINE, s EOL)
 	# NOTE: The Embed rule is special, in the sense that it's not a structural block, but more an inline/content block
@@ -356,7 +358,7 @@
 		s EOL
 		s Documentation optional () _as "documentation"
 		s Indent
-		g agroup (s ClassAttribute, s Attribute, s Operation, s AbstractOperation, s Constructor, s Methods) zeroOrMore () _as "body"
+		g agroup (s ClassAttribute, s Attribute, s ClassMethod, s AbstractMethod, s Constructor, s Methods) zeroOrMore () _as "body"
 		s Dedent
 		g aword "@end"
 	)

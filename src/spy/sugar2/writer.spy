@@ -359,11 +359,17 @@
 	# 	return methods
 	# @end
 
-	@method _createCallable factory, match
+	@method _createCallable factory, match, hasBody=True
 		let name_type  = process (match["name"])
-		var params     = access (process (match["parameters"])[0], 0)
+		@embed Python
+		|try:
+		|	match["parameters"]
+		|except KeyError:
+		|	import ipdb;ipdb.set_trace()
+		@end
+		var params     = access (access (process (match["parameters"]), 0), 0)
 		let doc        = process (match["documentation"])
-		let body       = process (match["body"])
+		let body       = hasBody and process (match["body"]) or None
 		let dec        = process (match["decorators"])
 		var fun        = None
 		if name_type is True
@@ -375,18 +381,20 @@
 			fun addAnnotation (d)
 		end
 		fun setDocumentation (doc)
-		_addCode (fun, body)
+		if hasBody
+			_addCode (fun, body)
+		else
+			fun setAbstract (True)
+		end
 		return fun
 	@end
 
-	@method onOperation match
+	@method onClassMethod match
 		return _createCallable (F createClassMethod, match)
 	@end
 
-	@method onAbstractOperation match
-		var res = _createCallable (F createClassMethod, match)
-		res setAbstract (True)
-		return res
+	@method onAbstractClassMethod match
+		return _createCallable (F createClassMethod, match, False)
 	@end
 
 	@method onMethod match
@@ -685,7 +693,7 @@
 		# NOTE: This should be abstracted
 		if isinstance(prefix, interfaces ILiteral) or isinstance(prefix, interfaces IValue) or isinstance(prefix, interfaces IClosure)
 			current  = prefix
-		elif isinstance(prefix, interfaces IComputation) or isinstance(prefix, interfaces IResolution) or isinstance(prefix, interfaces IInvocation) or isinstance (prefix, interfaces IInstanciation) or isinstance (prefix, interfaces IAccessOperation) or isinstance(prefix, interfaces IExcept) or isinstance(prefix, interfaces ISelection)
+		elif isinstance(prefix, interfaces IComputation) or isinstance(prefix, interfaces IResolution) or isinstance(prefix, interfaces IInvocation) or isinstance (prefix, interfaces IInstanciation) or isinstance (prefix, interfaces IAccessOperation) or isinstance(prefix, interfaces IExcept) or isinstance(prefix, interfaces ISelection) or isinstance(prefix, interfaces IEnumeration)
 			current  = prefix
 		elif isinstance(prefix, interfaces IReference)
 			current  = F resolve (prefix)
@@ -1246,6 +1254,7 @@
 	@end
 
 	@method onNAME match
+		let name = process(match)[2]
 		return F _ref (process(match)[2])
 	@end
 

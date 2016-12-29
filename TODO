@@ -39,6 +39,12 @@ Remove mandatory ends::
 	At the end of the day, they don't serve any real purpose besides
 	guarding against copy-paste.
 
+
+Remove `@protocol` and `@singleton`::
+
+	Not sure if they're really necessary, and they can be implemented
+	with a `@class` and a `@shared`.
+
 New features
 ------------
 
@@ -426,6 +432,7 @@ Map/filter/... operators::
 	Reduce  VALUE ::> EXTRACTOR
 	ReduceR VALUE ::< EXTRACTOR
 	```
+
 
 # EOF
 
