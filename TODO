@@ -34,7 +34,7 @@ Incompatible changes
 	EXPRESSION if CONDITION else EXPRESSION
 	```
 
-[ ] Remove mandatory ends::
+[X] Remove mandatory ends::
 
 	At the end of the day, they don't serve any real purpose besides
 	guarding against copy-paste.

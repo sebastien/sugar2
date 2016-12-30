@@ -1085,6 +1085,18 @@
 		return F returns (process(match[1]))
 	@end
 
+	@method onPass match
+		return F nop ()
+	@end
+
+	@method onContinue match
+		return F continues ()
+	@end
+
+	@method onBreak match
+		return F breaks ()
+	@end
+
 	# =========================================================================
 	# SYMBOLS & DECLARATIONS
 	# =========================================================================

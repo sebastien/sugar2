@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python2
 from sugar2.command import  run
 import sys
 sys.setrecursionlimit(2500)

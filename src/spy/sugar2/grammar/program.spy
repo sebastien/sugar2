@@ -283,11 +283,14 @@
 		g arule (s ASSIGN_OPERATOR, s Expression)  _as "op"
 	)
 	g rule       ("Termination", g aword "return", s Expression optional ())
+	g rule       ("Break",       g aword "break")
+	g rule       ("Pass",        g aword "pass")
+	g rule       ("Continue",    g aword "continue")
 
 	# Blocks
 	g group     ("Block")
 	g group     ("Code")
-	g group     ("Statement",   s Comment, s Block, s Allocation, s Assignment, s Termination, s Expression)
+	g group     ("Statement",   s Comment, s Block, s Allocation, s Assignment, s Termination, s Break, s Continue, s Pass, s Expression)
 	g rule      ("Statements",  s Statement, g arule (s SEMICOLON, s Statement) zeroOrMore ())
 	g rule      ("Line",             s CheckIndent, s Statements optional (), s COMMENT optional (), s EOL)
 	# NOTE: We use procedures and condition to support single line and block versions of the blocks
