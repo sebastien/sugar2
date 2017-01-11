@@ -1310,11 +1310,53 @@
 	# LITERALS
 	# =========================================================================
 
-	@method onString match
+	@method onStringLine match
+		# FIXME: Proper decoding
+		let text = process (match["text"])[0]
+		return text
+	@end
+
+	@method onStringMulti match
+		let s = process(match[0])
+		let l = process(match[1])
+		let e = process(match[2])[1]
+		if s -> l insert (0, s)
+		if e -> l append (e)
+		return "\\n" join (l)
+	@end
+
+	@method onSTRING_SQ match
 		let raw     = process (match[0])[0]
 		# FIXME: Proper string decoding
-		let decoded = eval (raw)
-		return F _string (decoded)
+		return eval(raw)
+	@end
+
+	@method onSTRING_DQ match
+		let raw     = process (match[0])[0]
+		# FIXME: Proper string decoding
+		return eval(raw)
+	@end
+
+	@method onSTRING_MQ match
+		# FIXME: Proper string decoding
+		return eval(process(match)[0])
+	@end
+
+	@method onSTRING_MQ_START match
+		# FIXME: Proper string decoding
+		return process(match)[1]
+	@end
+
+	@method onSTRING_MQ_END match
+		# FIXME: Proper string decoding
+		return process(match)[1]
+	@end
+
+
+
+	@method onString match
+		let text     = process (match[0])
+		return F _string (text)
 	@end
 
 	@method onNUMBER match

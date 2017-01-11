@@ -5,7 +5,7 @@
 # License           : BSD License
 # -----------------------------------------------------------------------------
 # Creation date     : 2016-11-01
-# Last modification : 2016-11-01
+# Last modification : 2017-01-12
 # -----------------------------------------------------------------------------
 
 @module sugar2.grammar.program
@@ -128,6 +128,7 @@
 	g token     ("EMPTY_LINES",      "([ \t]*\n)+")
 	g token     ("COMMENT",          "[ \t]*\#[^\n]*")
 	g token     ("EOL",              "[ ]*\n(\s*\n)*")
+	g token     ("ANY",              "[^\n]*")
 	# FIXME: Support 0xFFAAEE
 	g token     ("NUMBER",           "\-?(([0-9]+(\.[0-9]+)?)|(0x[A-Fa-f0-9]+)|(0b[01]+)|(0o[0-8]+))")
 	g token     ("FLOAT",            "\-?[0-9]+(\.[0-9]+)?")
@@ -144,6 +145,10 @@
 	g token     ("SYMBOLIC",         "None|Undefined|Nothing|Timeout")
 	g token     ("STRING_SQ",        "'(\\\\'|[^'\\n])*'")
 	g token     ("STRING_DQ",        "\"(\\\\\"|[^\"\\n])*\"")
+	g token     ("STRING_MQ",        "\"\"\"(.+)\"\"\"")
+	g token     ("STRING_MQ_START",  "\"\"\"(.*)\n")
+	g token     ("STRING_MQ_END",    "(.*)\"\"\"")
+	g token     ("STRING_MQ_LINE",   "[^\"\n]*(\"[^\"\n]|\"\"[^\"\n])*[^\"\n]*")
 	g token     ("DOCSTRING",        "\|[^\n]*")
 	g token     ("EMBED_LINE",       "\|([^\n]*)")
 	g token     ("VERSION",          "[0-9]+(\.[0-9]+)?(\.[0-9]+)?[a-zA-Z_]*")
@@ -164,6 +169,7 @@
 	g word      ("SEMICOLON",        ";")
 	g word      ("PIPE",             "|")
 	g word      ("EQUALS",           "=")
+	g word      ("TQUOTE",           "\"\"\"")
 	# g word      ("WILDCARD",         "*")
 	g condition ("NOTHING")
 	# Keywords
@@ -210,7 +216,10 @@
 	g rule      ("Documentation",    s DocumentationLine oneOrMore ())
 
 	# Basic types
-	g group     ("String",           s STRING_SQ, s STRING_DQ)
+	g rule      ("StringLine",      s CheckIndent, s STRING_MQ_LINE _as "text", s EOL)
+	g rule      ("StringMultiEnd",  s CheckIndent, s STRING_MQ_END)
+	g rule      ("StringMulti",      s STRING_MQ_START, s StringLine zeroOrMore () _as "lines" , s StringMultiEnd )
+	g group     ("String",           s STRING_MQ, s StringMulti, s STRING_SQ, s STRING_DQ)
 	g rule      ("Expression")
 	g group     ("Number",           s TIME, s NUMBER)
 	g group     ("Key",              s KEY, s Number, s String, g arule( s LP, s Expression, s RP))

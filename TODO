@@ -83,7 +83,7 @@ New features
 
 ### 0. Litterals
 
-[ ] Multi-line strings::
+[X] Multi-line strings::
 
 	```
 	# Just like in Python

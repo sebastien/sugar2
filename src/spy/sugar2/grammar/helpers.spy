@@ -24,7 +24,7 @@
 @end
 
 
-@function doCheckIndent element, context
+@function doCheckIndent element, context, min=False
 	@embed Python
 	|indent = context.get("indent") or 0
 	|o      = context.offset or 0
@@ -39,6 +39,10 @@
 	|		tabs += 1
 	|return tabs == indent
 	@end
+@end
+
+@function doCheckMinIndent element, context
+	return doCheckIndent (element, context, True)
 @end
 
 @function doBlockStart element, context
