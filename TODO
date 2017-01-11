@@ -48,7 +48,7 @@ Incompatible changes
 Syntax fixes
 ------------
 
-[ ] Dict keys::
+[X] Dict keys::
 
 	Expressions as dict keys need to be surrounded by parens, and 
 	this inlcudes strings:
@@ -68,13 +68,17 @@ New features
 
 ### 0. Comments & documentations
 
-[ ] Comments in maps/lists::
+[X] Comments in maps/lists::
 
 	```
 	{
 		value: 1 # Some comment
 		# value: 1 -- Value commented out
 	}
+	[
+		value: 1 # Some comment
+		# value: 1 -- Value commented out
+	]
 	```
 
 ### 0. Litterals

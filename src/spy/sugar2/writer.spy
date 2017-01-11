@@ -860,14 +860,22 @@
 		return res
 	@end
 
+	@method onExpressionLine match
+		return process(match[0])
+	@end
+
 	@method onExpressionBlock match
 	| Returns a list of expressions [model.Expression]
 		let lines = process (match[1])
 		let res   = []
 		for _ in lines
-			# We have _ = [EOL, Indent, ExpressionList]
+			# We have _ = [EOL, Indent, ExpressionLine]
 			#              0    1       2
-			res += _[2]
+			# TODO: Deal with comment
+			let v = _[2]
+			if v and (not isinstance (v, interfaces IComment))
+				res += _[2]
+			end
 		end
 		return res
 	@end
@@ -1232,7 +1240,8 @@
 		let head = process (match["head"]) or []
 		let tail = process (match["tail"]) or []
 		for _ in (head + tail)
-			if _
+			# TODO: Deal with comments in this case
+			if _ and (not isinstance(_, interfaces IComment))
 				res setValue (_[0], _[1])
 			end
 		end
@@ -1254,9 +1263,18 @@
 		return res
 	@end
 
+	@method onEntryLine match
+		let r =  process (match[0])
+		if isinstance(r, list)
+			return r
+		else
+			return [r]
+		end
+	@end
+
 	@method onEntryBlock match
 		var res  = []
-		for _ in  process (match[1])
+		for _ in  process (match["content"])
 			# We have _ = [EOL, CheckIndent, KeyValueList]
 			#              0    1            2
 			res += _[2]
