@@ -44,6 +44,25 @@ Incompatible changes
 	Not sure if they're really necessary, and they can be implemented
 	with a `@class` and a `@shared`.
 
+
+Syntax fixes
+------------
+
+[ ] Dict keys::
+
+	Expressions as dict keys need to be surrounded by parens, and 
+	this inlcudes strings:
+
+	```
+	{("a"):"a"}
+	```
+
+	now parens are unncessary for string litterals:
+
+	```
+	{"a":"a"}
+	```
+
 New features
 ------------
 
@@ -117,6 +136,7 @@ New features
 	```
 	(a=1, b=2, c=3, 4)
 	```
+
 
 [ ] Map setdefault/assign if not null::
 
@@ -266,6 +286,19 @@ New features
 	```
 	@function i a, b, rest..., options=...
 	@end
+	```
+
+[ ] Function pipes::
+
+	The pipe `|` syntax can be used to chain functions in an expression. The first expression can contain
+	no argument, but the other expressions must contain the `_` variable to be valid.
+
+	```
+	a () | b (1,2,_) | c(2,3,_)
+	```
+
+	```
+	e(2,3,(b(1,2,a())))
 	```
 
 ### Semantics

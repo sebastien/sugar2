@@ -45,6 +45,10 @@
 	pass
 @end
 
+@function doBlockEnd element, context
+	pass
+@end
+
 @function doBlockLastSetLine element, context
 	context set ("blockLast", 1)
 @end
