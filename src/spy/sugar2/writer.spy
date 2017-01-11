@@ -52,14 +52,20 @@
 	@shared OPERATORS = [
 		["or"]
 		["and"]
-		[">" , ">=" , "<" , "<=" , "!=" , "==" , "is" , "is not" , "in" , "not in"]
-		[".."]
-		["+"  , "-"]
 		["not"]
-		["||", "&&", "<<", ">>"]
+		[">" , ">=" , "<" , "<=" , "!=" , "==" , "is" , "is not" , "in" , "not in"]
+		["::", "::<", "::>", "::?", "::="]
+		["..", "‥"]
+		["+"  , "-"]
+		["|", "&", "<<", ">>"]
 		["/"  , "*"  , "%" , "//" ]
 		["/=", "*=", "%=", "+=" , "-=", "="]
 	]
+
+	@shared OPERATORS_NORMALIZED = {
+		("||") : "|"
+		("&&") : "&"
+	}
 
 	@property module
 	@property path       = None
@@ -114,6 +120,7 @@
 		@embed Python
 		|operator = operator.replace("\t"," ").replace("\n"," ")
 		|operator = " ".join((_.strip() for _ in operator.split() if _.strip()))
+		|operator = self.OPERATORS_NORMALIZED.get(operator) or operator
 		@end
 		return operator
 	@end
@@ -400,6 +407,10 @@
 
 	@method onMethod match
 		return _createCallable (F createMethod, match)
+	@end
+
+	@method onAbstractMethod match
+		return _createCallable (F createMethod, match, False)
 	@end
 
 	@method onConstructor match
@@ -707,7 +718,7 @@
 			raise Exception("Prefix not supported yet: " + str(prefix))
 		end
 		current = _applySuffixes (current, suffixes)
-		if isinstance (current, interfaces IComputation)
+		if isinstance (current, interfaces IBinaryOperation)
 			current = _reorderComputation (current)
 		end
 		return current
@@ -717,39 +728,52 @@
 	| Reorders a sequence of computations according to operators priorities.
 	| This method is called by `onExpression` and applied from right
 	| to left.
-		var b = value getRightOperand ()
-		# When we have: A op1 B
-		# where               B = (C op2 D)
-		if isinstance (b, interfaces IComputation) and (not b hasAnnotation "parens")
-			let op1    = value getOperator ()
-			let op2    = b     getOperator ()
-			var op1_p  = op1 getPriority ()
-			var op2_p  = op2 getPriority ()
-			# ...and that priority(op1) >= priority(op2)
-			if op1_p >= op2_p
-				# We refactor the current computation so that it becomes
-				#     B op2 D
-				# where
-				#     B = (A op1 C)
-				# resulting in
-				#     (A op1 C) op2 D
-				var a  = value getLeftOperand  () detach ()
-				var c  = b     getLeftOperand  () detach ()
-				var d  = b     getRightOperand () detach ()
-				var o1 = value getOperator     () detach ()
-				var o2 = b     getOperator     () detach ()
-				value setOperator (o2)
-				value setRightOperand (d)
-				b detach ()
-				b setLeftOperand  (a)
-				b setOperator     (o1)
-				b setRightOperand (c)
-				# but we need to reorder the new compuation (A op1 C) as we changed it
-				value setLeftOperand (_reorderComputation(b))
+		if not isinstance(value, interfaces IComputation) -> return value
+		let op1 = value getOperator ()
+		let a   = value getLeftOperand  ()
+		let b   = value getRightOperand ()
+		if value isUnary ()
+			if isinstance (a, interfaces IComputation) and (not a hasAnnotation "parens")
+				let op2 = a getOperator ()
+				if op1 getPriority () >  op2 getPriority ()
+					# We have (op1 (C op2 D))
+					# We want ((op1 C) op2 D)
+					let c = a getLeftOperand  ()
+					let d = a getRightOperand ()
+					value = F compute (
+						op2 detach ()
+						_reorderComputation (F compute (op1 detach (), c detach ()))
+						d detach ()
+					)
+				end
 			end
 			return value
 		else
-			return value
+			let b = value getRightOperand ()
+			# When we have: A op1 B
+			# where               B = (C op2 D)
+			if isinstance (b, interfaces IComputation) and (not b hasAnnotation "autoparens")
+				let op2 = b     getOperator ()
+				# ...and that priority(op1) >= priority(op2)
+				if op1 getPriority () >= op2 getPriority ()
+					# We refactor the current computation so that it becomes
+					#     B op2 D
+					# where
+					#     B = (A op1 C)
+					# resulting in
+					#     (A op1 C) op2 D
+					let c  = b     getLeftOperand  ()
+					let d  = b     getRightOperand ()
+					value  = F compute (
+						op2 detach ()
+						_reorderComputation (F compute (op1 detach (), a detach (), c detach ())) addAnnotation "XXXparens"
+						d and _reorderComputation (d detach ()) or None
+					)
+				end
+				return value
+			else
+				return value
+			end
 		end
 	@end
 
@@ -768,8 +792,18 @@
 				elif name == "ComputationInfix"
 					# FIXME: Re-ordering should be appled here
 					var op = normalizeOperator (args[1])
+					# FIXME: Support ‥
 					if op == ".."
-						value = F enumerate (value, args[2])
+						var rvalue = args[2]
+						# NOTE: This is not ideal, it is a hack to force precendence
+						# of .. over ::
+						if isinstance (rvalue, interfaces IIteration) and not rvalue hasAnnotation "parens"
+							value = F enumerate (value, rvalue getLeftOperand () detach ())
+							rvalue setLeftOperand (value)
+							value = rvalue
+						else
+							value = F enumerate (value, args[2])
+						end
 					else
 						value = F compute (F _op (op, getOperatorPriority(op)), value, args[2])
 					end
@@ -782,12 +816,11 @@
 				elif name == "Slice"
 					value = F slice  (value, args[1], args[2])
 				elif name == "IterationSuffix"
-					value = args[1](value, args[2])
+					value    = args[1](value, args[2])
 				elif name == "Chain"
 					if type(value) is list
 						ipdb set_trace()
 					end
-
 					# FIXME: This does not work value is not expected to be a list
 					# TODO: Should be an automatic variable
 					var alloc = value
@@ -901,7 +934,7 @@
 
 	@method onComputationInfix match
 	| Returns ("ComputationInfix", OPERATOR:String, Expression)
-		return [match name, process(match[0])[0] strip (), process (match[1])]
+		return [match name,  normalizeOperator (process(match[0])[0]), process (match[1])]
 	@end
 
 	@method onAccess match
@@ -973,15 +1006,20 @@
 			res = []
 			# We create an intermediate expression to store the result to
 			# be sliced so that we don't evaluate the same code twice
-			var temp_slot  = F _slot ()
-			res append (F allocate (temp_slot, value))
-			var slot_value = F resolve (F _ref (temp_slot getName ()))
+			var last_symbol = symbols[-1]
+			var pivot_slot  = F _slot (last_symbol getReferenceName ())
+			res append (F allocate (pivot_slot, value))
+			var slot_value = F resolve (F _ref (pivot_slot getName ()))
 			var i = 0
 			# We create individual allocations for each access
 			for s in symbols
 				var slot      = F _slot  (s getReferenceName ())
 				var sub_value = F access (slot_value copy (), F _number(i))
-				res append (F allocate (slot, sub_value))
+				if s is last_symbol
+					res append (F assign (s getReferenceName(), sub_value))
+				else
+					res append (F allocate (slot, sub_value))
+				end
 				i += 1
 			end
 			# We create a slice for the rest
@@ -1009,10 +1047,11 @@
 			# We have a conditional assignment
 			# In this case: A ?= B is the equivalent of
 			# if not (A) -> A = B
-			var predicate  = F compute (F _op "not", lvalue)
+			var predicate  = F compute (F _op "is", lvalue, F _ref "Undefined")
 			var assignment = F assign  (lvalue copy (), rvalue)
 			var match      = F matchExpression (predicate, assignment)
 			var res        = F select ()
+			res addAnnotation("assignment")
 			res addRule (match)
 			return res
 		else
@@ -1026,7 +1065,7 @@
 			# a[0][1][2] = a[0][1][2]
 			var res    = None
 			var sub_op = normalizeOperator(op[0])
-			# ipdb set_trace ()
+			# TODO: The temp variable should have as value the parent of the deepest decomposition or slicing
 			# if isinstance (lvalue, interfaces ISliceOperation) and isinstance (lvalue getOpArgument 0, interface IOperation)
 			# 	res = []
 			# 	res append (F assign ("__temp__", lvalue getOpArgument 0))
@@ -1067,15 +1106,15 @@
 					end
 				end
 			end
-			return [match name, F iterate, rvalue]
+			return [match name, F iterate, rvalue, op]
 		elif op == "::?"
-			return [match name, F filter, rvalue]
+			return [match name, F filter, rvalue, op]
 		elif op == "::="
-			return [match name, F map, rvalue]
+			return [match name, F map, rvalue, op]
 		elif op == "::>"
-			return [match name, F reduce, rvalue]
+			return [match name, F reduce, rvalue, op]
 		elif op == "::<"
-			return [match name, F reduce, rvalue]
+			return [match name, F reduce, rvalue, op]
 		else
 			raise ValueError("onIterationLine: Unsupported iteration operator: {0}" format(op))
 		end
@@ -1165,8 +1204,11 @@
 			#              0        1
 			res append (_[1] getReferenceName ())
 		end
-		let full_name = "." join (res)
-		return F _absref (full_name)
+		if len(res) == 1
+			return F _ref (res[0])
+		else
+			return F _absref ("." join (res))
+		end
 	@end
 
 
@@ -1292,11 +1334,11 @@
 		var raw_symbol     = process (match) [0]
 		if raw_symbol == "Undefined"
 			return F _symbol (raw_symbol)
-		if raw_symbol == "None"
+		elif raw_symbol == "None"
 			return F _symbol (raw_symbol)
-		if raw_symbol == "Nothing"
+		elif raw_symbol == "Nothing"
 			return F _symbol (raw_symbol)
-		if raw_symbol == "Timeout"
+		elif raw_symbol == "Timeout"
 			return F _symbol (raw_symbol)
 		else
 			raise new Exception("Unknown symbol:" + raw_symbol())
@@ -1305,7 +1347,7 @@
 
 	@method onNAME match
 		let name = process(match)[2]
-		return F _ref (process(match)[2])
+		return F _ref (name)
 	@end
 
 	@method onKEY match
