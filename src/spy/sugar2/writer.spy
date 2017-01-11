@@ -932,9 +932,13 @@
 	| Returns ("Invocation", [args])
 		let value = process (match[0])
 		var args  = []
-		for _ in _ensureList(value)
-			if isinstance(_, interfaces IElement)
-				args append (_)
+		if isinstance(value, interfaces ITuple)
+			args = value values
+		else
+			for _ in _ensureList(value)
+				if isinstance(_, interfaces IElement)
+					args append (_)
+				end
 			end
 		end
 		return [match name, args]
@@ -1175,11 +1179,11 @@
 		return []
 	@end
 
-	@method onArgumentsMany match
-		let line = process (match["line"]) or []
-		let body = process (match["body"]) or []
-		return filterNull (line + body)
-	@end
+	# @method onArgumentsMany match
+	# 	let line = process (match["line"]) or []
+	# 	let body = process (match["body"]) or []
+	# 	return filterNull (line + body)
+	# @end
 
 	@method onSymbolList match
 	| Returns `[model.Reference]`
@@ -1229,6 +1233,13 @@
 		let list  = process (match[1]) or []
 		let block = process (match[2]) or []
 		return F _list (list + block)
+	@end
+
+	@method onTuple match
+		let list  = process (match[1]) or []
+		let block = process (match[2]) or []
+		# TODO: LF support for tuples
+		return F _tuple (list + block)
 	@end
 
 	# =========================================================================

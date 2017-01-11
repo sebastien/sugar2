@@ -234,6 +234,7 @@
 	g rule      ("ExpressionBlock",  s Indent,     g arule (s EOL,   s CheckIndent, s ExpressionLine) oneOrMore () _as "content", s Dedent)
 	g rule      ("EntryBlock",    s Indent,     g arule (s EOL,   s CheckIndent, s EntryLine  ) oneOrMore () _as "content", s Dedent)
 	g rule      ("Array",            s LSB, s ExpressionList optional () _as "head", s ExpressionBlock optional () _as "tail", g arule (s EOL, s CheckIndent) optional (), s RSB)
+	g rule      ("Tuple",            s LP, s ExpressionList optional () _as "head", s ExpressionBlock optional () _as "tail", g arule (s EOL, s CheckIndent) optional (), s RP)
 	g rule      ("Map",              s LB,  s EntryList   optional () _as "head", s EntryBlock   optional () _as "tail", g arule (s EOL, s CheckIndent) optional (), s RB)
 
 	# Declarations
@@ -245,7 +246,6 @@
 	g rule      ("ParameterList",    s Parameter, g arule(s COMMA, s Parameter) zeroOrMore (), s ELLIPSIS optional ())
 	g rule      ("SymbolList",       s NAME,      g arule(s COMMA, s NAME)      zeroOrMore (), s ELLIPSIS optional ())
 	g rule      ("ArgumentsEmpty",   s LP, s RP)
-	g rule      ("ArgumentsMany",    s LP, s ExpressionList optional () _as "line", s ExpressionBlock optional () _as "body", g agroup (s RP, g arule (s EOL optional (), s CheckIndent, s RP)))
 	# Closures
 	g rule      ("ClosureStatement")
 	g rule      ("ClosureLine",       s EOL, s CheckIndent, g agroup (s COMMENT, s ClosureStatement))
@@ -256,7 +256,7 @@
 	g group     ("Closure",           s BlockClosure, s InlineClosure, s EmptyClosure)
 
 	# Expression prefixes
-	g group     ("Literal",          s Number, s SYMBOLIC, s String, s Array, s Map, s Closure)
+	g group     ("Literal",          s Number, s SYMBOLIC, s String, s Array, s Tuple, s Map, s Closure)
 	# We only allow dots to chain notations
 	g rule      ("Reference",        s NAME, g arule (s DOT, s NAME) zeroOrMore ())
 	g rule      ("Decomposition",    s DOT_OR_SPACE, s Reference)
@@ -265,7 +265,7 @@
 	g rule      ("ComputationInfix", s INFIX_OPERATOR, s Expression)
 	g rule      ("Access",           s LSB,            s Expression, s RSB)
 	g rule      ("Slice",            s LSB,            s Expression optional (), s COLON, s Expression optional (), s RSB)
-	g group     ("Invocation",       s Literal, s ArgumentsEmpty, s ArgumentsMany )
+	g group     ("Invocation",       s Literal, s ArgumentsEmpty)
 	g rule      ("Parentheses",      s LP,    s Expression, s RP)
 	g group     "Suffixes"
 	g rule      ("ChainLine",        s EOL, s Indent, s CheckIndent, g agroup (s COMMENT, s Reference, s Suffixes) oneOrMore (), s Dedent)
