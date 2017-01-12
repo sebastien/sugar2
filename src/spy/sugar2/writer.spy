@@ -880,6 +880,22 @@
 		return res
 	@end
 
+	@method onNamedExpression match
+		return process(match["value"])
+	@end
+
+	@method onNamedExpressionLine match
+		return onExpressionLine (match)
+	@end
+
+	@method onNamedExpressionList match
+		return onExpressionList (match)
+	@end
+
+	@method onNamedExpressionBlock match
+		return onExpressionBlock (match)
+	@end
+
 	# =========================================================================
 	# PREFIXES
 	# =========================================================================
@@ -1337,13 +1353,13 @@
 	@end
 
 	@method onSTRING_SQ match
-		let raw     = process (match[0])[0]
+		let raw     = process (match)[0]
 		# FIXME: Proper string decoding
 		return eval(raw)
 	@end
 
 	@method onSTRING_DQ match
-		let raw     = process (match[0])[0]
+		let raw     = process (match)[0]
 		# FIXME: Proper string decoding
 		return eval(raw)
 	@end

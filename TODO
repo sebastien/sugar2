@@ -121,7 +121,7 @@ New features
 	"{0:d} {1:d}" % {dict} # Uses the given dict as a scope
 	```
 
-[ ] Tuples::
+[X] Tuples::
 
 	```
 	(1,2,3,4)
@@ -131,11 +131,11 @@ New features
 	() 
 	(1)
 	(1, 2, 3)
-	(,) 
-	(1,) 
+	() 
+	(1) 
 	```
 
-[ ] Named tuples::
+[X] Named tuples::
 
 	```
 	(a=1, b=2, c=3, 4)

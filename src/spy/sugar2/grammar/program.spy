@@ -232,9 +232,15 @@
 	g rule      ("ExpressionList",   s Expression, g arule (s COMMA, s Expression) zeroOrMore (), s COMMENT optional ())
 	g group     ("ExpressionLine",   s ExpressionList, s COMMENT)
 	g rule      ("ExpressionBlock",  s Indent,     g arule (s EOL,   s CheckIndent, s ExpressionLine) oneOrMore () _as "content", s Dedent)
+
+	g rule      ("NamedExpression", g arule (s NAME, s EQUALS) optional () _as "name", s Expression _as "value")
+	g rule      ("NamedExpressionList",   s NamedExpression, g arule (s COMMA, s NamedExpression) zeroOrMore (), s COMMENT optional ())
+	g group     ("NamedExpressionLine",   s NamedExpressionList, s COMMENT)
+	g rule      ("NamedExpressionBlock",  s Indent,     g arule (s EOL,   s CheckIndent, s NamedExpressionLine) oneOrMore () _as "content", s Dedent)
+
 	g rule      ("EntryBlock",    s Indent,     g arule (s EOL,   s CheckIndent, s EntryLine  ) oneOrMore () _as "content", s Dedent)
 	g rule      ("Array",            s LSB, s ExpressionList optional () _as "head", s ExpressionBlock optional () _as "tail", g arule (s EOL, s CheckIndent) optional (), s RSB)
-	g rule      ("Tuple",            s LP, s ExpressionList optional () _as "head", s ExpressionBlock optional () _as "tail", g arule (s EOL, s CheckIndent) optional (), s RP)
+	g rule      ("Tuple",            s LP, s NamedExpressionList optional () _as "head", s NamedExpressionBlock optional () _as "tail", g arule (s EOL, s CheckIndent) optional (), s RP)
 	g rule      ("Map",              s LB,  s EntryList   optional () _as "head", s EntryBlock   optional () _as "tail", g arule (s EOL, s CheckIndent) optional (), s RB)
 
 	# Declarations
