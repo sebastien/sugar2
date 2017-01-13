@@ -1,0 +1,142 @@
+#!/usr/bin/env python
+import re, os, glob, sys, argparse
+try:
+	import reporter
+	logging = reporter.bind("sugar-1to2",template=reporter.TEMPLATE_COMMAND)
+except ImportError as e:
+	import logging
+
+__doc__ = """
+Converts Sugar 1 source files to Sugar 2 source files.
+"""
+
+# ----------------------------------------------------------------------------
+#
+# RULES
+#
+# ----------------------------------------------------------------------------
+
+RE_END = re.compile("^\s*(@end|end)\s*(#.*)?$")
+
+def remove_ends( line ):
+	if RE_END.match(line):
+		return None
+	else:
+		return False
+
+RE_INLINE_CONDITIONAL = re.compile("^((\t*)((.+);\s*)?((if|elif|else)\s+.*))->(.+)$")
+def rewrite_inline_conditionals( line ):
+	m = RE_INLINE_CONDITIONAL.match(line)
+	if m:
+		head      = m.group(1)
+		indent    = m.group(2)
+		before    = m.group(4)
+		condition = m.group(5)
+		tail      = m.groups()[-1]
+		if before:
+			return [
+				(indent + before),
+				(indent + condition),
+				(indent + "\t" + tail)
+			]
+		else:
+			return [
+				(indent + condition),
+				(indent + "\t" + tail)
+			]
+	else:
+		return False
+
+RULES = [
+	remove_ends,
+	rewrite_inline_conditionals,
+]
+
+# ----------------------------------------------------------------------------
+#
+# COMMANDS
+#
+# ----------------------------------------------------------------------------
+
+
+def refactor_line( line ):
+	match = None
+	for p in RULES:
+		match = p(line)
+		if match is not False:
+			break
+	if match is None:
+		pass
+	elif isinstance(match, list):
+		for _ in match:
+			yield _
+	elif match is False:
+		yield line
+	else:
+		yield match
+
+def refactor( text ):
+	res = []
+	for line in text.split("\n"):
+		for l in  refactor_line(line):
+			res.append(l)
+	return "\n".join(res)
+
+def read( path ):
+	with open(path) as f:
+		return f.read()
+
+def rewrite( path, output=None ):
+	output = output or path
+	o = read(path)
+	r = refactor(o)
+	if not o:
+		logging.warning("Input file is empty: {0}".format(path))
+	elif not r:
+		logging.error("Refactored file is empty: {0}, skipping refactor".format(path))
+	elif o == r:
+		logging.info("File already refactored {0}, doing nothing".format(path))
+	else:
+		if isinstance(output, str):
+			logging.info("Refactoring {0} as {1}".format(path, output))
+			with open(output, "w") as f:
+				f.write(r)
+		else:
+			logging.info("Refactoring {0}".format(path))
+			output.write(r)
+	return r
+
+def command( args, name=None ):
+	"""The command-line interface of this module."""
+	USAGE = "{0} FILE...".format(name or os.path.basename(__file__))
+	if type(args) not in (type([]), type(())): args = [args]
+	oparser = argparse.ArgumentParser(
+		prog        = name or os.path.basename(__file__.split(".")[0]),
+		description = "Converts Sugar-1 sources to Sugar-2"
+	)
+	# TODO: Rework command lines arguments, we want something that follows
+	# common usage patterns.
+	oparser.add_argument("files", metavar="FILE", type=str, nargs='+',
+		help='The Sugar files to convert')
+	oparser.add_argument("-w", "--overwrite", dest="overwrite", action="store_true", default=False)
+	# We create the parse and register the options
+	args     = oparser.parse_args(args=args)
+	out      = sys.stdout
+	cwd      = os.getcwd()
+	for f in args.files:
+		if args.overwrite:
+			rewrite(f)
+		else:
+			sys.stdout.write(refactor(read(f)))
+
+# -----------------------------------------------------------------------------
+#
+# MAIN
+#
+# -----------------------------------------------------------------------------
+
+if __name__ == "__main__":
+	import sys
+	command(sys.argv[1:])
+
+# EOF - vim: ts=4 sw=4 noet syn=python

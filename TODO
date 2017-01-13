@@ -34,6 +34,27 @@ Incompatible changes
 	EXPRESSION if CONDITION else EXPRESSION
 	```
 
+[X] Single-line conditionals::
+
+	Single line conditionals have been removed
+
+	```
+	if   condition -> statements...
+	elif condition -> statements...
+	else           -> statements...
+	```
+
+	they are replaced with the normal form
+
+	```
+	if condition
+		statements...
+	elif condition
+		statements...
+	else
+		statements...
+	```
+
 [X] Remove mandatory ends::
 
 	At the end of the day, they don't serve any real purpose besides

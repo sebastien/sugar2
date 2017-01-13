@@ -73,7 +73,7 @@
 	@property varcounter = 0
 
 	@constructor grammar, path=None
-		super (grammar)
+		super (grammar, False)
 		self path = path
 		program = F createProgram ()
 		program setFactory (F)

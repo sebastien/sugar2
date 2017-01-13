@@ -9,7 +9,7 @@
 # -----------------------------------------------------------------------------
 
 @module sugar2.grammar.program
-@import doIndent, doCheckIndent, doDedent, doBlockStart, doBlockEnd, doBlockLastSetLine, doBlockLastSetBody, doBlockLastIsLine from sugar2.grammar.helpers
+@import doIndent, doCheckIndent, doDedent, doBlockStart, doBlockEnd from sugar2.grammar.helpers
 
 # TODO: Break down the grammar in Expression, Structure and Types
 
@@ -276,14 +276,13 @@
 	g group     "Suffixes"
 	g rule      ("ChainLine",        s EOL, s Indent, s CheckIndent, g agroup (s COMMENT, s Reference, s Suffixes) oneOrMore (), s Dedent)
 	g rule      ("Chain",            s COLON, s ChainLine oneOrMore ())
-	g rule      ("ConditionalExpression",  s _if, s Expression _as "condition", s ARROW, s Expression _as "true", s PIPE, s Expression _as "false")
+	#g rule      ("ConditionalExpression",  s _if, s Expression _as "condition", s ARROW, s Expression _as "true", s PIPE, s Expression _as "false")
 	g rule      ("IterationSuffix",  s ITERATOR _as "op", s Expression _as "rvalue")
 	g group     ("Prefixes"
 		s Literal
 		g rule  ("Exception",        s THROW_OPERATOR, s Expression _as "expression")
 		g rule  ("Instanciation",    s NEW_OPERATOR,   g agroup (s FQName, s Parentheses) _as "target", s Invocation _as "params")
 		g rule  ("ComputationPrefix",s PREFIX_OPERATOR, s Expression)
-		s ConditionalExpression
 		s NAME
 		s Parentheses
 	)
@@ -307,45 +306,35 @@
 	# Blocks
 	g group     ("Block")
 	g group     ("Code")
-	g group     ("Statement",   s Comment, s Block, s Allocation, s Assignment, s Termination, s Break, s Continue, s Pass, s Expression)
+	g group     ("Statement",   s Comment, s Allocation, s Assignment, s Termination, s Break, s Continue, s Pass, s Expression)
 	g rule      ("Statements",  s Statement, g arule (s SEMICOLON, s Statement) zeroOrMore ())
-	g rule      ("Line",             s CheckIndent, s Statements optional (), s COMMENT optional (), s EOL)
+	g rule      ("Line",        s CheckIndent, s Statements optional (), s COMMENT optional (), s EOL)
 	# NOTE: We use procedures and condition to support single line and block versions of the blocks
 	g rule      ("BlockStart",  s CheckIndent)
 
 	# FIXME: This is EOL is causing problems with comments straight after a single-line if
 	# | if (not context) and (not isList(context)) and (not isMap(context)) -> context = {}
 	# | # Support key-value pairs as well
-	g rule      ("BlockLine",        s ARROW, s Statements _as "body", s COMMENT optional ())
 	g rule      ("BlockBody",        s EOL, s Indent, s Code zeroOrMore () _as "body", s Dedent)
 	#g group     ("BlockEnd",         g arule (s CheckIndent, s _end) optional ())
 	g procedure ("BlockEnd", doBlockEnd)
 
 
-	# NOTE: If has no checkindednt to support for {assd|if -> asdsadas ... }
-	# FIXME: Leaving the s CheckIndent optional () here puts the parser in an infinite loop...
-	# g rule      ("IfBranch",         s CheckIndent optional (), s _if,    s Expression, g agroup (s BlockBody, s BlockLine))
+	g rule      ("IfBlock" ,        s BlockStart, s _if,    s Expression _as "condition", g agroup (s BlockBody) _as "body")
+	g rule      ("ElifBlock",       s BlockStart, s _elif,  s Expression _as "condition", g agroup (s BlockBody) _as "body")
+	g rule      ("ElseBlock",       s BlockStart, s _else,                                g agroup (s BlockBody) _as "body")
+	g rule      ("WhileBlock",      s BlockStart, s _while, s Expression _as "condition", g agroup (s BlockBody) _as "body")
 
-	# FIXME: This is a big mess
-	g rule      ("IfLine" ,    s CheckIndent, s _if,    s Expression _as "condition", g agroup (s BlockLine) _as "body")
-	g rule      ("ElifLine" ,  s EOL, s CheckIndent, s _elif,  s Expression _as "condition", g agroup (s BlockLine) _as "body")
-	g rule      ("ElseLine" ,  s EOL, s CheckIndent, s _else,  g agroup (s BlockLine) _as "body")
-
-	g rule      ("IfBlock" ,        s BlockStart, s _if,    s Expression _as "condition", g agroup (s BlockBody, s BlockLine) _as "body")
-	g rule      ("ElifBlock",       s BlockStart, s _elif,  s Expression _as "condition", g agroup (s BlockBody, s BlockLine) _as "body")
-	g rule      ("ElseBlock",       s BlockStart, s _else,                                g agroup (s BlockBody, s BlockLine) _as "body")
-	g rule      ("WhileBlock",      s BlockStart, s _while, s Expression _as "condition", g agroup (s BlockBody, s BlockLine) _as "body")
-
-	g rule      ("TryBlock",        s BlockStart, s _try,  g agroup (s BlockBody, s BlockLine) _as "body")
-	g rule      ("FinallyBlock",    s BlockStart, s _finally,                             g agroup (s BlockBody, s BlockLine) _as "body")
-	g rule      ("CatchBlock",      s BlockStart, s _catch, s NameType optional () _as "param", g agroup (s BlockBody, s BlockLine) _as "body")
-	g rule      ("ForBlock",        s BlockStart, s _for,   s ParameterList _as "params", s _in, s Expression _as "expr", g agroup (s BlockBody, s BlockLine) _as "body")
+	g rule      ("TryBlock",        s BlockStart, s _try,  g agroup (s BlockBody) _as "body")
+	g rule      ("FinallyBlock",    s BlockStart, s _finally,                             g agroup (s BlockBody) _as "body")
+	g rule      ("CatchBlock",      s BlockStart, s _catch, s NameType optional () _as "param", g agroup (s BlockBody) _as "body")
+	g rule      ("ForBlock",        s BlockStart, s _for,   s ParameterList _as "params", s _in, s Expression _as "expr", g agroup (s BlockBody) _as "body")
 
 
 	# TODO: This should be moved to expressions
-	g rule      ("ConditionalLine",  s IfLine _as "if", s ElifLine zeroOrMore () _as "elif", s ElseLine optional () _as "else")
+	#g rule      ("ConditionalLine",  s IfLine _as "if", s ElifLine zeroOrMore () _as "elif", s ElseLine optional () _as "else")
 	g rule      ("ConditionalBlock", s BlockStart, s IfBlock    _as "if",    s ElifBlock zeroOrMore () _as "elif", s ElseBlock optional () _as "else", s BlockEnd)
-	g group     ("Conditional",      s ConditionalLine, s ConditionalBlock)
+	g group     ("Conditional",      s ConditionalBlock)
 
 	g rule      ("Try",              s BlockStart, s TryBlock   _as "try",   s CatchBlock optional  () _as "catch", s FinallyBlock optional () _as "finally", s BlockEnd)
 	g rule      ("Repetition",       s BlockStart, s WhileBlock _as "while", s BlockEnd)
