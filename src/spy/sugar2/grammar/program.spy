@@ -150,7 +150,7 @@
 	g token     ("STRING_MQ_END",    "(.*)\"\"\"")
 	g token     ("STRING_MQ_LINE",   "[^\"\n]*(\"[^\"\n]|\"\"[^\"\n])*[^\"\n]*")
 	g token     ("DOCSTRING",        "\|[^\n]*")
-	g token     ("EMBED_LINE",       "\|([^\n]*)")
+	g token     ("EMBED_LINE",       "([^\n]*)")
 	g token     ("VERSION",          "[0-9]+(\.[0-9]+)?(\.[0-9]+)?[a-zA-Z_]*")
 	g token     ("DOT_OR_SPACE",     "\.|[ \t]+")
 	g token     ("ITERATOR",         "::[\?=\<\>]?")
@@ -364,10 +364,10 @@
 	g rule  ("CGroup")
 	# NOTE: Operations and Abstract Operations are also supported in Methods, but this should be deprecated
 	g group ("Methods", s ClassMethod, s AbstractClassMethod, s Method, s AbstractMethod, s AbstractMethod, s CGroup, s Comment)
-	s CGroup set (s CheckIndent, s ogroup, s NAME _as "name",     s EOL, s Documentation optional (), s Indent, s Methods zeroOrMore () _as "methods", s Dedent, s OEnd)
+	s CGroup set (s CheckIndent, s ogroup, s NAME _as "name",     s EOL, s Documentation optional (), s Indent, s Methods zeroOrMore () _as "methods", s Dedent)
 	g rule  ("EmbedLine",  s CheckIndent, s EMBED_LINE, s EOL)
 	# NOTE: The Embed rule is special, in the sense that it's not a structural block, but more an inline/content block
-	g rule  ("Embed",      s oembed, s SPACE, s NAME optional () _as "language", s EOL, s EmbedLine zeroOrMore () _as "body", g arule (s CheckIndent, s oend))
+	g rule  ("Embed",      s BlockStart, s oembed, g arule (s SPACE, s NAME) optional () _as "language", s EOL, s Indent, s EmbedLine zeroOrMore () _as "body", s Dedent)
 	s Block add (s Embed)
 	g rule  ("Class"
 		s oabstract optional ()

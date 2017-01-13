@@ -682,15 +682,19 @@
 		return process(match["body"])
 	@end
 
+	@method onEMBED_LINE match
+		return process(match)
+	@end
+
 	@method onEmbed match
 		var body     = process(match["body"])
 		var language = process(match["language"])
 		if language
-			language = language getName ()
+			language = language[1] getName ()
 		end
 		var lines    = []
 		for line in body
-			lines append (line[1][0][1:])
+			lines append (line[1][1])
 		end
 		return F embed (language, "\n" join (lines))
 	@end

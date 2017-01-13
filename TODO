@@ -55,6 +55,24 @@ Incompatible changes
 		statements...
 	```
 
+[X] Embeds::
+
+	Embeds previously were like
+
+	```
+	@embed JavaScript
+	|...
+	@end
+	```
+	
+	and wow have the regular syntax
+
+
+	```
+	@embed JavaScript
+		...
+	```
+
 Syntax fixes
 ------------
 

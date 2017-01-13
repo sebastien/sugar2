@@ -18,14 +18,14 @@ Converts Sugar 1 source files to Sugar 2 source files.
 
 RE_END = re.compile("^\s*(@end|end)\s*(#.*)?$")
 
-def remove_ends( line ):
+def remove_ends( line, context ):
 	if RE_END.match(line):
 		return None
 	else:
 		return False
 
 RE_INLINE_CONDITIONAL = re.compile("^((\t*)((.+);\s*)?((if|elif|else)\s+.*))->(.+)$")
-def rewrite_inline_conditionals( line ):
+def rewrite_inline_conditionals( line, context ):
 	m = RE_INLINE_CONDITIONAL.match(line)
 	if m:
 		head      = m.group(1)
@@ -48,7 +48,7 @@ def rewrite_inline_conditionals( line ):
 		return False
 
 RE_CONDITIONAL_EXPRESSION = re.compile("^(.*)if(\s+.+)->([^\|]+)\|(.+)$")
-def rewrite_conditional_expressions( line ):
+def rewrite_conditional_expressions( line, context ):
 	m = RE_CONDITIONAL_EXPRESSION.match(line)
 	if m:
 		before    = m.group(1)
@@ -59,10 +59,24 @@ def rewrite_conditional_expressions( line ):
 	else:
 		return False
 
+RE_EMBED      = re.compile("^(\t*)@embed")
+RE_EMBED_LINE = re.compile("^(\t*)\|(.*)$")
+def rewrite_embed( line, context ):
+	m = RE_EMBED.match(line)
+	n = RE_EMBED_LINE.match(line)
+	if m:
+		return line
+	elif n and context["rule"] is rewrite_embed:
+		return n.group(1) + "\t" + n.group(2)
+	else:
+		return False
+
+
 RULES = [
 	remove_ends,
 	rewrite_inline_conditionals,
 	rewrite_conditional_expressions,
+	rewrite_embed,
 ]
 
 # ----------------------------------------------------------------------------
@@ -72,11 +86,13 @@ RULES = [
 # ----------------------------------------------------------------------------
 
 
-def refactor_line( line ):
+def refactor_line( line, context ):
 	match = None
 	for p in RULES:
-		match = p(line)
+		match = p(line, context)
 		if match is not False:
+			context["match"] = match
+			context["rule"]  = p
 			break
 	if match is None:
 		pass
@@ -90,8 +106,11 @@ def refactor_line( line ):
 
 def refactor( text ):
 	res = []
-	for line in text.split("\n"):
-		for l in  refactor_line(line):
+	ctx = {"rule":None, "match":None, "i":None, "line":None}
+	for i,line in enumerate(text.split("\n")):
+		ctx["i"]    = i
+		ctx["line"] = line
+		for l in  refactor_line(line, ctx):
 			res.append(l)
 	return "\n".join(res)
 
