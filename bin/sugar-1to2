@@ -47,9 +47,22 @@ def rewrite_inline_conditionals( line ):
 	else:
 		return False
 
+RE_CONDITIONAL_EXPRESSION = re.compile("^(.*)if(\s+.+)->([^\|]+)\|(.+)$")
+def rewrite_conditional_expressions( line ):
+	m = RE_CONDITIONAL_EXPRESSION.match(line)
+	if m:
+		before    = m.group(1)
+		predicate = m.group(2)
+		value     = m.group(3)
+		fallback  = m.group(4)
+		return before + value + "if" + predicate + "else" + fallback
+	else:
+		return False
+
 RULES = [
 	remove_ends,
 	rewrite_inline_conditionals,
+	rewrite_conditional_expressions,
 ]
 
 # ----------------------------------------------------------------------------

@@ -14,21 +14,21 @@ Syntax
 Incompatible changes
 --------------------
 
-[ ] Inline conditionals::
+[X] Removed `@end` and `end`::
 
-	currently
+	These served as explicit guards against copy/paste, but in practice
+	this cause the code to be more verbose without providing much benefit.
+
+
+[ ] Conditional expresssions::
+
+	Conditional expressions were redundant with single-line conditionals
 
 	```
 	if CONDITION -> EXPRESSION (| CONDITION -> EXPRESSION)* | EXPRESSION
 	```
 
-	better would be 
-
-	```
-	CONDITION ? EXPRESSION : EXPRESSION
-	```
-
-	or 
+	They are now unambiguously expressed as
 
 	```
 	EXPRESSION if CONDITION else EXPRESSION
@@ -44,7 +44,7 @@ Incompatible changes
 	else           -> statements...
 	```
 
-	they are replaced with the normal form
+	and replaced with the now more compact standard form
 
 	```
 	if condition
@@ -54,11 +54,6 @@ Incompatible changes
 	else
 		statements...
 	```
-
-[X] Remove mandatory ends::
-
-	At the end of the day, they don't serve any real purpose besides
-	guarding against copy-paste.
 
 [ ] Remove `@protocol` and `@singleton`::
 

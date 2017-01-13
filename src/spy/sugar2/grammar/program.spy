@@ -5,7 +5,7 @@
 # License           : BSD License
 # -----------------------------------------------------------------------------
 # Creation date     : 2016-11-01
-# Last modification : 2017-01-12
+# Last modification : 2017-01-13
 # -----------------------------------------------------------------------------
 
 @module sugar2.grammar.program
@@ -278,6 +278,7 @@
 	g rule      ("Chain",            s COLON, s ChainLine oneOrMore ())
 	#g rule      ("ConditionalExpression",  s _if, s Expression _as "condition", s ARROW, s Expression _as "true", s PIPE, s Expression _as "false")
 	g rule      ("IterationSuffix",  s ITERATOR _as "op", s Expression _as "rvalue")
+	g rule      ("ConditionSuffix",  g agroup (s _if, s _else) _as "type", s Expression _as "value")
 	g group     ("Prefixes"
 		s Literal
 		g rule  ("Exception",        s THROW_OPERATOR, s Expression _as "expression")
@@ -286,7 +287,7 @@
 		s NAME
 		s Parentheses
 	)
-	s Suffixes   set (s Chain, s IterationSuffix, s ComputationInfix, s Decomposition, s Access, s Slice, s Invocation)
+	s Suffixes   set (s Chain, s IterationSuffix, s ConditionSuffix, s ComputationInfix, s Decomposition, s Access, s Slice, s Invocation)
 	s Expression set (s Prefixes, s Suffixes zeroOrMore ())
 
 	# Operations

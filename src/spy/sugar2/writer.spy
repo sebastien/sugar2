@@ -546,30 +546,31 @@
 	# =========================================================================
 
 
-	@method onConditionalExpression match
-		var c = process(match["condition"])
-		var t = process(match["true"])
-		var f = process(match["false"])
-		var res = F select ()
-		res addRule (F matchExpression (c, t))
-		# TODO
-		# for _ in _elifs
-		# 	res addRule (F matchProcess (_[0], _[1]))
-		# end
-		if f
-			# FIXME: Should be "res setFallback"
-			let e = F matchExpression (F _ref "True", f)
-			e addAnnotation "else"
-			res addRule (e)
-		end
-		# TODO: Should probably have a separate model element
-		res addAnnotation("if-expression")
-		return res
-	@end
+	# NOTE: Deprecated
+	# @method onConditionalExpression match
+	# 	var c = process(match["condition"])
+	# 	var t = process(match["true"])
+	# 	var f = process(match["false"])
+	# 	var res = F select ()
+	# 	res addRule (F matchExpression (c, t))
+	# 	# TODO
+	# 	# for _ in _elifs
+	# 	# 	res addRule (F matchProcess (_[0], _[1]))
+	# 	# end
+	# 	if f
+	# 		# FIXME: Should be "res setFallback"
+	# 		let e = F matchExpression (F _ref "True", f)
+	# 		e addAnnotation "else"
+	# 		res addRule (e)
+	# 	end
+	# 	# TODO: Should probably have a separate model element
+	# 	res addAnnotation("if-expression")
+	# 	return res
+	# @end
 
-	@method onConditionalLine match
-		return onConditionalBlock (match)
-	@end
+	# @method onConditionalLine match
+	# 	return onConditionalBlock (match)
+	# @end
 
 	@method onConditionalBlock match
 		var _if        = process(match["if"])
@@ -778,7 +779,8 @@
 	@end
 
 	@method _applySuffixes value, suffixes
-	| Applies the suffixes to the current value, modifying it
+	| Applies the suffixes to the current value, modifying it as it goes. Note that suffixes
+	| are constructed depth-first, so from right to left.
 		if suffixes
 			# We go from left to right
 			for args in suffixes
@@ -817,6 +819,45 @@
 					value = F slice  (value, args[1], args[2])
 				elif name == "IterationSuffix"
 					value    = args[1](value, args[2])
+				elif name == "ConditionSuffix"
+					let t = args[1]
+					let v = args[2]
+					if t == "if"
+						if isinstance (v, interfaces ISelection)
+							assert (v hasAnnotation "else-expression")
+							v addAnnotation "if-expression"
+							let r = v getRule 0
+							let p = r getPredicate ()
+							if p hasAnnotation "default"
+								r setExpression (value)
+							else
+								# FIXME: This does not work, we never get into this branch
+								let op = normalizeOperator("and")
+								r setPredicate (F compute (
+									F _op (op, getOperatorPriority(op))
+									p
+									value
+								))
+							end
+							value = v
+						else
+							let r = F matchExpression (v, value)
+							value = F select () addAnnotation "if-expression"
+							value addRule (r)
+						end
+						#end
+						## A if suffix means we create a conditional
+						#value = F select ()
+						#value addAnnotation("if-expression")
+					elif t == "else"
+						let rt = F matchExpression(value copy () addAnnotation "default", value)
+						let rf = F matchExpression(F _ref "True", v)  addAnnotation "else"
+						value  = F select () addAnnotation "if-expression" addAnnotation "else-expression"
+						value addRule (rt)
+						value addRule (rf)
+					else
+						raise new Exception("Unknown condition type: {0}" format(t))
+					end
 				elif name == "Chain"
 					if type(value) is list
 						ipdb set_trace()
@@ -1117,6 +1158,12 @@
 		end
 		let prefix = process(match[0])
 		return _applySuffixes (prefix, suffixes)
+	@end
+
+	@method onConditionSuffix match
+		let t = process(match["type"])[0]
+		let v = process(match["value"])
+		return [match name, t, v]
 	@end
 
 	@method onIterationSuffix match
