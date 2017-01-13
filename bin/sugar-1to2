@@ -16,7 +16,14 @@ Converts Sugar 1 source files to Sugar 2 source files.
 #
 # ----------------------------------------------------------------------------
 
-RE_END = re.compile("^\s*(@end|end)\s*(#.*)?$")
+RE_END     = re.compile("^\s*(@end|end)\s*(#.*)?$")
+RE_COMMENT = re.compile("^\s*#.*")
+
+def keep_comment( line, context ):
+	if RE_COMMENT.match(line):
+		return line
+	else:
+		return False
 
 def remove_ends( line, context ):
 	if RE_END.match(line):
@@ -24,15 +31,20 @@ def remove_ends( line, context ):
 	else:
 		return False
 
-RE_INLINE_CONDITIONAL = re.compile("^((\t*)((.+);\s*)?((if|elif|else)\s+.*))->(.+)$")
+RE_INLINE_CONDITIONAL = re.compile("^((\t*)((.+)([;\|])\s*)?((if|elif|else)\s+.*))->(.+)$")
 def rewrite_inline_conditionals( line, context ):
 	m = RE_INLINE_CONDITIONAL.match(line)
 	if m:
 		head      = m.group(1)
 		indent    = m.group(2)
-		before    = m.group(4)
-		condition = m.group(5)
-		tail      = m.groups()[-1]
+		before    = m.group(4) or ""
+		sep       = m.group(5)
+		condition = m.group(6)
+		tail      = m.groups()[-1].strip()
+		if sep == "|": before += sep
+		if tail.endswith("}"):
+			tail = "\t" + tail[:-1] + "\n" + indent + "}"
+			condition = "\t" + condition
 		if before:
 			return [
 				(indent + before),
@@ -41,6 +53,7 @@ def rewrite_inline_conditionals( line, context ):
 			]
 		else:
 			return [
+				(indent + before),
 				(indent + condition),
 				(indent + "\t" + tail)
 			]
@@ -73,6 +86,7 @@ def rewrite_embed( line, context ):
 
 
 RULES = [
+	keep_comment,
 	remove_ends,
 	rewrite_inline_conditionals,
 	rewrite_conditional_expressions,
@@ -100,6 +114,8 @@ def refactor_line( line, context ):
 		for _ in match:
 			yield _
 	elif match is False:
+		context["match"] = None
+		context["rule"]  = None
 		yield line
 	else:
 		yield match

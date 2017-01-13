@@ -929,6 +929,10 @@
 		return process(match["value"])
 	@end
 
+	@method onNamedEntry match
+		return process(match[0])
+	@end
+
 	@method onNamedExpressionLine match
 		return onExpressionLine (match)
 	@end
@@ -1305,8 +1309,12 @@
 	@method onTuple match
 		let list  = process (match[1]) or []
 		let block = process (match[2]) or []
-		# TODO: LF support for tuples
-		return F _tuple (list + block)
+		let r     = list + block
+		if len(r) == 1
+			return r[0]
+		else
+			return F _tuple (r)
+		end
 	@end
 
 	# =========================================================================
