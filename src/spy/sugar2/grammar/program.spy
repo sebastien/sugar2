@@ -253,12 +253,12 @@
 	g rule      ("SymbolList",       s NAME,      g arule(s COMMA, s NAME)      zeroOrMore (), s ELLIPSIS optional ())
 	g rule      ("ArgumentsEmpty",   s LP, s RP)
 	# Closures
-	g rule      ("ClosureStatement")
-	g rule      ("ClosureLine",       s EOL, s CheckIndent, g agroup (s COMMENT, s ClosureStatement))
+	g group     ("ClosureStatement")
+	g group     ("ClosureBody")
 	g rule      ("ClosureParameters", s ParameterList optional(), s PIPE)
 	g rule      ("EmptyClosure",      s LB, s ClosureParameters, s RB)
-	g rule      ("InlineClosure",     s LB, s ClosureParameters optional (), s ClosureStatement, s RB)
-	g rule      ("BlockClosure",      s LB, s ClosureParameters optional (), s Indent, s ClosureLine zeroOrMore (), s EOL,  s Dedent, s CheckIndent, s RB)
+	g rule      ("InlineClosure",     s LB, s ClosureParameters optional (), s ClosureStatement _as "body", s RB)
+	g rule      ("BlockClosure",      s LB, s ClosureParameters optional (), s ClosureBody _as "body", s CheckIndent, s RB)
 	g group     ("Closure",           s BlockClosure, s InlineClosure, s EmptyClosure)
 
 	# Expression prefixes
@@ -349,6 +349,7 @@
 	g rule      ("OWhen",            s CheckIndent, s owhen, s Expression _as "expression", s EOL)
 	g group     ("Decorator",        s OWhen)
 	s ClosureStatement set (s Statements)
+	s ClosureBody      set (s BlockBody)
 	declaration      (g, "ClassAttribute",    s oshared)
 	declaration      (g, "ModuleAttribute",   s oshared)
 	declaration      (g, "Attribute",         s oproperty)

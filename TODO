@@ -55,12 +55,6 @@ Incompatible changes
 		statements...
 	```
 
-[ ] Remove `@protocol` and `@singleton`::
-
-	Not sure if they're really necessary, and they can be implemented
-	with a `@class` and a `@shared`.
-
-
 Syntax fixes
 ------------
 
@@ -189,10 +183,20 @@ New features
 
 ### Operations
 
-[ ] Absence of value::
+[ ] Safe resolution
+
+
+	A safe resolution will mean that if any of the resolution fail, the
+	`E` will be output.
 
 	```
-	var a = (asdas sadasd ? {})
+	var a = (A B C D) ?. E
+	```
+
+	this typically gets converted into something like
+
+	```
+	var a = A B C D if (A and exists(A B) and exists(A B C) and exists(A B C D)) else E
 	```
 
 [ ] Chaining::

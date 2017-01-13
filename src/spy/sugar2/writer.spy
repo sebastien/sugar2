@@ -429,11 +429,11 @@
 		return process(match[0])
 	@end
 
-	@method onClosureLine match
-		return process(match[2])
+	@method onClosureStatement match
+		return process(match[0])
 	@end
 
-	@method onClosureStatement match
+	@method onClosureBody match
 		return process(match[0])
 	@end
 
@@ -455,7 +455,7 @@
 
 	@method onBlockClosure match
 		let params = process (match[1])
-		let code   = process (match[3])
+		let code   = process (match[2])
 		var res    = F createClosure (params)
 		_addCode( res, code)
 		return res
