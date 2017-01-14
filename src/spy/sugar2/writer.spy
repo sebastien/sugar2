@@ -125,6 +125,22 @@
 		return operator
 	@end
 
+	@method getPriority value
+	| Returns the priority of the given model element or string (for an operator).
+	| -1 is returned if not known.
+		if isinstance (value, interfaces IComputation)
+			return getOperatorPriority (value getOperator () getName ())
+		elif isinstance (value, interfaces IElement)
+			if value hasAnnotation "priority"
+				return getAnnotation "priority" getValue ()
+			else
+				return -1
+			end
+		else
+			return getOperatorPriority (value)
+		end
+	@end
+
 	@method getOperatorPriority operator
 		var i = 0
 		operator = libparsing ensure_str (operator)
@@ -369,12 +385,6 @@
 
 	@method _createCallable factory, match, hasBody=True
 		let name_type  = process (match["name"])
-		@embed Python
-		|try:
-		|	match["parameters"]
-		|except KeyError:
-		|	import ipdb;ipdb.set_trace()
-		@end
 		var params     = access (access (process (match["parameters"]), 0), 0)
 		let doc        = process (match["documentation"])
 		let body       = hasBody and process (match["body"]) or None
@@ -722,86 +732,13 @@
 			# ipdb set_trace ()
 			raise Exception("Prefix not supported yet: " + str(prefix))
 		end
-		current = _applySuffixes (current, suffixes)
-		print ("EXPRESSION", current)
-		if isinstance (current, interfaces IBinaryOperation)
-			current = _reorderComputation (current)
-		end
-		return current
-	@end
-
-	@method _shouldReorder value
-	| Tells if the given value should be reorderered
-		return isinstance(value, interfaces IComputation) and (not (value hasAnnotation "parens" or value hasAnnotation "reordered"))
-	@end
-
-	@method _reorderComputation value
-	| Reorders a sequence of computations according to operators priorities.
-	| This method is called by `onExpression` and applied from right
-	| to left.
-		# We skip reordering here if the computation should
-		# not be reordered.
-		if not _shouldReorder (value) -> return value
-		# We have V = (A op1 B) or V = (op1 A)
-		let v   = value
-		let op1 = v getOperator ()
-		let a   = v getLeftOperand  ()
-		let b   = v getRightOperand ()
-		if value isUnary ()
-			# The currrent value is a unary operator, and we want to make sure
-			# that `not A or B` will be `(not A) or B` instead of (not (A or B))`
-			if _shouldReorder (a)
-				# We have (op1 (C op2 2))
-				# W = A = (C op2 D)
-				let w   = a
-				let op2 = w getOperator ()
-				let c   = w getLeftOperand  ()
-				let d   = w getRightOperand ()
-				if op1 getPriority () > op2 getPriority ()
-					v setLeftOperand (c detach ())
-					w setLeftOperand (v detach ())
-					return w
-				else
-					return value
-				end
-			else
-				return value
-			end
-		elif _shouldReorder (b)
-			# The current value is a binary operator with an value that we
-			# should reorder. We know now that
-			#
-			# W = B = (C op2 D)
-			let w   = b
-			let op2 = w getOperator ()
-			let c   = w getLeftOperand  ()
-			let d   = w getRightOperand ()
-			# We only need to reorder if the priority of op1 > op2
-			if op1 getPriority () >  op2 getPriority ()
-				print ("(A={0} {1} (C={2} {3} D={4})" format (
-					isinstance(a, interfaces IReference) and a getName () or a
-					op1 getName ()
-					isinstance(c, interfaces IReference) and c getName () or c
-					op2 getName ()
-					isinstance(d, interfaces IReference) and d getName () or d
-				))
-				# In which case we want
-				# V = (A op1 C)
-				# W = (V op2 D)
-				v setRightOperand(c detach ())
-				w setLeftOperand (v detach ())
-				return _reorderComputation (w)
-			else
-				return value
-			end
-		else
-			return value
-		end
+		return _applySuffixes (current, suffixes)
 	@end
 
 	@method _applySuffixes value, suffixes
 	| Applies the suffixes to the current value, modifying it as it goes. Note that suffixes
-	| are constructed depth-first, so from right to left.
+	| are constructed depth-first, so from right to left, and that there's pretty much
+	| only one suffix each time.
 		if suffixes
 			# We go from left to right
 			for args in suffixes
@@ -813,23 +750,20 @@
 						value = F invoke (value, args[1])
 					end
 				elif name == "ComputationInfix"
-					# FIXME: Re-ordering should be appled here
-					var op = normalizeOperator (args[1])
-					# FIXME: Support ‥
-					if op == ".."
-						var rvalue = args[2]
-						# NOTE: This is not ideal, it is a hack to force precendence
-						# of .. over ::
-						if isinstance (rvalue, interfaces IIteration) and not rvalue hasAnnotation "parens"
-							value = F enumerate (value, rvalue getLeftOperand () detach ())
-							rvalue setLeftOperand (value)
-							value = rvalue
-						else
-							value = F enumerate (value, args[2])
-						end
-					else
-						value = F compute (F _op (op, getOperatorPriority(op)), value, args[2])
-					end
+					# TODO: Support ‥
+					# if op == ".."
+					# 	var rvalue = args[2]
+					# 	# NOTE: This is not ideal, it is a hack to force precendence
+					# 	# of .. over ::
+					# 	if isinstance (rvalue, interfaces IIteration) and not rvalue hasAnnotation "parens"
+					# 		value = F enumerate (value, rvalue getLeftOperand () detach ())
+					# 		rvalue setLeftOperand (value)
+					# 		value = rvalue
+					# 	else
+					# 		value = F enumerate (value, args[2])
+					# 	end
+					# end
+					value = _applyComputationInfix (value, args[1], args[2])
 				elif name == "Decomposition"
 					for _ in args[1]
 						value = F resolve (_, value)
@@ -840,6 +774,7 @@
 					value = F slice  (value, args[1], args[2])
 				elif name == "IterationSuffix"
 					value    = args[1](value, args[2])
+					value addAnnotation ("operator", normalizeOperator (args[3]))
 				elif name == "ConditionSuffix"
 					let t = args[1]
 					let v = args[2]
@@ -880,9 +815,6 @@
 						raise new Exception("Unknown condition type: {0}" format(t))
 					end
 				elif name == "Chain"
-					if type(value) is list
-						ipdb set_trace()
-					end
 					# FIXME: This does not work value is not expected to be a list
 					# TODO: Should be an automatic variable
 					var alloc = value
@@ -901,12 +833,68 @@
 					end
 					value = res
 				else
-					# ipdb set_trace ()
 					raise new Exception ("sugar2.writer._applySuffixes: Suffix not supported yet: " + str(name) + " in " + str(args))
 				end
 			end
 		end
 		return value
+	@end
+
+	@method _getLeftmostComputation value
+	| Returns the rightmost computation
+		if isinstance(value, interfaces IComputation)
+			if value isUnary () or value hasAnnotation "parens"
+				return None
+			else
+				return _getLeftmostComputation (value getLeftOperand ()) or value
+			end
+		elif value hasAnnotation "priority"
+			return value
+		else
+			return None
+		end
+	@end
+
+	@method _applyComputationInfix value, op, rvalue
+		# NOTE: See onComputationPrefix for more info on computation prefixes
+		# We get the leftmost computation of the rvalue
+		let	lrvalue = _getLeftmostComputation (rvalue)
+		var result  = None
+		# @embed python
+		# |import ipdb;ipdb.set_trace()
+		# @end
+		if lrvalue
+			# There is potentially a priority conflict, as we have something like
+			#
+			# A op1 ((B op2 C)‥)
+			#       ============ rvalue
+			#
+			# If op 1 > op2, we'll want
+			#
+			# (((A op1 B) op2 C)‥)
+			#
+			let p1 = getOperatorPriority (op)
+			let p2 = getOperatorPriority (lrvalue getOperator () getName ())
+			if p1 >= p2
+				# We only need to reorder if op2 > op1, in which case we'll have
+				# V=(A op1 (B op2 RV))
+				let b = lrvalue getLeftOperand () detach ()
+				let c = _createComputation (op, value, b)
+				lrvalue setLeftOperand (c)
+				result = rvalue
+			end
+		end
+		return result or _createComputation (op, value, rvalue)
+	@end
+
+	@method _createComputation op, lvalue, rvalue
+	| A wrapper that transforms certain operators into either computation
+	| or their dedicated counterpart.
+		if op == ".."
+			return F enumerate (lvalue, rvalue) addAnnotation ("operator", op) addAnnotation ("priority", getOperatorPriority (op))
+		else
+			return F compute (F _op (op, getOperatorPriority(op)), lvalue, rvalue)
+		end
 	@end
 
 	@method onExpressionList match
@@ -979,14 +967,30 @@
 	@end
 
 	@method onComputationPrefix match
-		var operator = normalizeOperator (process (match[0])[0])
-		var operand  = process(match[1])
-		return F compute (F _op (operator, getOperatorPriority (operator)), operand)
+		# SEE: _applyComputationInfix, which has a very similary structure
+		let operator = normalizeOperator (process (match[0])[0])
+		let operand  = process(match[1])
+		var lrvalue  = _getLeftmostComputation (operand)
+		var result   = None
+		# If the leftmost computation of the operand has a higher priority
+		# than ours, then we'll take the leftmost computation and apply
+		# the operator to it
+		if lrvalue
+			let p1 = getOperatorPriority (operator)
+			let p2 = getOperatorPriority (lrvalue getOperator () getName ())
+			if p1 >= p2
+				let b = lrvalue getLeftOperand () detach ()
+				let c = _createComputation (op, b, None)
+				lrvalue setLeftOperand (c)
+				result = operand
+			end
+		end
+		return result or _createComputation (op, operand, None)
 	@end
 
 	@method onParentheses match
+		# NOTE: Now that tuples are supported, parentheses are lesser used
 		let expr = process (match[1])
-		expr = _reorderComputation (expr)
 		expr addAnnotation "parens"
 		return expr
 	@end
@@ -1171,7 +1175,7 @@
 			# 	res append (F assign (mod_lvalue, F resolve "__temp__"))
 			# 	return res
 			# else
-			var c = F compute (F _op (sub_op, getOperatorPriority (sub_op)), lvalue, rvalue)
+			var c = _createComputation (sub_op, lvalue, rvalue)
 			return F assign (lvalue copy () detach (), c)
 		end
 	@end
@@ -1328,7 +1332,7 @@
 		let block = process (match[2]) or []
 		let r     = list + block
 		if len(r) == 1
-			return r[0]
+			return r[0] addAnnotation "parens"
 		else
 			return F _tuple (r)
 		end
