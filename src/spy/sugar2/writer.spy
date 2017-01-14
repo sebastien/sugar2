@@ -723,62 +723,79 @@
 			raise Exception("Prefix not supported yet: " + str(prefix))
 		end
 		current = _applySuffixes (current, suffixes)
+		print ("EXPRESSION", current)
 		if isinstance (current, interfaces IBinaryOperation)
 			current = _reorderComputation (current)
 		end
 		return current
 	@end
 
+	@method _shouldReorder value
+	| Tells if the given value should be reorderered
+		return isinstance(value, interfaces IComputation) and (not (value hasAnnotation "parens" or value hasAnnotation "reordered"))
+	@end
+
 	@method _reorderComputation value
 	| Reorders a sequence of computations according to operators priorities.
 	| This method is called by `onExpression` and applied from right
 	| to left.
-		if (not isinstance(value, interfaces IComputation)) or value hasAnnotation "parens" or value hasAnnotation "reordered"-> return value
-		let op1 = value getOperator ()
-		let a   = value getLeftOperand  ()
-		let b   = value getRightOperand ()
+		# We skip reordering here if the computation should
+		# not be reordered.
+		if not _shouldReorder (value) -> return value
+		# We have V = (A op1 B) or V = (op1 A)
+		let v   = value
+		let op1 = v getOperator ()
+		let a   = v getLeftOperand  ()
+		let b   = v getRightOperand ()
 		if value isUnary ()
-			if isinstance (a, interfaces IComputation) and (not a hasAnnotation "parens") and (not a hasAnnotation "reordered")
-				let op2 = a getOperator ()
-				if op1 getPriority () >  op2 getPriority ()
-					# We have (op1 (C op2 D))
-					# We want ((op1 C) op2 D)
-					let c = a getLeftOperand  ()
-					let d = a getRightOperand ()
-					value = F compute (
-						op2 detach ()
-						_reorderComputation (F compute (op1 detach (), c detach ()))
-						d detach ()
-					)
+			# The currrent value is a unary operator, and we want to make sure
+			# that `not A or B` will be `(not A) or B` instead of (not (A or B))`
+			if _shouldReorder (a)
+				# We have (op1 (C op2 2))
+				# W = A = (C op2 D)
+				let w   = a
+				let op2 = w getOperator ()
+				let c   = w getLeftOperand  ()
+				let d   = w getRightOperand ()
+				if op1 getPriority () > op2 getPriority ()
+					v setLeftOperand (c detach ())
+					w setLeftOperand (v detach ())
+					return w
+				else
+					return value
 				end
-			end
-			return value
-		else
-			let b = value getRightOperand ()
-			# When we have: A op1 B
-			# where               B = (C op2 D)
-			if isinstance (b, interfaces IComputation) and (not b hasAnnotation "parens") and (not b hasAnnotation "reordered")
-				let op2 = b     getOperator ()
-				# ...and that priority(op1) >= priority(op2)
-				if op1 getPriority () >= op2 getPriority ()
-					# We refactor the current computation so that it becomes
-					#     B op2 D
-					# where
-					#     B = (A op1 C)
-					# resulting in
-					#     (A op1 C) op2 D
-					let c  = b     getLeftOperand  ()
-					let d  = b     getRightOperand ()
-					value  = F compute (
-						op2 detach ()
-						_reorderComputation (F compute (op1 detach (), a detach (), c detach ()))
-						d and _reorderComputation (d detach ()) or None
-					)
-				end
-				return value
 			else
 				return value
 			end
+		elif _shouldReorder (b)
+			# The current value is a binary operator with an value that we
+			# should reorder. We know now that
+			#
+			# W = B = (C op2 D)
+			let w   = b
+			let op2 = w getOperator ()
+			let c   = w getLeftOperand  ()
+			let d   = w getRightOperand ()
+			# We only need to reorder if the priority of op1 > op2
+			if op1 getPriority () >  op2 getPriority ()
+				print ("(A={0} {1} (C={2} {3} D={4})" format (
+					isinstance(a, interfaces IReference) and a getName () or a
+					op1 getName ()
+					isinstance(c, interfaces IReference) and c getName () or c
+					op2 getName ()
+					isinstance(d, interfaces IReference) and d getName () or d
+				))
+				# In which case we want
+				# V = (A op1 C)
+				# W = (V op2 D)
+				v setRightOperand(c detach ())
+				w setLeftOperand (v detach ())
+				return _reorderComputation (w)
+			else
+				return value
+			end
+		else
+			return value
 		end
 	@end
 

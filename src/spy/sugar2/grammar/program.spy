@@ -131,7 +131,6 @@
 	g token     ("ANY",              "[^\n]*")
 	# FIXME: Support 0xFFAAEE
 	g token     ("NUMBER",           "\-?(([0-9]+(\.[0-9]+)?)|(0x[A-Fa-f0-9]+)|(0b[01]+)|(0o[0-8]+))")
-	g token     ("FLOAT",            "\-?[0-9]+(\.[0-9]+)?")
 	g token     ("TIME",             "[0-9]+(\.[0-9]+)?(ms|s|m|h|d|w)")
 	g token     ("NAME",             "(\\\?)([\$_A-Za-z][_\w]*)")
 	g token     ("FQNAME",           "(\\\?)([\$_A-Za-z][\._\w]*)")
@@ -155,7 +154,6 @@
 	g token     ("DOT_OR_SPACE",     "\.|[ \t]+")
 	g token     ("ITERATOR",         "::[\?=\<\>]?")
 	g token     ("ELLIPSIS",         "\.\.\.|‥")
-	g token     ("ARROW",            "\-\>|→")
 	# Punctuation
 	g word      ("LP",               "(")
 	g word      ("RP",               ")")
@@ -169,7 +167,6 @@
 	g word      ("SEMICOLON",        ";")
 	g word      ("PIPE",             "|")
 	g word      ("EQUALS",           "=")
-	g word      ("TQUOTE",           "\"\"\"")
 	# g word      ("WILDCARD",         "*")
 	g condition ("NOTHING")
 	# Keywords
@@ -180,7 +177,6 @@
 	g word      ("_else",            "else")
 	g word      ("_for",             "for")
 	g word      ("_while",           "while")
-	g word      ("_end",             "end")
 	g word      ("_in",              "in")
 	g word      ("_from",            "from")
 	g word      ("_as",              "as")
@@ -191,7 +187,6 @@
 	g word      ("oimport",          "@import")
 	g word      ("omodule",          "@module")
 	g word      ("oversion",         "@version")
-	# g word      ("olicense",         "@license")
 	g word      ("ofunction",        "@function")
 	g word      ("oclass",           "@class")
 	g word      ("oproperty",        "@property")
@@ -318,7 +313,6 @@
 	# | if (not context) and (not isList(context)) and (not isMap(context)) -> context = {}
 	# | # Support key-value pairs as well
 	g rule      ("BlockBody",        s EOL, s Indent, s Code zeroOrMore () _as "body", s Dedent)
-	#g group     ("BlockEnd",         g arule (s CheckIndent, s _end) optional ())
 	g procedure ("BlockEnd", doBlockEnd)
 
 
