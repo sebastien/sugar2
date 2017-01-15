@@ -9,7 +9,8 @@
 # -----------------------------------------------------------------------------
 
 @module sugar2.grammar.program
-@import doIndent, doCheckIndent, doDedent, doBlockStart, doBlockEnd from sugar2.grammar.helpers
+@import doIndent, doCheckIndent, doDedent, doBlockStart, doBlockEnd, listOf from sugar2.grammar.helpers
+@import injectTypes from sugar2.grammar.types
 
 # TODO: Break down the grammar in Expression, Structure and Types
 
@@ -119,14 +120,6 @@
 	)
 @end
 
-@function listOf rule, separator, grammar
-| Creates a new list of the given rule, separated by the given separator
-| in the given grammar
-	return grammar arule (
-		grammar arule ( rule, separator ) zeroOrMore ()
-		rule
-	)
-@end
 
 # -----------------------------------------------------------------------------
 #
@@ -258,13 +251,12 @@
 	g rule      ("Map",              s LB,  s EntryList   optional () _as "head", s EntryBlock   optional () _as "tail", g arule (s EOL, s CheckIndent) optional (), s RB)
 
 	# Declarations
-	g rule      ("TypeStructure",    g atoken "\<[^\>]*\>")
-	g rule      ("Type",             g agroup (s NAME, s TypeStructure))
-	g rule      ("NameType",         s NAME,     g arule (s COLON,  s Type)       optional   ())
+	injectTypes (g)
+	g rule      ("NameType",         s NAME,     g arule (s COLON,  s TypeValue)       optional   ())
 	g rule      ("FQName",           s NAME,     g arule (s DOT_OR_SPACE,  s NAME)       zeroOrMore ())
 	g rule      ("Parameter",        s NameType _as "name", g arule (s EQUALS, s Expression) optional   () _as "value")
 	g rule      ("ParameterList",    s Parameter, g arule(s COMMA, s Parameter) zeroOrMore (), s ELLIPSIS optional ())
-	g rule      ("SymbolList",       s NAME,      g arule(s COMMA, s NAME)      zeroOrMore (), s ELLIPSIS optional ())
+	g rule      ("SymbolList",       s NameType _as "name", g arule(s COMMA, s NAME)      zeroOrMore (), s ELLIPSIS optional ())
 	g rule      ("ArgumentsEmpty",   s LP, s RP)
 	# Closures
 	g group     ("ClosureStatement")
@@ -373,9 +365,7 @@
 	function         (g, "Method",            s omethod)
 	function         (g, "ClassMethod",       s ooperation)
 
-
 	g rule ("Parents", s COLON, listOf (s FQName, s COMMA, g) _as "parents")
-
 
 	# NOTE: The Embed rule is special, in the sense that it's not a structural block, but more an inline/content block
 	g rule  ("EmbedLine",  s CheckIndent, s EMBED_LINE, s EOL)
@@ -400,7 +390,7 @@
 	g rule  ("TargetAnnotation",      s otarget,   s NAME    _as "name",    s EOL)
 	g rule  ("ModuleAnnotation",      s omodule,   s FQName  _as "name",    s EOL)
 	g rule  ("VersionAnnotation",     s oversion,  s VERSION _as "version", s EOL)
-	g rule  ("FeatureAnnotation",     s ofeature,  s NAME    _as "name",    s EQUALS, s NAME _as "value", s EOL)
+	g rule  ("FeatureAnnotation",     s ofeature,  s NAME    _as "name",    g arule ( s EQUALS, s NAME _as "value") optional () _as "value", s EOL)
 
 	g rule  ("ImportAlias",           s _as,       s NAME)
 	g rule  ("ImportSymbol",          s FQNAME,    s ImportAlias optional ())
@@ -425,7 +415,7 @@
 		s Documentation      optional   () _as "documentation"
 		s Import             zeroOrMore () _as "imports"
 	)
-	g group     ("Structure",          s EmptyLines, s Comment, s ModuleAttribute, s Function, s Class, s Trait, s Singleton)
+	g group     ("Structure",          s EmptyLines, s Comment, s ModuleAttribute, s Type, s Function, s Class, s Trait, s Singleton)
 	g rule      ("Module",             s ModuleDeclaration,  s Structure zeroOrMore (), s Code zeroOrMore ())
 
 	g skip      = g agroup (s SPACE)

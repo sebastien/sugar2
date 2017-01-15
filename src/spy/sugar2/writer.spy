@@ -1122,12 +1122,12 @@
 	| allocation with an automatic variable name.
 		# We resolve "var SYMBOLS | REST = VALUE"
 		var res     = None
-		let symbols = process (match[2])
-		let rest    = process (match[3])
+		let symbols = process (match["symbols"])
+		let rest    = process (match["rest"])
 		let value   = access (process (match[4]), 1)
 		if (len(symbols) == 1) and (not rest)
 			# This is a single allocation with no rest
-			var slot = F _slot (symbols[0] getReferenceName())
+			var slot = F _slot (symbols[0][0] getReferenceName(), symbols[0][1])
 			res = [F allocate (slot, value)]
 		else
 			# This is a multiple allocation with maybe a rest
@@ -1135,16 +1135,16 @@
 			# We create an intermediate expression to store the result to
 			# be sliced so that we don't evaluate the same code twice
 			var last_symbol = symbols[-1]
-			var pivot_slot  = F _slot (last_symbol getReferenceName ())
+			var pivot_slot  = F _slot (last_symbol[0] getReferenceName (), last_symbol[1])
 			res append (F allocate (pivot_slot, value))
 			var slot_value = F resolve (F _ref (pivot_slot getName ()))
 			var i = 0
 			# We create individual allocations for each access
 			for s in symbols
-				var slot      = F _slot  (s getReferenceName ())
+				var slot      = F _slot  (s[0] getReferenceName (), s[1])
 				var sub_value = F access (slot_value copy (), F _number(i))
 				if s is last_symbol
-					res append (F assign (s getReferenceName(), sub_value))
+					res append (F assign (s[0] getReferenceName(), sub_value))
 				else
 					res append (F allocate (slot, sub_value))
 				end
@@ -1152,8 +1152,9 @@
 			end
 			# We create a slice for the rest
 			if rest
-				var slot      = F _slot  (rest getReferenceName ())
-				var sub_value = F slice (slot_value copy (), i)
+				# NOTE: The rest is untyped
+				var slot      = F _slot  (rest[1] getReferenceName ())
+				var sub_value = F slice (slot_value copy (), F _number (i))
 				res append (F allocate (slot, sub_value))
 			end
 		end
@@ -1325,7 +1326,10 @@
 
 	@method onNameType match
 	| Returns a couple (name, type) where type might be None.
-		return [process (match[0]), process (match[1])]
+		let r = process(match[0])
+		let t = process(match[1])
+		r setAbstractType (t)
+		return [r, t]
 	@end
 
 	@method onFQName match

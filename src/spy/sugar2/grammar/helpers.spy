@@ -65,4 +65,14 @@
 	return context get "blockLast" == 1
 @end
 
+
+@function listOf rule, separator, grammar
+| Creates a new list of the given rule, separated by the given separator
+| in the given grammar
+	return grammar arule (
+		grammar arule ( rule, separator ) zeroOrMore ()
+		rule
+	)
+@end
+
 # EOF - vim: ts=4 sw=4 noet
