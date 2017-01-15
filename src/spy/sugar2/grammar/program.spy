@@ -60,7 +60,6 @@
 			s Decorator zeroOrMore   () _as "decorators"
 			s Documentation optional () _as "documentation"
 			s Body _as "body"
-			s OEnd optional ()
 		)
 	else
 		return g rule (name
@@ -77,7 +76,6 @@
 			s Decorator zeroOrMore   () _as "decorators"
 			s Documentation optional () _as "documentation"
 			s Body _as "body"
-			s OEnd optional ()
 		)
 	end
 @end
@@ -103,6 +101,21 @@
 		) _as "parameters"
 		s Decorator zeroOrMore   () _as "decorators"
 		s Documentation optional () _as "documentation"
+	)
+@end
+
+@function construct grammar, name, tag, contents
+	var g = grammar ; var s = grammar symbols
+	return g rule  (name
+		s oabstract optional ()
+		tag
+		s NAME _as "name"
+		s Parents optional () _as "inherits"
+		s EOL
+		s Documentation optional () _as "documentation"
+		s Indent
+		contents zeroOrMore () _as "body"
+		s Dedent
 	)
 @end
 
@@ -185,11 +198,16 @@
 	g word      ("_finally",         "finally")
 	g word      ("oabstract",        "@abstract")
 	g word      ("oimport",          "@import")
+	g word      ("otarget",          "@target")
+	g word      ("ofeature",         "@feature")
 	g word      ("omodule",          "@module")
 	g word      ("oversion",         "@version")
 	g word      ("ofunction",        "@function")
 	g word      ("oclass",           "@class")
+	g word      ("otrait",           "@trait")
+	g word      ("osingleton",       "@singleton")
 	g word      ("oproperty",        "@property")
+	g word      ("oevent",           "@event")
 	g word      ("oshared",          "@shared")
 	g word      ("ooperation",       "@operation")
 	g word      ("oconstructor",     "@constructor")
@@ -274,7 +292,7 @@
 	g rule      ("Chain",            s COLON, s ChainLine oneOrMore ())
 	#g rule      ("ConditionalExpression",  s _if, s Expression _as "condition", s ARROW, s Expression _as "true", s PIPE, s Expression _as "false")
 	g rule      ("IterationSuffix",  s ITERATOR _as "op", s Expression _as "rvalue")
-	g rule      ("ConditionSuffix",  g agroup (s _if, s _else) _as "type", s Expression _as "value")
+	g rule      ("ConditionSuffix",  g agroup (s _if, s _else) _as "type", s SPACE, s Expression _as "value")
 	g group     ("Prefixes"
 		s Literal
 		g rule  ("Exception",        s THROW_OPERATOR, s Expression _as "expression")
@@ -339,7 +357,6 @@
 	s Code  set (                    s Comment, s Block, s Line)
 
 	# Program
-	g rule      ("OEnd",             s CheckIndent, s oend,      s EOL)
 	g rule      ("Body",             s Indent, s Code zeroOrMore () _as "code", s Dedent)
 	g rule      ("OWhen",            s CheckIndent, s owhen, s Expression _as "expression", s EOL)
 	g group     ("Decorator",        s OWhen)
@@ -355,29 +372,36 @@
 	function         (g, "Constructor",       s oconstructor, True)
 	function         (g, "Method",            s omethod)
 	function         (g, "ClassMethod",       s ooperation)
-	# NOTE: Group and Rule are already element names
-	g rule  ("CGroup")
-	# NOTE: Operations and Abstract Operations are also supported in Methods, but this should be deprecated
-	g group ("Methods", s ClassMethod, s AbstractClassMethod, s Method, s AbstractMethod, s AbstractMethod, s CGroup, s Comment)
-	s CGroup set (s CheckIndent, s ogroup, s NAME _as "name",     s EOL, s Documentation optional (), s Indent, s Methods zeroOrMore () _as "methods", s Dedent)
-	g rule  ("EmbedLine",  s CheckIndent, s EMBED_LINE, s EOL)
+
+
+	g rule ("Parents", s COLON, listOf (s FQName, s COMMA, g) _as "parents")
+
+
 	# NOTE: The Embed rule is special, in the sense that it's not a structural block, but more an inline/content block
+	g rule  ("EmbedLine",  s CheckIndent, s EMBED_LINE, s EOL)
 	g rule  ("Embed",      s BlockStart, s oembed, g arule (s SPACE, s NAME) optional () _as "language", s EOL, s Indent, s EmbedLine zeroOrMore () _as "body", s Dedent)
 	s Block add (s Embed)
-	g rule  ("Class"
-		s oabstract optional ()
-		s oclass
-		s NAME _as "name"
-		g arule (s COLON, listOf (s FQName, s COMMA, g)) optional () _as "inherits"
-		s EOL
-		s Documentation optional () _as "documentation"
-		s Indent
-		g agroup (s ClassAttribute, s Attribute, s ClassMethod, s AbstractMethod, s Constructor, s Methods) zeroOrMore () _as "body"
-		s Dedent
-		s OEnd optional ()
-	)
-	g rule  ("ModuleAnnotation",      s omodule,   s FQName, s EOL)
-	g rule  ("VersionAnnotation",     s oversion,  s VERSION, s EOL)
+
+	# Class Methods
+	g rule  ("ClassGroup")
+	g group ("ClassMethods", s ClassMethod, s AbstractClassMethod, s Method, s AbstractMethod, s ClassGroup, s Comment)
+	s ClassGroup set (s CheckIndent, s ogroup, s NAME _as "name",  s EOL, s Documentation optional (), s Indent, s ClassMethods zeroOrMore () _as "methods", s Dedent)
+
+	# Instance Methods
+	g rule  ("InstanceGroup")
+	g group ("InstanceMethods", s Method, s AbstractMethod, s InstanceGroup, s Comment)
+	s InstanceGroup set (s CheckIndent, s ogroup, s NAME _as "name",  s EOL, s Documentation optional (), s Indent, s InstanceMethods zeroOrMore () _as "methods", s Dedent)
+
+	construct (g, "Class",     s oclass,     g agroup (s ClassAttribute, s Attribute, s Constructor, s ClassMethods))
+	construct (g, "Trait",     s otrait,     g agroup (s Attribute,     s Constructor, s InstanceMethods))
+	construct (g, "Singleton", s osingleton, g agroup (s Attribute,     s Constructor, s InstanceMethods))
+
+	# Annotations (toplevel)
+	g rule  ("TargetAnnotation",      s otarget,   s NAME    _as "name",    s EOL)
+	g rule  ("ModuleAnnotation",      s omodule,   s FQName  _as "name",    s EOL)
+	g rule  ("VersionAnnotation",     s oversion,  s VERSION _as "version", s EOL)
+	g rule  ("FeatureAnnotation",     s ofeature,  s NAME    _as "name",    s EQUALS, s NAME _as "value", s EOL)
+
 	g rule  ("ImportAlias",           s _as,       s NAME)
 	g rule  ("ImportSymbol",          s FQNAME,    s ImportAlias optional ())
 	g rule  ("ImportOrigin",          s _from,     s FQNAME)
@@ -394,12 +418,14 @@
 	g rule ("ModuleDeclaration"
 		s EmptyLines         zeroOrMore ()
 		s Comment            zeroOrMore () _as "comments"
+		s TargetAnnotation   optional   () _as "target"
+		s FeatureAnnotation  zeroOrMore () _as "features"
 		s ModuleAnnotation   optional   () _as "module"
 		s VersionAnnotation  optional   () _as "version"
 		s Documentation      optional   () _as "documentation"
 		s Import             zeroOrMore () _as "imports"
 	)
-	g group     ("Structure",          s EmptyLines, s Comment, s ModuleAttribute, s Function, s Class)
+	g group     ("Structure",          s EmptyLines, s Comment, s ModuleAttribute, s Function, s Class, s Trait, s Singleton)
 	g rule      ("Module",             s ModuleDeclaration,  s Structure zeroOrMore (), s Code zeroOrMore ())
 
 	g skip      = g agroup (s SPACE)

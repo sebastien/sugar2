@@ -19,6 +19,37 @@ Incompatible changes
 	These served as explicit guards against copy/paste, but in practice
 	this cause the code to be more verbose without providing much benefit.
 
+	```
+	if condition
+		statements‥
+	else
+		statements‥
+	end
+	``` 
+
+	becomes
+
+	```
+	if condition
+		statements‥
+	else
+		statements‥
+	``` 
+
+	and 
+
+	```
+	@function f
+		statements‥
+	@end
+	``` 
+
+	becomes
+
+	```
+	@function f
+		statements‥
+	``` 
 
 [ ] Conditional expresssions::
 
@@ -85,7 +116,7 @@ Syntax fixes
 	{("a"):"a"}
 	```
 
-	now parens are unncessary for string litterals:
+	now parens are unnecessary for string litterals:
 
 	```
 	{"a":"a"}
@@ -94,22 +125,29 @@ Syntax fixes
 New features
 ------------
 
-### 0. Comments & documentations
+0.0 Comments & documentations
 
 [X] Comments in maps/lists::
 
+	Comments are allowed within *lists*, *maps* and *tuples*.
+
 	```
 	{
-		value: 1 # Some comment
-		# value: 1 -- Value commented out
+		value: 1 # EOL line comment
+		# value: 2 -- Value commented out
 	}
 	[
-		value: 1 # Some comment
-		# value: 1 -- Value commented out
+		1 # EOL comment
+		# 2 Value commented out
 	]
+	(
+		0
+		value= 1 # Some comment
+		# value: 1 -- Value commented out
+	)
 	```
 
-### 0. Litterals
+0.0 Litterals
 
 [X] Multi-line strings::
 
@@ -192,23 +230,23 @@ New features
 	[1,2,3,4]@AltClass
 	```
 
-[ ̧] Hex/Bit notation::
+[ ] Hex/Bit notation::
 
 	```
 	0xFF
 	0b011010101
 	```
 
-### Operations
+0.0 Operations
 
-[ ] Safe resolution
+[ ] Exitential operator::
 
 
-	A safe resolution will mean that if any of the resolution fail, the
-	`E` will be output.
+	The *existential operator* `?` will  yield `Undefined` if any
+	of resolution within the expression fails.
 
 	```
-	var a = (A B C D) ?. E
+	var a = (A B C D)? E
 	```
 
 	this typically gets converted into something like
@@ -267,7 +305,6 @@ New features
 	t c ()
 	```
 
-
 [ ] Pattern matching::
 
 	as a keyword
@@ -308,7 +345,7 @@ New features
 	end
 	```
 
-### Declaration/Invocation
+0.0 Declaration/Invocation
 
 [X] Default arguments::
 
@@ -316,7 +353,6 @@ New features
 	@function f a=0, b=1, c=2
 	@end
 	```
-
 
 [ ] Named arguments::
 	
@@ -343,7 +379,7 @@ New features
 	e(2,3,(b(1,2,a())))
 	```
 
-### Semantics
+0.0 Semantics
 
 [ ] Generators::
 
@@ -355,7 +391,46 @@ New features
 	}
 	```
 
-### Structure
+0.0 Structure
+
+[ ] Singleton::
+
+	declares a singleton object that will be initialized during module initialization. 
+
+	```
+	@singleton NAME: PARENT
+		@property ‥
+		@constructor ‥
+		@method ‥
+	```
+
+[ ] Trait::
+
+	Traits are a collection of properties and methods that can be mixed-in with classes. 
+	Classes retain the primary mode of inheritence, and traits will be merged in their
+	order of declaration.
+
+	```
+	@trait A: PARENT
+		@property ‥
+		@constructor ‥
+		@method ‥
+	
+
+	@class C0
+		pass
+	
+	# Declares C1 as inheriting from C0 and merging trait A
+	@class C1: C0,A
+		pass
+
+	# Declares C1 as merging trait A with the default Object class
+	@class C1: A
+		pass
+		
+	```
+
+
 
 [ ] Decorators::
 
@@ -381,8 +456,7 @@ New features
 	end
 	```
 
-### Sugar
-
+0.0 Syntax Sugar
 
 [X] Automatic variables::
 
@@ -415,7 +489,7 @@ New features
 	(x * 2 for x in COLLECTION if CONDITION)
 	```
 
-### Meta-information/meta-programming
+0.0 Meta-information/meta-programming
 
 [ ] Special variables::
 
