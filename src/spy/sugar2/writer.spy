@@ -921,6 +921,8 @@
 	| or their dedicated counterpart.
 		if op == ".."
 			return F enumerate (lvalue, rvalue) addAnnotation ("operator", op) addAnnotation ("priority", getOperatorPriority (op))
+		elif op == "%" and isinstance(lvalue, interfaces IString)
+			return F interpolate (lvalue, rvalue)addAnnotation ("operator", op) addAnnotation ("priority", getOperatorPriority (op))
 		else
 			return F compute (F _op (op, getOperatorPriority(op)), lvalue, rvalue)
 		end

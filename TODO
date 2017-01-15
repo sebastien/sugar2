@@ -172,20 +172,20 @@ New features
 		"""
 	```
 
-[ ] String format/interpolation::
+[X] String format/interpolation::
 
-	We could use inline expressions
-
-	```
-	f"{some code}, {1 + 2}" 
-	```
-
-	Or format with positional arguments
+	When the '%' operator is invoked with a string as 
+	`lvalue`, it will
+	be expanded to a string interpolation, which
+	has an operator priority equivalen to the '%' operator.
 
 	```
-	"{0:d} {1:d}" % ()     # Uses the local scope
-	"{0:d} {1:d}" % {dict} # Uses the given dict as a scope
+	"{0:d} {1:d}" % [10, 20]
+	"{a:d} {b:d}" % {a:10, b:20}
 	```
+
+	The format of the string is `{KEY:FORMAT}` where `:FORMAT`
+	is optional and key either a digit (index) or key.
 
 [X] Tuples::
 
