@@ -132,7 +132,7 @@
 			return getOperatorPriority (value getOperator () getName ())
 		elif isinstance (value, interfaces IElement)
 			if value hasAnnotation "priority"
-				return getAnnotation "priority" getValue ()
+				return value getAnnotation "priority" getContent ()
 			else
 				return -1
 			end
@@ -774,7 +774,9 @@
 					value = F slice  (value, args[1], args[2])
 				elif name == "IterationSuffix"
 					value    = args[1](value, args[2])
-					value addAnnotation ("operator", normalizeOperator (args[3]))
+					let o    = args[3]
+					value addAnnotation ("operator", o)
+					value addAnnotation ("priority", getOperatorPriority (o))
 				elif name == "ConditionSuffix"
 					let t = args[1]
 					let v = args[2]
@@ -860,10 +862,14 @@
 		# We get the leftmost computation of the rvalue
 		let	lrvalue = _getLeftmostComputation (rvalue)
 		var result  = None
-		# @embed python
-		# |import ipdb;ipdb.set_trace()
-		# @end
-		if lrvalue
+		# This is the case for C == 0 if A else B. Selection should probably
+		# be a match expression with the binaryoperation interface
+		if isinstance (rvalue, interfaces ISelection)
+			let r = rvalue getRule 0
+			let e = r getExpression ()
+			r setExpression (_createComputation (op, value, e detach ()))
+			result = rvalue
+		elif lrvalue
 			# There is potentially a priority conflict, as we have something like
 			#
 			# A op1 ((B op2 C)‥)
@@ -874,7 +880,7 @@
 			# (((A op1 B) op2 C)‥)
 			#
 			let p1 = getOperatorPriority (op)
-			let p2 = getOperatorPriority (lrvalue getOperator () getName ())
+			let p2 = getPriority (lrvalue)
 			if p1 >= p2
 				# We only need to reorder if op2 > op1, in which case we'll have
 				# V=(A op1 (B op2 RV))
@@ -977,15 +983,15 @@
 		# the operator to it
 		if lrvalue
 			let p1 = getOperatorPriority (operator)
-			let p2 = getOperatorPriority (lrvalue getOperator () getName ())
+			let p2 = getPriority (lrvalue)
 			if p1 >= p2
 				let b = lrvalue getLeftOperand () detach ()
-				let c = _createComputation (op, b, None)
+				let c = _createComputation (operator, b, None)
 				lrvalue setLeftOperand (c)
 				result = operand
 			end
 		end
-		return result or _createComputation (op, operand, None)
+		return result or _createComputation (operator, operand, None)
 	@end
 
 	@method onParentheses match
