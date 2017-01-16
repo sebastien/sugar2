@@ -760,6 +760,8 @@
 		return _applySuffixes (current, suffixes)
 	@end
 
+	# FIXME: THese should all be dispatched to _applyXXX
+
 	@method _applySuffixes value, suffixes
 	| Applies the suffixes to the current value, modifying it as it goes. Note that suffixes
 	| are constructed depth-first, so from right to left, and that there's pretty much
@@ -802,24 +804,39 @@
 				elif name == "Slice"
 					value = F slice  (value, args[1], args[2])
 				elif name == "IterationSuffix"
-					value    = args[1](value, args[2])
-					let o    = args[3]
-					value addAnnotation ("operator", o)
-					value addAnnotation ("priority", getOperatorPriority (o))
+					var rvalue = args[2]
+					let o      = args[3]
+					# FIXME: Proper operator priority. Here we do a special handling for
+					# A :: B if XX else Z
+					if isinstance (rvalue, interfaces ISelection)
+						value    = args[1](value, rvalue getRule 0 getExpression () detach ())
+						value addAnnotation ("operator", o)
+						value addAnnotation ("priority", getOperatorPriority (o))
+						rvalue getRule 0 setExpression (value detach ())
+						value = rvalue
+					else
+						value    = args[1](value, args[2])
+						value addAnnotation ("operator", o)
+						value addAnnotation ("priority", getOperatorPriority (o))
+					end
 				elif name == "ConditionSuffix"
 					let t = args[1]
 					let v = args[2]
+					# NOTE: This is a little bit complicated, but we need to re-inject
+					# values as predicates in IF
 					if t == "if"
 						if isinstance (v, interfaces ISelection)
 							assert (v hasAnnotation "else-expression")
 							v addAnnotation "if-expression"
 							let r = v getRule 0
 							let p = r getPredicate ()
-							if p hasAnnotation "default"
+							if p hasAnnotation "if-default"
+								r setPredicate  (r getExpression ())
 								r setExpression (value)
+								p removeAnnotation "if-default"
 							else
-								# FIXME: This does not work, we never get into this branch
 								let op = normalizeOperator("and")
+								# FIXME: This does not work, we never get into this branch
 								r setPredicate (F compute (
 									F _op (op, getOperatorPriority(op))
 									p
@@ -832,12 +849,8 @@
 							value = F select () addAnnotation "if-expression"
 							value addRule (r)
 						end
-						#end
-						## A if suffix means we create a conditional
-						#value = F select ()
-						#value addAnnotation("if-expression")
 					elif t == "else"
-						let rt = F matchExpression(value copy () addAnnotation "default", value)
+						let rt = F matchExpression(value copy () addAnnotation "if-default", value)
 						let rf = F matchExpression(F _ref "True", v)  addAnnotation "else"
 						value  = F select () addAnnotation "if-expression" addAnnotation "else-expression"
 						value addRule (rt)
