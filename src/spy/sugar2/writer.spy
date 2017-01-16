@@ -848,21 +848,30 @@
 				elif name == "Chain"
 					# FIXME: This does not work value is not expected to be a list
 					# TODO: Should be an automatic variable
-					var alloc = value
-					var ref   = None
-					if not isinstance(alloc, interfaces IAllocation)
-						var name  = "_c" + str(varcounter) + "_" ; varcounter += 1
-						var slot  = F _slot (name)
-						var alloc = F allocate (slot, value)
-						ref       = F _ref  (name)
+					var res  = value
+					if not args[1]
+						for g in args[2] or []
+							value = _applySuffixes (value, g)
+						end
+						return value
 					else
-						ref   = alloc getSlot ()
+						# This is a chain where the first result is kept (`:`)
+						var alloc = value
+						var ref   = None
+						if not isinstance(alloc, interfaces IAllocation)
+							var name  = "_c" + str(varcounter) + "_" ; varcounter += 1
+							var slot  = F _slot (name)
+							var alloc = F allocate (slot, value)
+							ref       = F _ref  (name)
+						else
+							ref   = alloc getSlot ()
+						end
+						var res   = [alloc]
+						for g in args[2] or []
+							res append (_applySuffixes (ref copy (), g))
+						end
+						value = res
 					end
-					var res   = [alloc]
-					for g in args[1] or []
-						res append (_applySuffixes (ref copy (), g))
-					end
-					value = res
 				else
 					raise new Exception ("sugar2.writer._applySuffixes: Suffix not supported yet: " + str(name) + " in " + str(args))
 				end
@@ -1173,9 +1182,10 @@
 	@end
 
 	@method onChain match
-	| Returns [("Decomposition", [ref:Reference])]
-		let lines = process(match[1])
-		return [match name, lines]
+	| Returns [("Chain", [ref:Reference])]
+		let type  = process(match["type"])
+		let lines = process(match["lines"])
+		return [match name, type, lines]
 	@end
 
 	# =========================================================================

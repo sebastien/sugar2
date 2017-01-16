@@ -250,70 +250,70 @@ New features
 	var a = A B C D if (A and exists(A B) and exists(A B C) and exists(A B C D)) else E
 	```
 
-[ ] Chaining::
+[X] Line continuation::
 
+	Lines can be continued by indenting the next line, note that only
+	expressions are valid as lines, no statement or block is allowed.
+
+	
 	```
-	d3 selection () 
-		a ()          # a is called on the result of d3 selection ()
-		b ()          # b is called on the result of ()
-
-	d3 selection () :
-		a ()          # both a and b are with the same result
+	a ()
 		b ()
+		c ()
 	```
 
+	is equivalen to
+
+	``` 
+	a () b () c ()
 	```
-	value
-		a ()
+
+	the syntax goes particularily well with special operators to
+	express the continuation of a process:
+
+	```
+	0..10
+		::= {_ * 10}
+		::? {_ > 50}
+	```
+
+
+[X] Chaining::
+
+
+	Chaining is a variant of line continuation where expressions
+	will all be applied on the same value.
+
+	```
+	a () :
 		b ()
+		c ()
+	```
+
+	is equivalent to
+
+	```
+	let _ = a ()
+	_ b ()
+	_ c ()
 	```
 	
-	is equal to
+ 	chains can also be nested
 
 	```
-	value a () b ()
-	```
-
-	while 
-
-	```
-	value:
-		a ()
+	a:
 		b ()
-	```
-
-	is equal to 
-
-	```
-	var _ = value
-	_ a ()
-	_ b ()
-	```
-
-	it is also possible to affect the result to a value
-
-	```
-	var r = value:
-		a ()
-		b ()
-	```
-
-	and chain it
-
-	```
-	var r = value:
-		a ()
-		b () :
-			c ()
+		c () :
+			d ()
 	```
 	
 	which equals to
 
 	```
-	var r = value ()
-	r a ()
-	var t = r b ()
-	t c ()
+	var _ = a
+	a b ()
+	_ = a c ()
+	_ d ()
 	```
 
 [ ] Pattern matching::
