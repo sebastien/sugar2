@@ -143,10 +143,10 @@
 		end
 	@end
 
-	@method getOperatorPriority operator
+	@method getOperatorPriority operator, operators=OPERATORS
 		var i = 0
 		operator = libparsing ensure_str (operator)
-		for line in OPERATORS
+		for line in operators
 			if operator in line
 				return i
 			end
@@ -849,7 +849,8 @@
 					# FIXME: This does not work value is not expected to be a list
 					# TODO: Should be an automatic variable
 					var res  = value
-					if not args[1]
+					var t    = args[1]
+					if t != ":"
 						for g in args[2] or []
 							value = _applySuffixes (value, g)
 						end
@@ -1048,12 +1049,22 @@
 		if lrvalue
 			let p1 = getOperatorPriority (operator)
 			let p2 = getPriority (lrvalue)
-			if p1 >= p2
+			# NOTE: It seems that unary operators should olways have the prevalence
+			if True or p1 >= p2
 				let b = lrvalue getLeftOperand () detach ()
-				let c = _createComputation (operator, b, None)
-				lrvalue setLeftOperand (c)
+				# We do direct simplification of numbers, saving a computation
+				if operator == "-" and isinstance (b, interfaces INumber)
+					b setActualValue (b getActualValue () * -1)
+				else
+					let c = _createComputation (operator, b, None)
+					lrvalue setLeftOperand (c)
+				end
 				result = operand
 			end
+		elif operator == "-" and isinstance(operand, interfaces INumber)
+			# We do direct simplification of numbers, saving a computation
+			operand setActualValue (operand getActualValue () * -1)
+			result = operand
 		end
 		return result or _createComputation (operator, operand, None)
 	@end
@@ -1255,6 +1266,7 @@
 		let op          = libparsing ensure_str (rvalue[0][0])
 		rvalue          = rvalue[1]
 		if op == "="
+			lvalue addAnnotation "lvalue"
 			# We have an regular assignment
 			return F assign (lvalue, rvalue)
 		elif op == "?="
@@ -1262,10 +1274,10 @@
 			# In this case: A ?= B is the equivalent of
 			# if not (A) -> A = B
 			var predicate  = F compute (F _op "is", lvalue, F _ref "Undefined")
-			var assignment = F assign  (lvalue copy (), rvalue)
+			var assignment = F assign  (lvalue copy () addAnnotation "lvalue", rvalue)
 			var match      = F matchExpression (predicate, assignment)
 			var res        = F select ()
-			res addAnnotation("assignment")
+			res addAnnotation ("assignment")
 			res addRule (match)
 			return res
 		else
@@ -1291,7 +1303,7 @@
 			# 	return res
 			# else
 			var c = _createComputation (sub_op, lvalue, rvalue)
-			return F assign (lvalue copy () detach (), c)
+			return F assign (lvalue copy () detach () addAnnotation "lvalue", c)
 		end
 	@end
 
@@ -1576,8 +1588,6 @@
 		# FIXME: Proper string decoding
 		return process(match)[1]
 	@end
-
-
 
 	@method onString match
 		let text     = process (match[0])

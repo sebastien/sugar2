@@ -283,7 +283,7 @@
 	g rule      ("Parentheses",      s LP,    s Expression, s RP)
 	g group     "Suffixes"
 	g rule      ("ChainLine",        s EOL, s Indent, s CheckIndent, g agroup (s COMMENT, s Reference, s Suffixes) oneOrMore (), s Dedent)
-	g rule      ("Chain",            s COLON optional () _as "type", s ChainLine oneOrMore () _as "lines")
+	g rule      ("Chain",            g agroup (s ELLIPSIS, s COLON) _as "type", s ChainLine oneOrMore () _as "lines")
 	#g rule      ("ConditionalExpression",  s _if, s Expression _as "condition", s ARROW, s Expression _as "true", s PIPE, s Expression _as "false")
 	g rule      ("IterationSuffix",  s ITERATOR _as "op", s Expression _as "rvalue")
 	g rule      ("ConditionSuffix",  g agroup (s _if, s _else) _as "type", s SPACE, s Expression _as "value")

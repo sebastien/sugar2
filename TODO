@@ -252,12 +252,13 @@ New features
 
 [X] Line continuation::
 
-	Lines can be continued by indenting the next line, note that only
-	expressions are valid as lines, no statement or block is allowed.
+	Lines can be continued by suffixing with `‥` or `...` and indenting the
+	next lines, note that only expressions are valid as lines, no statement or
+	block is allowed.
 
 	
 	```
-	a ()
+	a ()‥
 		b ()
 		c ()
 	```
@@ -272,7 +273,7 @@ New features
 	express the continuation of a process:
 
 	```
-	0..10
+	0..10‥
 		::= {_ * 10}
 		::? {_ > 50}
 	```
@@ -519,11 +520,12 @@ New features
 [ ] Special variables::
 
 	```
-	__scope_name__ (ex: widgets.Widget.ensure)
-	__scope__ 
+	__scope__       # A reference to the current scope object (if permitted)
+	__scope_name__  # The fully-qualified name of the scope
+	__scope_type__  # The type of the current scope (all lowercase)
 
-	__module__
-	__module_name__
+	__module__      # A reference to the current module
+	__module_name__ # The fully-qualified name of the current module
 
 	__class__
 	__class_name__
@@ -537,16 +539,14 @@ New features
 	__class__
 	__class_name__
 
-	__line__
-	__file__
+	__line__        # The line number, as an int
+	__file__        # The current file name, as a string
 	```
-
 
 	and so in code
 
-
 	```
-	error ("{__scope_name__}:{__line__}: Error message")
+	error (__scope_name__ + ":" __line__ + " error‥")
 	```
 
 
