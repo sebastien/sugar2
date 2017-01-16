@@ -135,8 +135,7 @@
 	g token     ("COMMENT",          "[ \t]*\#[^\n]*")
 	g token     ("EOL",              "[ ]*\n(\s*\n)*")
 	g token     ("ANY",              "[^\n]*")
-	# FIXME: Support 0xFFAAEE
-	g token     ("NUMBER",           "\-?(([0-9]+(\.[0-9]+)?)|(0x[A-Fa-f0-9]+)|(0b[01]+)|(0o[0-8]+))")
+	g token     ("NUMBER",           "(0x[A-Fa-f0-9]+)|(0b[01]+)|(0o[0-8]+)|([0-9]+(\.[0-9]+)?)")
 	g token     ("TIME",             "[0-9]+(\.[0-9]+)?(ms|s|m|h|d|w)")
 	g token     ("NAME",             "(\\\?)([\$_A-Za-z][_\w]*)")
 	g token     ("FQNAME",           "(\\\?)([\$_A-Za-z][\._\w]*)")

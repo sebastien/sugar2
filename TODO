@@ -208,7 +208,7 @@ New features
 	```
 
 
-[ ] Map setdefault/assign if not null::
+[X] Map setdefault/assign if not null::
 
 	a[1] ?= 1.0
 	
@@ -216,7 +216,7 @@ New features
 
 	if not isDefined(a[1]) -> a[1] = 1.0
 
-[ ] Map implicit keys::
+[X] Map implicit keys::
 
 	```
 	let a = 10
@@ -224,17 +224,12 @@ New features
 	assert (cmp( d, {a:10} ) == 0)
 	```
 
-[ ] Primitive alternative constructors::
-
-	```
-	[1,2,3,4]@AltClass
-	```
-
-[ ] Hex/Bit notation::
+[X] Hex/Bit/Octal notation::
 
 	```
 	0xFF
 	0b011010101
+	0o744
 	```
 
 0.0 Operations
