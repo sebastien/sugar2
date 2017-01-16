@@ -173,6 +173,7 @@
 	g word      ("PIPE",             "|")
 	g word      ("EQUALS",           "=")
 	g word      ("TILDE",            "~")
+	g word      ("EXCL",             "!")
 	# g word      ("WILDCARD",         "*")
 	g condition ("NOTHING")
 	# Keywords
@@ -362,7 +363,8 @@
 	# Program
 	g rule      ("Body",             s Indent, s Code zeroOrMore () _as "code", s Dedent)
 	g rule      ("OWhen",            s CheckIndent, s owhen, s Expression _as "expression", s EOL)
-	g group     ("Decorator",        s OWhen)
+	g rule      ("CustomDecorator",  s CheckIndent, s EXCL, s FQName _as "name", s Expression optional () _as "arguments", s EOL)
+	g group     ("Decorator",        s OWhen, s CustomDecorator)
 	s ClosureStatement set (s Statements)
 	s ClosureBody      set (s BlockBody)
 	declaration      (g, "ClassAttribute",    s oshared)

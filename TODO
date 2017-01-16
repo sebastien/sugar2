@@ -51,7 +51,7 @@ Incompatible changes
 		statements‥
 	``` 
 
-[ ] Conditional expresssions::
+[X] Conditional expresssions::
 
 	Conditional expressions were redundant with single-line conditionals
 
@@ -263,7 +263,7 @@ New features
 	```
 
 	```
-	value:
+	value
 		a ()
 		b ()
 	```
@@ -274,7 +274,23 @@ New features
 	value a () b ()
 	```
 
-	and you can also affect that
+	while 
+
+	```
+	value:
+		a ()
+		b ()
+	```
+
+	is equal to 
+
+	```
+	var _ = value
+	_ a ()
+	_ b ()
+	```
+
+	it is also possible to affect the result to a value
 
 	```
 	var r = value:
@@ -441,7 +457,7 @@ New features
 		
 	```
 
-[ ] Decorators::
+[X] Decorators::
 
 	```
 	@function decorate f, a
@@ -450,7 +466,7 @@ New features
 	@end
 
 	@function pouet
-	@decorate 10
+	!decorate (_,10)
 	```
 
 [X] Continue/break::
