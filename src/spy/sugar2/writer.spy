@@ -50,6 +50,7 @@
 | ```
 
 	@shared OPERATORS = [
+		["."]
 		["or"]
 		["and"]
 		["not"]
@@ -65,6 +66,7 @@
 	@shared OPERATORS_NORMALIZED = {
 		("||") : "|"
 		("&&") : "&"
+		("|")  : "."
 	}
 
 	@property module
@@ -772,6 +774,10 @@
 					else
 						value = F invoke (value, args[1])
 					end
+				elif name == "InfixInvocation"
+					let a = [value] + _ensureList(args[2])
+					let t = args[1]
+					value = F invoke_args (F resolve(t), a)
 				elif name == "ComputationInfix"
 					# TODO: Support ‥
 					# if op == ".."
@@ -920,9 +926,33 @@
 	| A wrapper that transforms certain operators into either computation
 	| or their dedicated counterpart.
 		if op == ".."
+			# This is an enumeration
 			return F enumerate (lvalue, rvalue) addAnnotation ("operator", op) addAnnotation ("priority", getOperatorPriority (op))
 		elif op == "%" and isinstance(lvalue, interfaces IString)
+			# This is an interpolation
 			return F interpolate (lvalue, rvalue)addAnnotation ("operator", op) addAnnotation ("priority", getOperatorPriority (op))
+		elif op == "."
+			var l = [rvalue]
+			if rvalue hasAnnotation "nested-invocation"
+				l = rvalue getAnnotation "nested-invocation" getContent ()
+			end
+			for i in l
+				if isinstance (i, interfaces IInvocation)
+					for a in i getArguments ()
+						let v = a getValue ()
+						if isinstance (v, interfaces IReference) and (v getReferenceName () == "_" or v getReferenceName () == "_0")
+							let nested = lvalue detach () copy ()
+							a setValue (nested)
+							if rvalue hasAnnotation "nested-invocation"
+								rvalue getAnnotation "nested-invocation" getContent () append (nested)
+							else
+								rvalue setAnnotation ("nested-invocation", [nested])
+							end
+						end
+					end
+				end
+			end
+			return rvalue
 		else
 			return F compute (F _op (op, getOperatorPriority(op)), lvalue, rvalue)
 		end
@@ -1061,6 +1091,11 @@
 		return [match name, args]
 	@end
 
+	@method onInfixInvocation match
+		let name   = process(match["name"])
+		let rvalue = process(match["rvalue"])
+		return [match name, name, rvalue]
+	@end
 
 	@method onComputationInfix match
 	| Returns ("ComputationInfix", OPERATOR:String, Expression)

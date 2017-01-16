@@ -141,7 +141,7 @@
 	g token     ("FQNAME",           "(\\\?)([\$_A-Za-z][\._\w]*)")
 	g token     ("KEY",              "[\$_\-A-Za-z][_\-\w]*")
 	# TODO: Add "not in"
-	g token     ("INFIX_OPERATOR",   "([\-\+\*\/\%]|\<=|\>=|\<\<?|\>\>?|==|\!=|\.\.|‥|\|\||&&|not\s+in\s+|in\s+|and\s+|or\s+|is\s+not\s+|is\s+|\*\*)")
+	g token     ("INFIX_OPERATOR",   "([\-\+\*\/\%]|\<=|\>=|\<\<?|\>\>?|==|\!=|\.\.|‥|\|\||&&|\||not\s+in\s+|in\s+|and\s+|or\s+|is\s+not\s+|is\s+|\*\*)")
 	g token     ("PREFIX_OPERATOR",  "(not\s+|\-)")
 	g token     ("NEW_OPERATOR",     "new\s+")
 	g token     ("THROW_OPERATOR",   "(raise|throw)\s+")
@@ -172,6 +172,7 @@
 	g word      ("SEMICOLON",        ";")
 	g word      ("PIPE",             "|")
 	g word      ("EQUALS",           "=")
+	g word      ("TILDE",            "~")
 	# g word      ("WILDCARD",         "*")
 	g condition ("NOTHING")
 	# Keywords
@@ -277,6 +278,7 @@
 	g rule      ("Access",           s LSB,            s Expression, s RSB)
 	g rule      ("Slice",            s LSB,            s Expression optional (), s COLON, s Expression optional (), s RSB)
 	g group     ("Invocation",       s Literal, s ArgumentsEmpty)
+	g rule      ("InfixInvocation",  s TILDE, s NAME _as "name", s Expression _as "rvalue")
 	g rule      ("Parentheses",      s LP,    s Expression, s RP)
 	g group     "Suffixes"
 	g rule      ("ChainLine",        s EOL, s Indent, s CheckIndent, g agroup (s COMMENT, s Reference, s Suffixes) oneOrMore (), s Dedent)
@@ -292,7 +294,17 @@
 		s NAME
 		s Parentheses
 	)
-	s Suffixes   set (s Chain, s IterationSuffix, s ConditionSuffix, s ComputationInfix, s Decomposition, s Access, s Slice, s Invocation)
+	s Suffixes   set (
+		s Chain
+		s IterationSuffix
+		s ConditionSuffix
+		s ComputationInfix
+		s Decomposition
+		s Access
+		s Slice
+		s Invocation
+		s InfixInvocation
+	)
 	s Expression set (s Prefixes, s Suffixes zeroOrMore ())
 
 	# Operations

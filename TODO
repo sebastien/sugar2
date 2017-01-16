@@ -361,18 +361,34 @@ New features
 	@end
 	```
 
-[ ] Function pipes::
+[X] Function pipes::
 
 	The pipe `|` syntax can be used to chain functions in an expression. The first expression can contain
-	no argument, but the other expressions must contain the `_` variable to be valid.
+	no argument, but the other expressions must contain the `_` variable to be valid. 
 
 	```
 	a () | b (1,2,_) | c(2,3,_)
 	```
 
+	is equivalent to 
+
 	```
-	e(2,3,(b(1,2,a())))
+	c(2, 3, b(1, 2, a()))
 	```
+
+	Note that if there are multiple occurences of `_` in an invocation, the whole
+	left expression will be duplicated:
+
+	```
+	a () | b (_,_,_)
+	```
+
+	will be expanded to
+
+	```
+	b (a(), a(), a())
+	```
+
 
 0.0 Semantics
 
@@ -388,7 +404,7 @@ New features
 
 0.0 Structure
 
-[ ] Singleton::
+[X] Singleton::
 
 	declares a singleton object that will be initialized during module initialization. 
 
@@ -399,7 +415,7 @@ New features
 		@method ‥
 	```
 
-[ ] Trait::
+[X] Trait::
 
 	Traits are a collection of properties and methods that can be mixed-in with classes. 
 	Classes retain the primary mode of inheritence, and traits will be merged in their
@@ -424,8 +440,6 @@ New features
 		pass
 		
 	```
-
-
 
 [ ] Decorators::
 
@@ -553,7 +567,7 @@ New features
 	```
 
 
-[ ] Bit-logic operator::
+[X] Bit-logic operator::
 	
 	```
 	&&
@@ -561,24 +575,23 @@ New features
 	!
 	```
 
-[ ] Infix operator::
+[X] Infix operator::
+
+	The operator '~' followed by a name will consider 
+	the name as an invocation on an infix function:
 
 	```
 	e ~map extractor 
 	```
 
-	would be rewritten as
+	is equivalent to
 
 	```
 	map (e, extractor)
 	```
 
-[ ] Infix functions::
- 
- 	@infix @function fold XXXX fold XXXX -> fold (XXX,XXX)
 
-
-[ ] Streamlined mappings::
+[X] Streamlined mappings::
 
 	```
 	_ :: connector Project fold :: {_| (group[_ discipline [-1]] ?= []) push (_)}
@@ -595,7 +608,6 @@ New features
 		Test case
 	@end
 	```
-
 
 
 # EOF
