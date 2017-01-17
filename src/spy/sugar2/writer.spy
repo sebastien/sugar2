@@ -5,7 +5,7 @@
 # License           : BSD License
 # -----------------------------------------------------------------------------
 # Creation date     : 2016-11-01
-# Last modification : 2016-11-14
+# Last modification : 2016-11-18
 # -----------------------------------------------------------------------------
 
 @module  sugar2.writer
@@ -17,6 +17,11 @@
 @import  lambdafactory.resolution as resolution
 
 @shared F = new Factory ()
+
+#TODO: Improve the operator priority/reorder code, find a solution
+#      that works for all operations that might have an infix syntax.
+#      This should probably be managed through annotations, as it is
+#      purely syntactic.
 
 # -----------------------------------------------------------------------------
 #
@@ -1056,13 +1061,19 @@
 		let operand  = process(match[1])
 		var lrvalue  = _getLeftmostComputation (operand)
 		var result   = None
-		# If the leftmost computation of the operand has a higher priority
-		# than ours, then we'll take the leftmost computation and apply
-		# the operator to it
-		if lrvalue
+		if isinstance(operand, interfaces ISelection) and operand hasAnnotation "else-expression"
+			# We have something like
+			# not B (else C)
+			let r = operand getRule 0
+			r setExpression (_createComputation (operator, r getExpression (), None))
+			result = operand
+		elif lrvalue
+			# If the leftmost computation of the operand has a higher priority
+			# than ours, then we'll take the leftmost computation and apply
+			# the operator to it
 			let p1 = getOperatorPriority (operator)
 			let p2 = getPriority (lrvalue)
-			# NOTE: It seems that unary operators should olways have the prevalence
+			# NOTE: It seems that unary operators should always have the prevalence
 			if True or p1 >= p2
 				let b = lrvalue getLeftOperand () detach ()
 				# We do direct simplification of numbers, saving a computation
