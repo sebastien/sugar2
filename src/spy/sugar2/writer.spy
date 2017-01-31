@@ -326,7 +326,7 @@
 
 
 		# We create the init function
-		var init_function  = F createFunction (F ModuleInit)
+		var init_function  = F createInitializer ()
 		_addCode (init_function, code)
 		_bind (module, structure)
 		_bind (module, init_function)
