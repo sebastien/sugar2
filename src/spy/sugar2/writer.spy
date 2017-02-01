@@ -990,11 +990,15 @@
 	| Returns a list of expressions [model.Expression]
 		let head = process (match[0])
 		let tail = process (match[1])
+		let comma = process(match["comma"])
 		let res  = [head]
 		for _ in tail
 			# We have _ = [',', <model.Reference>]
 			#              0        1
 			res append (_[1])
+		end
+		if comma
+			res[-1] addAnnotation "continued"
 		end
 		return res
 	@end
@@ -1486,7 +1490,11 @@
 		let block = process (match[2]) or []
 		let r     = list + block
 		if len(r) == 1
-			return r[0] addAnnotation "parens"
+			if r[0] hasAnnotation "continued"
+				return F _tuple (r)
+			else
+				return r[0] addAnnotation "parens"
+			end
 		else
 			return F _tuple (r)
 		end

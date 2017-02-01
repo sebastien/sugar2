@@ -61,6 +61,7 @@
 			s Decorator zeroOrMore   () _as "decorators"
 			s Documentation optional () _as "documentation"
 			s Body _as "body"
+			s OWhere zeroOrMore () _as "where"
 		)
 	else
 		return g rule (name
@@ -77,6 +78,7 @@
 			s Decorator zeroOrMore   () _as "decorators"
 			s Documentation optional () _as "documentation"
 			s Body _as "body"
+			s OWhere zeroOrMore () _as "where"
 		)
 	end
 @end
@@ -210,6 +212,7 @@
 	g word      ("oend",             "@end")
 	g word      ("oembed",           "@embed")
 	g word      ("owhen",            "@when")
+	g word      ("owhere",           "@where")
 
 	# Indentation
 	g procedure ("Indent",           doIndent)
@@ -242,7 +245,7 @@
 
 	g rule      ("NamedExpression",  g arule (s NAME, s COLON) optional () _as "name", s Expression _as "value")
 	g group     ("NamedEntry",       s Expression, s NamedExpression)
-	g rule      ("NamedExpressionList",   s NamedEntry, g arule (s COMMA, s NamedEntry) zeroOrMore (), s COMMENT optional ())
+	g rule      ("NamedExpressionList",   s NamedEntry, g arule (s COMMA, s NamedEntry) zeroOrMore (), s COMMA optional () _as "comma", s COMMENT optional ())
 	g group     ("NamedExpressionLine",   s NamedExpressionList, s COMMENT)
 	g rule      ("NamedExpressionBlock",  s Indent,     g arule (s EOL,   s CheckIndent, s NamedExpressionLine) oneOrMore () _as "content", s Dedent)
 
@@ -362,6 +365,7 @@
 	# Program
 	g rule      ("Body",             s Indent, s Code zeroOrMore () _as "code", s Dedent)
 	g rule      ("OWhen",            s CheckIndent, s owhen, s Expression _as "expression", s EOL)
+	g rule      ("OWhere",           s CheckIndent, s owhere, s NAME optional () _as "name", s EOL, s Body _as "body")
 	g rule      ("CustomDecorator",  s CheckIndent, s EXCL, s FQName _as "name", s Expression optional () _as "arguments", s EOL)
 	g group     ("Decorator",        s OWhen, s CustomDecorator)
 	s ClosureStatement set (s Statements)
@@ -394,12 +398,16 @@
 	g group ("InstanceMethods", s Method, s AbstractMethod, s InstanceGroup, s Comment)
 	s InstanceGroup set (s CheckIndent, s ogroup, s NAME _as "name",  s EOL, s Documentation optional (), s Indent, s InstanceMethods zeroOrMore () _as "methods", s Dedent)
 
+	# Module group
+	g rule  ("ModuleGroup")
+	s ModuleGroup set (s CheckIndent, s ogroup, s NAME _as "name",  s EOL, s Documentation optional (), s Indent, s Function zeroOrMore () _as "methods", s Dedent)
+
 	construct (g, "Class",     s oclass,     g agroup (s ClassAttribute, s Attribute, s Constructor, s ClassMethods))
 	construct (g, "Trait",     s otrait,     g agroup (s Attribute,     s Constructor, s InstanceMethods))
 	construct (g, "Singleton", s osingleton, g agroup (s Attribute,     s Constructor, s InstanceMethods))
 
 	# Annotations (toplevel)
-	g rule  ("TargetAnnotation",      s otarget,   s NAME    _as "name",    s EOL)
+	g rule  ("TargetAnnotation",      s otarget,   s NAME    _as "name",    g arule (s COLON, s VERSION) optional (), s EOL)
 	g rule  ("ModuleAnnotation",      s omodule,   s FQName  _as "name",    s EOL)
 	g rule  ("VersionAnnotation",     s oversion,  s VERSION _as "version", s EOL)
 	g rule  ("FeatureAnnotation",     s ofeature,  s NAME    _as "name",    g arule ( s EQUALS, s NAME _as "value") optional () _as "value", s EOL)
@@ -427,7 +435,7 @@
 		s Documentation      optional   () _as "documentation"
 		s Import             zeroOrMore () _as "imports"
 	)
-	g group     ("Structure",          s EmptyLines, s Comment, s ModuleAttribute, s Type, s Function, s Class, s Trait, s Singleton)
+	g group     ("Structure",          s EmptyLines, s Comment, s ModuleAttribute, s Type, s ModuleGroup, s Function, s Class, s Trait, s Singleton)
 	g rule      ("Module",             s ModuleDeclaration,  s Structure zeroOrMore (), s Code zeroOrMore ())
 
 	g skip      = g agroup (s SPACE)
