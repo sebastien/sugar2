@@ -38,16 +38,15 @@
 		if result isPartial ()
 			let r = result lastMatchRange ()
 			let t = result text
-			print (result describe ())
+			logger error (result describe ())
 			return [text, None]
 		elif result isFailure ()
 			let r = result lastMatchRange ()
 			let t = result text
-			print (result describe ())
+			logger error (result describe ())
 			return [text, None]
 		elif result isSuccess ()
 			var module    = builder process (result match)
-			# # FIXME: Proper error reporting when parsing fails
 			return [text, module]
 		end
 	@end

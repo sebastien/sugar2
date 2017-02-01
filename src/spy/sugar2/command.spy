@@ -44,8 +44,12 @@
 
 @function run arguments
 	var command = new SugarCommand "sugar"
-	command run (arguments or ["--help"])
-	return command
+	var program = command run (arguments or ["--help"])
+	if not program
+		return None
+	else
+		return program
+	end
 @end
 
 @embed Python
@@ -53,7 +57,8 @@
 |sys.setrecursionlimit(2500)
 |if __name__ == "__main__":
 |	import sys
-|	run(sys.argv[1:])
+|	if not run(sys.argv[1:]).modules:
+|		sys.exit(-1)
 @end
 
 # EOF - vim: ts=4 sw=4 noet

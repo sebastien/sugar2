@@ -73,7 +73,7 @@
 		g aword "@type"
 		s TypeReference _as "name"
 		g arule (
-			s COLON
+			g agroup (s EQUALS, s COLON)
 			s TypeValue
 		) optional () _as "value"
 		s EOL
