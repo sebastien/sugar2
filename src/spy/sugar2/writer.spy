@@ -990,16 +990,13 @@
 	| Returns a list of expressions [model.Expression]
 		let head = process (match[0])
 		let tail = process (match[1])
-		let comma = process(match["comma"])
 		let res  = [head]
 		for _ in tail
 			# We have _ = [',', <model.Reference>]
 			#              0        1
 			res append (_[1])
 		end
-		if comma
-			res[-1] addAnnotation "continued"
-		end
+
 		return res
 	@end
 
@@ -1036,7 +1033,12 @@
 	@end
 
 	@method onNamedExpressionList match
-		return onExpressionList (match)
+		let comma = process(match["comma"])
+		let res = onExpressionList (match)
+		if comma
+			res[-1] addAnnotation "continued"
+		end
+		return res
 	@end
 
 	@method onNamedExpressionBlock match
