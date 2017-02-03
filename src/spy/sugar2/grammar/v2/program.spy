@@ -10,7 +10,8 @@
 
 @module sugar2.grammar.program
 @import doIndent, doCheckIndent, doDedent, doBlockStart, doBlockEnd, listOf from sugar2.grammar.helpers
-@import injectTypes from sugar2.grammar.types
+@import injectTypes from sugar2.grammar.v2.types
+@import libparsing
 
 # TODO: Break down the grammar in Expression, Structure and Types
 
@@ -362,7 +363,7 @@
 	g rule      ("CatchBlock",      s BlockStart, s _catch, s NameType optional () _as "param", g agroup (s BlockBody) _as "body")
 	g rule      ("ForBlock",        s BlockStart, s _for,   s ParameterList _as "params", s _in, s Expression _as "expr", g agroup (s BlockBody) _as "body")
 
-	g rule      ("MatchBranch",     s BlockStart, g agroup (s STAR, s UNDERSCORE, s Suffixes oneOrMore ()) _as "condition", s BlockBody _as "body")
+	g rule      ("MatchBranch",     s BlockStart, g agroup (s _else, s UNDERSCORE, s Suffixes oneOrMore ()) _as "condition", s BlockBody _as "body")
 	g rule      ("MatchBody",       s EOL, s Indent, s MatchBranch zeroOrMore () _as "branches", s Dedent)
 	g rule      ("MatchBlock" ,     s BlockStart, s _match,  s Expression _as "expression", g agroup (s MatchBody) _as "branches")
 

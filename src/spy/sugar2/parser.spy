@@ -5,32 +5,45 @@
 # License           : BSD License
 # -----------------------------------------------------------------------------
 # Creation date     : 2016-11-01
-# Last modification : 2016-11-01
+# Last modification : 2017-02-03
 # -----------------------------------------------------------------------------
 
 @module sugar2.parser
 @import libparsing
 @import LambdaFactoryBuilder from sugar2.writer
-@import  createProgramGrammar from sugar2.grammar.program
 
 @class Parser
 
-	@shared  G = createProgramGrammar (new libparsing Grammar ("Sugar", False))
-
 	@property command
 	@property logger
+	@property grammar
 
-	@constructor command
+	@constructor command, version=2
+		self grammar = createGrammar (version)
 		self command = command
 		self logger  = command environment report
+	@end
+
+	@method createGrammar version
+		if version == 1
+			@embed Python
+			|import sugar2.grammar.v1.program
+			|return sugar2.grammar.v1.program.createProgramGrammar()
+			@end
+		else
+			@embed Python
+			|import sugar2.grammar.v2.program
+			|return sugar2.grammar.v2.program.createProgramGrammar()
+			@end
+		end
 	@end
 
 	@method parseString text, moduleName, path
 		# TODO: I think this is still using a pre-libparsing API, so
 		# we need to udpate that part.
-		var result    = G parseString (text)
+		var result    = grammar parseString (text)
 		# FIXME: Why is this tied to a path?
-		var builder   = new LambdaFactoryBuilder (G, path)
+		var builder   = new LambdaFactoryBuilder (grammar, path)
 		# @embed Python
 		# |import ipdb;ipdb.set_trace()
 		# @end
