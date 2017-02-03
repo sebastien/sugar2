@@ -7,8 +7,8 @@
 # Creation date     : 2017-01-16
 # Last modification : 2017-01-16
 # -----------------------------------------------------------------------------
-
-@import listOf from sugar2.grammar.helpers
+@module sugar2.v2.types
+@import listOf from sugar2.helpers
 
 @function injectTypes g:Grammar
 | Injects a rule with the given `name` into the grammar `g` that parses

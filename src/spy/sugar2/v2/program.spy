@@ -8,9 +8,9 @@
 # Last modification : 2017-01-13
 # -----------------------------------------------------------------------------
 
-@module sugar2.grammar.program
-@import doIndent, doCheckIndent, doDedent, doBlockStart, doBlockEnd, listOf from sugar2.grammar.helpers
-@import injectTypes from sugar2.grammar.v2.types
+@module sugar2.v2.program
+@import doIndent, doCheckIndent, doDedent, doBlockStart, doBlockEnd, listOf from sugar2.helpers
+@import injectTypes from sugar2.v2.types
 @import libparsing
 
 # TODO: Break down the grammar in Expression, Structure and Types
@@ -272,8 +272,8 @@
 	g group     ("ClosureBody")
 	g rule      ("ClosureParameters", s ParameterList optional(), s PIPE)
 	g rule      ("EmptyClosure",      s LB, s ClosureParameters, s RB)
-	g rule      ("InlineClosure",     s LB, s ClosureParameters optional (), s ClosureStatement _as "body", s RB)
-	g rule      ("BlockClosure",      s LB, s ClosureParameters optional (), s ClosureBody _as "body", s CheckIndent, s RB)
+	g rule      ("InlineClosure",     s LB, s ClosureParameters optional () _as "params", s ClosureStatement _as "body", s RB)
+	g rule      ("BlockClosure",      s LB, s ClosureParameters optional () _as "params", s ClosureBody _as "body", s CheckIndent, s RB)
 	g group     ("Closure",           s BlockClosure, s InlineClosure, s EmptyClosure)
 
 	# Expression prefixes

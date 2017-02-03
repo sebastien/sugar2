@@ -8,7 +8,6 @@
 # Creation date     : 2007-09-08
 # Last modification : 2016-11-01
 # -----------------------------------------------------------------------------
-
 @module  sugar2
 @version 0.9.1
 @target  Python
@@ -22,18 +21,25 @@
 
 @class SugarCommand: Command
 
+	@property version = None
+
+	@constructor name:String, version=2
+		self version = version
+		super (name)
+	@end
+
 	@method setupEnvironment
 		var python_plugin       = self environment loadLanguage("python")
 		var javascript_plugin   = self environment loadLanguage("javascript")
 		python_plugin       addRecognizedExtension("spy")
 		javascript_plugin   addRecognizedExtension("sjs")
-		self environment addParser (new Parser(self), "sg spy sjs" split())
+		self environment addParser (new Parser(self, version), "sg spy sjs" split())
 	@end
 
 @end
 
-@function run arguments
-	var command = new SugarCommand "sugar"
+@function run arguments, version=2
+	var command = new SugarCommand ("sugar", version)
 	var program = command run (arguments or ["--help"])
 	if not program
 		return None

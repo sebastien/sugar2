@@ -1,0 +1,1413 @@
+# -----------------------------------------------------------------------------
+# Project           : Sugar2
+# -----------------------------------------------------------------------------
+# Author            : FFunction
+# License           : BSD License
+# -----------------------------------------------------------------------------
+# Creation date     : 2016-11-01
+# Last modification : 2016-11-14
+# -----------------------------------------------------------------------------
+
+@module  sugar2.v1.writer
+@version 0.9
+@import  libparsing
+@import  interfaces           from lambdafactory
+@import  Factory              from lambdafactory.modelbase
+@import  lambdafactory.passes as passes
+@import  lambdafactory.resolution as resolution
+
+@shared F = new Factory ()
+
+# -----------------------------------------------------------------------------
+#
+# INTERFACE TO LAMBDA FACTORY
+#
+# -----------------------------------------------------------------------------
+
+@class LambdaFactoryBuilder: libparsing.Processor
+| Converts a parse tree into a Lambda Factory program model, which can then
+| be translated to one of Lambda Factory's target language.
+|
+| Each `onXXX` should return a corresponding LambdaFactory model, or a list
+| of them. The basic structure for a `onXXX` (where `XXX` is the rule name) is
+| like that:
+|
+| ```
+| @method on<RuleName> element, data, context
+|     # element is the `parsing.Element` subclass
+|     # data is the raw data returned by the element `process` method
+|     # context is the `parsing.ParsingContext` instance
+|     #
+|     # Here, we retrieve the part of the data for the "code" rule. The
+|     # code_data will contain one or more (element, data, context) triples.
+|     var code_data = element resolve ("code", data)
+|     # And we apply the rules for the specific elements, and retrieve a
+|     # lambda factory object
+|     var code      = on (code_data)
+|     # We should then do something with the object...
+|     return code
+| @end
+| ```
+
+	@shared OPERATORS = [
+		["or"]
+		["and"]
+		["not"]
+		[">" , ">=" , "<" , "<=" , "!=" , "==" , "is" , "is not" , "in" , "not in"]
+		["::", "::<", "::>", "::?", "::="]
+		["..", "‥"]
+		["+"  , "-"]
+		["|", "&", "<<", ">>"]
+		["/"  , "*"  , "%" , "//" ]
+		["/=", "*=", "%=", "+=" , "-=", "="]
+	]
+
+	@shared OPERATORS_NORMALIZED = {
+		("||") : "|"
+		("&&") : "&"
+	}
+
+	@property module
+	@property path       = None
+	@property processes  = []
+	@property varcounter = 0
+
+	@constructor grammar, path=None
+		super (grammar)
+		self path = path
+		program = F createProgram ()
+		program setFactory (F)
+	@end
+
+	@method access value, keys...
+		if not value
+			return None
+		end
+		for k in keys
+			if value
+				value = value[k]
+			else
+				return None
+			end
+		end
+		return value
+	@end
+
+	@method process match
+		var res = super process (match)
+		if isinstance (res, interfaces IElement)
+			pass
+			# res setOffset (match start, parsingResult end)
+			# if self path
+			# 	res setSourcePath (self path)
+			# end
+		end
+		return res
+	@end
+
+	@method getDefaultModuleName
+		# FIXME: This should be done within LambdaFactory, not here
+		if path
+			return path split "/" [-1] split "." [0] replace ("-", "_")
+		else
+			return "__current__"
+		end
+	@end
+
+	@method normalizeOperator operator
+		# FIXME: In sugar
+		# operator = "" join ((_ strip () for _ in operator split () if _ strip ()))
+		@embed Python
+		|operator = operator.replace("\t"," ").replace("\n"," ")
+		|operator = " ".join((_.strip() for _ in operator.split() if _.strip()))
+		|operator = self.OPERATORS_NORMALIZED.get(operator) or operator
+		@end
+		return operator
+	@end
+
+	@method getOperatorPriority operator
+		var i = 0
+		operator = libparsing ensure_str (operator)
+		for line in OPERATORS
+			if operator in line
+				return i
+			end
+			i += 1
+		end
+		raise (new Exception ("getOperatorPriority: Unknown operator " + repr(operator) + ", must be one of " + repr(OPERATORS)))
+	@end
+
+	@method _var name=None, context=(self context)
+	| Lists the variables defined in the given context or gets the
+	| variable with the given name.
+		if not name
+			return context getVariables () keys ()
+		else
+			return context getVariables () get (name)
+		end
+	@end
+
+	@method _bind scope, referanceable
+	| Assigns the given referenceable to the current scope
+		if isinstance(referanceable, list) or isinstance(referanceable, tuple)
+			for _ in referanceable
+				_bind (scope, _)
+			end
+			return scope
+		elif isinstance(referanceable, interfaces IReferencable)
+			scope setSlot (referanceable getName (), referanceable)
+			return scope
+		else
+			return scope
+		end
+	@end
+
+	@method filterNull result
+	| Returns only the elements of result that have a value
+		@embed Python
+		|return [_ for _ in result if _]
+		@end
+	@end
+
+	@method _tryGet list, index, default
+	| Tries to get the `index`th element of `list` or returns `default`
+		if list and len(list) > index
+			return list[index]
+		else
+			return None
+		end
+	@end
+
+	@method _addCode element, code
+		code = code or []
+		if isinstance(code, list) or isinstance(code, tuple)
+			for _ in code
+				_addCode(element, _)
+			end
+		elif isinstance(code, interfaces IOperation)
+			element addOperation (code)
+		elif isinstance(code, interfaces IReference)
+			element addOperation (F resolve (code))
+		elif isinstance(code, interfaces IComment)
+			# We do nothing, but we should support inline comments
+			pass
+		elif isinstance(code, interfaces IValue)
+			element addOperation (F evaluate (code))
+		elif code
+			raise new Exception ("Code element type not supported: {0}" format (repr(code)))
+		end
+		return element
+	@end
+
+	@method _ensureList value
+		if not (isinstance(value, list) or  isinstance(value, tuple))
+			return [value]
+		else
+			return value
+		end
+	@end
+
+	@method _ensureReturns process
+	| Ensures that the given process returns a value at the end
+		# NOTE: This is a straight port from Sugar-1 `p_ensureReturns`
+		if (not isinstance(process, interfaces IProcess)) or (not process operations) or len(process operations) == 0
+			return process
+		end
+		if len(process operations) == 0
+	 		return process
+		end
+		let last_operation = process operations[-1]
+		let ret            = None
+		if last_operation
+			if isinstance(last_operation, interfaces INOP)
+				return process
+			elif isinstance(last_operation, interfaces IIteration)
+				return process
+			elif isinstance(last_operation, interfaces ITermination)
+				return process
+			elif isinstance(last_operation, interfaces ISelection)
+				return process
+			elif isinstance(last_operation, interfaces IInterception)
+				return process
+			elif isinstance(last_operation, interfaces IInterruption)
+				return process
+			elif isinstance(last_operation, interfaces IEmbed)
+				return process
+			elif isinstance(last_operation, interfaces IAllocation)
+				return process
+			elif isinstance(last_operation, interfaces IAssignment)
+				return process
+			elif isinstance(last_operation, interfaces IRepetition) or isinstance(last_operation, interfaces IIteration)
+				# We don't do anything with a repetition, but we annotate them as # last
+				last_operation addAnnotation "last"
+				return process
+			elif isinstance(last_operation, interfaces IOperation)
+				process removeOperationAt(-1)
+				ret = F returns (last_operation)
+			end
+		end
+		if ret
+			ret addAnnotation "implicit"
+			process addOperation(ret)
+		end
+		return process
+	@end
+
+	# =========================================================================
+	# STRUCTURE
+	# =========================================================================
+
+	@method onModuleDeclaration match
+		return {
+			comments      : process(match["comments"])
+			module        : process(match["module"])
+			version       : process(match["version"])
+			documentation : process(match["documentation"])
+			imports       : process(match["imports"])
+		}
+	@end
+
+	@method onModule match
+		let declarations = process (match[0])
+
+		# We create the module
+		let name   = declarations["module"]
+		let module = F createModule (name and name getContent () or getDefaultModuleName())
+		_addCode( module, declarations["comments"])
+		for _ in declarations["imports"]
+			assert (isinstance(_, interfaces IImportOperation))
+			module addImportOperation (_)
+		end
+
+		module setDocumentation (declarations["documentation"])
+
+		# We take care of the version number
+		let version = declarations ["version"]
+		if version
+			module addAnnotation (version)
+		end
+
+		let structure   = process (match[1])
+		let code        = process (match[2])
+
+
+		# We create the init function
+		var init_function  = F createFunction (F ModuleInit)
+		_addCode (init_function, code)
+		_bind (module, structure)
+		_bind (module, init_function)
+
+		return module
+	@end
+
+	@method onModuleAnnotation match
+		var ref = process(match[1])
+		return F annotation ("module", ref getReferenceName ())
+	@end
+
+	@method onVersionAnnotation match
+		let version = process(match[1])[0]
+		return F annotation ("version", version)
+	@end
+
+	@method onClass match
+		# We start by binding the scope
+		var name      = process (match["name"])
+		let inherits  = []
+		let parents   = []
+		for _ in access (process (match["inherits"]), 1) or []
+			if _ -> inherits append (_)
+		end
+		var res         = F createClass (name, inherits)
+		let is_abstract = match[0]
+		let doc         = process(match[5])
+		let body        = process(match[7])
+		res setDocumentation (doc)
+		res setAbstract      (is_abstract and True)
+		_bind (res, body)
+		return res
+	@end
+
+	@method onAttribute match
+		var name  = process(match["name"])
+		var value = process(match["value"])
+		var doc   = process(match["documentation"])
+		var res   = F _attr (name[0] getReferenceName (), None, value and value[1])
+		res setDocumentation (doc)
+		return res
+	@end
+
+	@method onClassAttribute match
+		var name  = process(match["name"])
+		var value = process(match["value"])
+		var doc   = process(match["documentation"])
+		var res   = F _classattr (name[0] getReferenceName (), None, value and value[1])
+		res setDocumentation (doc)
+		return res
+	@end
+
+	@method onModuleAttribute match
+		let name_type = process (match[2])
+		let value     = _tryGet (process (match[3]), 1, None)
+		let doc       = process (match[5])
+		var res       = F _moduleattr (name_type[0] getReferenceName(), None, value)
+		res setDocumentation (doc)
+		return res
+	@end
+
+	# @method onCGroup element, data, context
+	# 	var data_name    = element resolve ("name",    data)
+	# 	var data_methods = element resolve ("methods", data) or []
+	# 	var methods      = []
+	# 	var group_annotation = F annotation ("as", on (data_name) getReferenceName ())
+	# 	for m in (on(data_methods) or [])
+	# 		m addAnnotation (group_annotation)
+	# 		methods append (m)
+	# 	end
+	# 	return methods
+	# @end
+
+	@method _createCallable factory, match, hasBody=True
+		let name_type  = process (match["name"])
+		@embed Python
+		|try:
+		|	match["parameters"]
+		|except KeyError:
+		|	import ipdb;ipdb.set_trace()
+		@end
+		var params     = access (access (process (match["parameters"]), 0), 0)
+		let doc        = process (match["documentation"])
+		let body       = hasBody and process (match["body"]) or None
+		let dec        = process (match["decorators"])
+		var fun        = None
+		if name_type is True
+			fun    = factory (params)
+		else
+			fun    = factory (name_type[0] getReferenceName (), params)
+		end
+		for d in dec
+			fun addAnnotation (d)
+		end
+		fun setDocumentation (doc)
+		if hasBody
+			_addCode (fun, body)
+		else
+			fun setAbstract (True)
+		end
+		return fun
+	@end
+
+	@method onClassMethod match
+		return _createCallable (F createClassMethod, match)
+	@end
+
+	@method onAbstractClassMethod match
+		return _createCallable (F createClassMethod, match, False)
+	@end
+
+	@method onMethod match
+		return _createCallable (F createMethod, match)
+	@end
+
+	@method onAbstractMethod match
+		return _createCallable (F createMethod, match, False)
+	@end
+
+	@method onConstructor match
+		return _createCallable (F createConstructor, match)
+	@end
+
+	@method onFunction match
+		return _createCallable (F createFunction, match)
+	@end
+
+	# @method onAbstractFunction element, data, context
+	# 	return _createCallable (F createAbstractFunction, element, data, context)
+	# @end
+
+	@method onClosureParameters match
+		return process(match[0])
+	@end
+
+	@method onClosureLine match
+		return process(match[2])
+	@end
+
+	@method onClosureStatement match
+		return process(match[0])
+	@end
+
+	@method onClosure match
+		return _ensureReturns (process(match[0]))
+	@end
+
+	@method onEmptyClosure match
+		return F createClosure (process (match[1]))
+	@end
+
+	@method onInlineClosure match
+		let params = process (match[1])
+		let line   = [process (match[2])]
+		var res    = F createClosure (params)
+		_addCode( res, line)
+		return _ensureReturns (res)
+	@end
+
+	@method onBlockClosure match
+		let params = process (match[1])
+		let code   = process (match[3])
+		var res    = F createClosure (params)
+		_addCode( res, code)
+		return res
+	@end
+
+	# =========================================================================
+	# IMPORTS
+	# =========================================================================
+
+	@method onImportSymbol match
+		return [
+			process (match[0])[0]
+			process (match[1])
+		]
+	@end
+
+	@method onImportOrigin match
+		return process (match[1])[0]
+	@end
+
+	@method onImportAlias match
+		return process (match[1])
+	@end
+
+	@method onImport match
+		let name   = process (match[1])
+		let names  = process (match[2])
+		let origin = process (match[3])
+		var symbols = []
+		@embed Python
+		|names   = [_[1] for _ in names]
+		|symbols = [_[0] for _ in [name] + (names or [])]
+		@end
+		# FIXME: LF's import system should be rewritten
+		# TODO: Support 'as' for multiple symbols
+		if not origin
+			if len(names) == 0
+				return F importModule (name[0], name[1])
+			else
+				assert (not origin)
+				return F importModules (symbols)
+			end
+		else
+			if len(names) == 0
+				return F importSymbol  (name[0], origin, name[1])
+			else
+				return F importSymbols (symbols, origin)
+			end
+		end
+	@end
+
+	# =========================================================================
+	# CODE
+	# =========================================================================
+
+	@method onBody match
+		return process (match[1])
+	@end
+
+	@method onCode match
+		let content = process(match[0])
+		return content
+	@end
+
+	@method onLine match
+		let comment    = self process (match[2])
+		let statements = self process (match[1])
+		return statements
+	@end
+
+	@method onStatements match
+		var res        = [process (match[0])]
+		let tail       = process (match[1])
+		for _ in (tail or [])
+			res append (_[1])
+		end
+		return res
+	@end
+
+	@method onStatement match
+	| Returns an `Element` or a list of `[Element]`. Typically these elements
+	| would be Comments, Blocks or Operations.
+		return process (match[0])
+	@end
+
+	# =========================================================================
+	# CONTROL STRUCTURES
+	# =========================================================================
+
+
+	@method onConditionalExpression match
+		var c = process(match["condition"])
+		var t = process(match["true"])
+		var f = process(match["false"])
+		var res = F select ()
+		res addRule (F matchExpression (c, t))
+		# TODO
+		# for _ in _elifs
+		# 	res addRule (F matchProcess (_[0], _[1]))
+		# end
+		if f
+			# FIXME: Should be "res setFallback"
+			let e = F matchExpression (F _ref "True", f)
+			e addAnnotation "else"
+			res addRule (e)
+		end
+		# TODO: Should probably have a separate model element
+		res addAnnotation("if-expression")
+		return res
+	@end
+
+	@method onConditionalLine match
+		return onConditionalBlock (match)
+	@end
+
+	@method onConditionalBlock match
+		var _if        = process(match["if"])
+		var _elifs     = process(match["elif"])
+		var _else      = process(match["else"])
+		var res        = F select ()
+		res addRule (F matchProcess (_if[0], _if[1]))
+		for _ in _elifs
+			res addRule (F matchProcess (_[0], _[1]))
+		end
+		if _else
+			# FIXME: Should be "res setFallback"
+			let e = F matchProcess (F _ref "True", _else[0])
+			e addAnnotation "else"
+			res addRule (e)
+		end
+		return res
+	@end
+
+	@method onConditional match
+		return process(match[0])
+	@end
+
+	@method onIfBlock match
+		var block          = F createBlock ()
+		_addCode (block, process(match["body"]))
+		return [process(match["condition"]), block]
+	@end
+
+	@method onIfLine match
+		return onIfBlock (match)
+	@end
+
+	@method onElifBlock match
+		return onIfBlock (match)
+	@end
+
+	@method onElifLine match
+		return onElifBlock (match)
+	@end
+
+	@method onElseBlock match
+		var block  = F createBlock ()
+		_addCode (block, process(match["body"]))
+		return [block]
+	@end
+
+	@method onElseLine match
+		return onElseBlock (match)
+	@end
+
+	@method onIteration match
+		return process (match["for"])
+	@end
+
+	@method onRepetition match
+		return process (match["while"])
+	@end
+
+	@method onTry match
+		return F intercept (process(match["try"]), process(match["catch"]), process(match["finally"]))
+	@end
+
+	@method onForBlock match
+		var params   = process(match["params"])
+		var expr     = process(match["expr"])
+		var body     = process(match["body"])
+		var block    = F createClosure (params)
+		_addCode (block, body)
+		return F iterate (expr, block)
+	@end
+
+	@method onWhileBlock match
+		var condition = process (match["condition"])
+		var body      = process (match["body"])
+		var block     = F createBlock ()
+		_addCode (block, body)
+		return F repeat (condition, block)
+	@end
+
+	@method onTryBlock match
+		var body      = process(match["body"])
+		var block     = F createBlock ()
+		_addCode (block, body)
+		return block
+	@end
+
+	@method onCatchBlock match
+		var body      = process(match["body"])
+		var param     = process(match["param"])
+		var args      = [F _param(param[0] getReferenceName ())]
+		var block     = F createClosure (args)
+		_addCode (block, body)
+		return block
+	@end
+
+	@method onFinallyBlock match
+		var body      = process(match["body"])
+		var block     = F createBlock ()
+		_addCode (block, body)
+		return block
+	@end
+
+	@method onBlockBody match
+		return process(match["body"])
+	@end
+
+	@method onBlockLine match
+		return process(match["body"])
+	@end
+
+	@method onEmbed match
+		var body     = process(match["body"])
+		var language = process(match["language"])
+		if language
+			language = language getName ()
+		end
+		var lines    = []
+		for line in body
+			lines append (line[1][0][1:])
+		end
+		return F embed (language, "\n" join (lines))
+	@end
+
+	# =========================================================================
+	# EXPRESSIONS
+	# =========================================================================
+
+	@method onExpression match
+		# Prefix is the current value of the expression, and suffixes is
+		# a sequence of operations on the value (invocation, resolution, etc).
+		# Suffixes is because we wanted to avoid recursive grammar, which
+		# is not well supported in PEG parsers.
+		let prefix   = process (match[0])
+		let suffixes = process (match[1])
+		var current  = None
+		# NOTE: This should be abstracted
+		if isinstance(prefix, interfaces ILiteral) or isinstance(prefix, interfaces IValue) or isinstance(prefix, interfaces IClosure)
+			current  = prefix
+		elif isinstance(prefix, interfaces IComputation) or isinstance(prefix, interfaces IResolution) or isinstance(prefix, interfaces IInvocation) or isinstance (prefix, interfaces IInstanciation) or isinstance (prefix, interfaces IAccessOperation) or isinstance(prefix, interfaces IExcept) or isinstance(prefix, interfaces ISelection) or isinstance(prefix, interfaces IEnumeration) or isinstance(prefix, interfaces IIteration)
+			current  = prefix
+		elif isinstance(prefix, interfaces IReference)
+			current  = F resolve (prefix)
+		else
+			# ipdb set_trace ()
+			raise Exception("Prefix not supported yet: " + str(prefix))
+		end
+		current = _applySuffixes (current, suffixes)
+		if isinstance (current, interfaces IBinaryOperation)
+			current = _reorderComputation (current)
+		end
+		return current
+	@end
+
+	@method _reorderComputation value
+	| Reorders a sequence of computations according to operators priorities.
+	| This method is called by `onExpression` and applied from right
+	| to left.
+		if (not isinstance(value, interfaces IComputation)) or value hasAnnotation "parens" or value hasAnnotation "reordered"-> return value
+		let op1 = value getOperator ()
+		let a   = value getLeftOperand  ()
+		let b   = value getRightOperand ()
+		if value isUnary ()
+			if isinstance (a, interfaces IComputation) and (not a hasAnnotation "parens") and (not a hasAnnotation "reordered")
+				let op2 = a getOperator ()
+				if op1 getPriority () >  op2 getPriority ()
+					# We have (op1 (C op2 D))
+					# We want ((op1 C) op2 D)
+					let c = a getLeftOperand  ()
+					let d = a getRightOperand ()
+					value = F compute (
+						op2 detach ()
+						_reorderComputation (F compute (op1 detach (), c detach ()))
+						d detach ()
+					)
+				end
+			end
+			return value
+		else
+			let b = value getRightOperand ()
+			# When we have: A op1 B
+			# where               B = (C op2 D)
+			if isinstance (b, interfaces IComputation) and (not b hasAnnotation "parens") and (not b hasAnnotation "reordered")
+				let op2 = b     getOperator ()
+				# ...and that priority(op1) >= priority(op2)
+				if op1 getPriority () >= op2 getPriority ()
+					# We refactor the current computation so that it becomes
+					#     B op2 D
+					# where
+					#     B = (A op1 C)
+					# resulting in
+					#     (A op1 C) op2 D
+					let c  = b     getLeftOperand  ()
+					let d  = b     getRightOperand ()
+					value  = F compute (
+						op2 detach ()
+						_reorderComputation (F compute (op1 detach (), a detach (), c detach ()))
+						d and _reorderComputation (d detach ()) or None
+					)
+				end
+				return value
+			else
+				return value
+			end
+		end
+	@end
+
+	@method _applySuffixes value, suffixes
+	| Applies the suffixes to the current value, modifying it
+		if suffixes
+			# We go from left to right
+			for args in suffixes
+				var name = args[0]
+				if name == "Invocation"
+					if type(args[1]) == list or type(args[1]) == tuple
+						value = F invoke_args (value, args[1])
+					else
+						value = F invoke (value, args[1])
+					end
+				elif name == "ComputationInfix"
+					# FIXME: Re-ordering should be appled here
+					var op = normalizeOperator (args[1])
+					# FIXME: Support ‥
+					if op == ".."
+						var rvalue = args[2]
+						# NOTE: This is not ideal, it is a hack to force precendence
+						# of .. over ::
+						if isinstance (rvalue, interfaces IIteration) and not rvalue hasAnnotation "parens"
+							value = F enumerate (value, rvalue getLeftOperand () detach ())
+							rvalue setLeftOperand (value)
+							value = rvalue
+						else
+							value = F enumerate (value, args[2])
+						end
+					else
+						value = F compute (F _op (op, getOperatorPriority(op)), value, args[2])
+					end
+				elif name == "Decomposition"
+					for _ in args[1]
+						value = F resolve (_, value)
+					end
+				elif name == "Access"
+					value = F access (value, args[1])
+				elif name == "Slice"
+					value = F slice  (value, args[1], args[2])
+				elif name == "IterationSuffix"
+					value    = args[1](value, args[2])
+				elif name == "Chain"
+					if type(value) is list
+						ipdb set_trace()
+					end
+					# FIXME: This does not work value is not expected to be a list
+					# TODO: Should be an automatic variable
+					var alloc = value
+					var ref   = None
+					if not isinstance(alloc, interfaces IAllocation)
+						var name  = "_c" + str(varcounter) + "_" ; varcounter += 1
+						var slot  = F _slot (name)
+						var alloc = F allocate (slot, value)
+						ref       = F _ref  (name)
+					else
+						ref   = alloc getSlot ()
+					end
+					var res   = [alloc]
+					for g in args[1] or []
+						res append (_applySuffixes (ref copy (), g))
+					end
+					value = res
+				else
+					# ipdb set_trace ()
+					raise new Exception ("sugar2.writer._applySuffixes: Suffix not supported yet: " + str(name) + " in " + str(args))
+				end
+			end
+		end
+		return value
+	@end
+
+	@method onExpressionList match
+	| Returns a list of expressions [model.Expression]
+		let head = process (match[0])
+		let tail = process (match[1])
+		let res  = [head]
+		for _ in tail
+			# We have _ = [',', <model.Reference>]
+			#              0        1
+			res append (_[1])
+		end
+		return res
+	@end
+
+	@method onExpressionBlock match
+	| Returns a list of expressions [model.Expression]
+		let lines = process (match[1])
+		let res   = []
+		for _ in lines
+			# We have _ = [EOL, Indent, ExpressionList]
+			#              0    1       2
+			res += _[2]
+		end
+		return res
+	@end
+
+	# =========================================================================
+	# PREFIXES
+	# =========================================================================
+
+	@method onLiteral match
+		return process(match[0])
+	@end
+
+	@method onPrefixes match
+		return process(match[0])
+	@end
+
+	@method onSuffixes match
+		return process(match[0])
+	@end
+
+	@method onComputationPrefix match
+		var operator = normalizeOperator (process (match[0])[0])
+		var operand  = process(match[1])
+		return F compute (F _op (operator, getOperatorPriority (operator)), operand)
+	@end
+
+	@method onParentheses match
+		let expr = process (match[1])
+		expr = _reorderComputation (expr)
+		expr addAnnotation "parens"
+		return expr
+	@end
+
+	@method onException match
+		return F exception (process (match[1]))
+	@end
+
+	@method onInstanciation match
+		# Both name and params are suffixes so they're returned as couples,
+		# where we want the second value
+		var name   = process(match["target"])[0]
+		var params = process(match["params"])[1]
+		@embed Python
+		|if not (isinstance(params, list) or isinstance(params, tuple)): params = (params,)
+		|return F.instanciate(name, *(params or []))
+		@end
+	@end
+
+	# =========================================================================
+	# SUFFIXES
+	# =========================================================================
+
+	@method onInvocation match
+	| Returns ("Invocation", [args])
+		let value = process (match[0])
+		var args  = []
+		for _ in _ensureList(value)
+			if isinstance(_, interfaces IElement)
+				args append (_)
+			end
+		end
+		return [match name, args]
+	@end
+
+
+	@method onComputationInfix match
+	| Returns ("ComputationInfix", OPERATOR:String, Expression)
+		return [match name,  normalizeOperator (process(match[0])[0]), process (match[1])]
+	@end
+
+	@method onAccess match
+	| Returns [("Access", INDEX:Element)]
+		return [match name, process(match[1])]
+	@end
+
+	@method onReference match
+		let slots  = [process (match[0])]
+		for _ in (process(match[1]) or [])
+			slots append (_[1])
+		end
+		return slots
+	@end
+
+	@method onOWhen match
+		return F annotation ("when", process (match ["expression"]))
+	@end
+
+
+	@method onDecomposition match
+	| Returns [("Decomposition", [ref:Reference])]
+		return [match name, process(match[1])]
+	@end
+
+	@method onSlice match
+		var start_index = process(match[1])
+		var end_index   = process(match[3])
+		return [match name, start_index, end_index]
+	@end
+
+	@method onChainLine match
+		let suffixes = []
+		for _ in process(match[3])
+			_ = _[0]
+			if len(_) == 1 and isinstance(_[0], interfaces IReference)
+				_ = ["Decomposition", _]
+			end
+			suffixes append (_)
+		end
+		return suffixes
+	@end
+
+	@method onChain match
+	| Returns [("Decomposition", [ref:Reference])]
+		let lines = process(match[1])
+		return [match name, lines]
+	@end
+
+	# =========================================================================
+	# OPERATIONS
+	# =========================================================================
+
+	@method onAllocation match
+	| Returns a list of operations. If there's only one operation,
+	| then it is a single allocation, otherwise it will be a mutliple
+	| allocation with an automatic variable name.
+		# We resolve "var SYMBOLS | REST = VALUE"
+		var res     = None
+		let symbols = process (match[2])
+		let rest    = process (match[3])
+		let value   = access (process (match[4]), 1)
+		if (len(symbols) == 1) and (not rest)
+			# This is a single allocation with no rest
+			var slot = F _slot (symbols[0] getReferenceName())
+			res = [F allocate (slot, value)]
+		else
+			# This is a multiple allocation with maybe a rest
+			res = []
+			# We create an intermediate expression to store the result to
+			# be sliced so that we don't evaluate the same code twice
+			var last_symbol = symbols[-1]
+			var pivot_slot  = F _slot (last_symbol getReferenceName ())
+			res append (F allocate (pivot_slot, value))
+			var slot_value = F resolve (F _ref (pivot_slot getName ()))
+			var i = 0
+			# We create individual allocations for each access
+			for s in symbols
+				var slot      = F _slot  (s getReferenceName ())
+				var sub_value = F access (slot_value copy (), F _number(i))
+				if s is last_symbol
+					res append (F assign (s getReferenceName(), sub_value))
+				else
+					res append (F allocate (slot, sub_value))
+				end
+				i += 1
+			end
+			# We create a slice for the rest
+			if rest
+				var slot      = F _slot  (rest getReferenceName ())
+				var sub_value = F slice (slot_value copy (), i)
+				res append (F allocate (slot, sub_value))
+			end
+		end
+		return res
+	@end
+
+	@method onAssignment match
+		var before      = process (match["before"])
+		var main        = process (match["main"])
+		var rest        = process (match["rest"])
+		var rvalue      = process (match["op"])
+		var lvalue      = main
+		let op          = libparsing ensure_str (rvalue[0][0])
+		rvalue          = rvalue[1]
+		if op == "="
+			# We have an regular assignment
+			return F assign (lvalue, rvalue)
+		elif op == "?="
+			# We have a conditional assignment
+			# In this case: A ?= B is the equivalent of
+			# if not (A) -> A = B
+			var predicate  = F compute (F _op "is", lvalue, F _ref "Undefined")
+			var assignment = F assign  (lvalue copy (), rvalue)
+			var match      = F matchExpression (predicate, assignment)
+			var res        = F select ()
+			res addAnnotation("assignment")
+			res addRule (match)
+			return res
+		else
+			# FIXME: Right now the lvalue is copied, but it could be optimized by
+			# ex:
+			# a[0][1][2] += 2
+			# could be
+			# __temp__ = a[0][1]
+			# __temp__[2] = __temp__[2] + 2
+			# instead of
+			# a[0][1][2] = a[0][1][2]
+			var res    = None
+			var sub_op = normalizeOperator(op[0])
+			# TODO: The temp variable should have as value the parent of the deepest decomposition or slicing
+			# if isinstance (lvalue, interfaces ISliceOperation) and isinstance (lvalue getOpArgument 0, interface IOperation)
+			# 	res = []
+			# 	res append (F assign ("__temp__", lvalue getOpArgument 0))
+			# 	var mod_lvalue = lvalue copy detach ()
+			# 	mod_lvalue setOpArgument (0, F resolve "__temp__")
+			# 	#res append (mod_lvalue)
+			# 	res append (F compute (F _op (sub_op, getOperatorPriority (sub_op)), F resolve "__temp__", op_value[1]))
+			# 	res append (F assign (mod_lvalue, F resolve "__temp__"))
+			# 	return res
+			# else
+			var c = F compute (F _op (sub_op, getOperatorPriority (sub_op)), lvalue, rvalue)
+			return F assign (lvalue copy () detach (), c)
+		end
+	@end
+
+	@method onAssignable match
+		var suffixes = []
+		for _ in process(match[1]) or []
+			suffixes append (_[0])
+		end
+		let prefix = process(match[0])
+		return _applySuffixes (prefix, suffixes)
+	@end
+
+	@method onIterationSuffix match
+		let op     = libparsing ensure_str (process(match["op"])[0])
+		let rvalue = process(match["rvalue"])
+		if op == "::"
+			# For a straight iterate, we don't need an implicit return, so
+			# we make sure they're removed
+			if isinstance( rvalue, interfaces IClosure)
+				let closure = rvalue
+				if len(closure operations) > 0
+					let lop = closure operations [-1]
+					if lop hasAnnotation "implicit"
+						closure removeOperationAt -1
+						closure addOperation (lop getOpArgument 0)
+					end
+				end
+			end
+			return [match name, F iterate, rvalue, op]
+		elif op == "::?"
+			return [match name, F filter, rvalue, op]
+		elif op == "::="
+			return [match name, F map, rvalue, op]
+		elif op == "::>"
+			return [match name, F reduce, rvalue, op]
+		elif op == "::<"
+			return [match name, F reduce, rvalue, op]
+		else
+			raise ValueError("onIterationLine: Unsupported iteration operator: {0}" format(op))
+		end
+	@end
+
+	@method onTermination match
+		return F returns (process(match[1]))
+	@end
+
+	@method onPass match
+		return F nop ()
+	@end
+
+	@method onContinue match
+		return F continues ()
+	@end
+
+	@method onBreak match
+		return F breaks ()
+	@end
+
+	# =========================================================================
+	# SYMBOLS & DECLARATIONS
+	# =========================================================================
+
+	@method onParameter match
+		let name_type  = process(match[0])
+		var value      = _tryGet (process(match[1]), 1, None)
+		# FIXME: Support type
+		# FIXME: Support keywords?
+		return F _param (name_type[0] getReferenceName (), None, value)
+	@end
+
+	@method onParameterList match
+		let res      = [process(match[0])]
+		let ellipsis = process(match[2])
+		for _ in process(match[1])
+			# We have _ = [COMMA, <model.Parameter>]
+			#              0        1
+			res append (_[1])
+		end
+		if ellipsis
+			res[-1] setRest (True)
+		end
+		return res
+	@end
+
+	@method onArgumentsEmpty match
+		return []
+	@end
+
+	@method onArgumentsMany match
+		let line = process (match["line"]) or []
+		let body = process (match["body"]) or []
+		return filterNull (line + body)
+	@end
+
+	@method onSymbolList match
+	| Returns `[model.Reference]`
+		let head = process (match[0])
+		let tail = process (match[1]) or []
+		let more = process (match[2])
+		let res  = [head]
+		for _ in tail
+			# We have _ = [',', <model.Reference>]
+			#              0        1
+			res append (_[1])
+		end
+		# FIXME: Check why there would be an ELLIPSIS in SymbolsList
+		# NOTE: There would be an ellipsis for list destructuring
+		assert (not more)
+		return res
+	@end
+
+	@method onNameType match
+	| Returns a couple (name, type) where type might be None.
+		return [process (match[0]), process (match[1])]
+	@end
+
+	@method onFQName match
+	| A fully qualified name that will return an absolute reference
+		let head = process (match[0])
+		let tail = process (match[1])
+		let res  = [head getReferenceName ()]
+		for _ in tail
+			# We have _ = [DOT, NAME]
+			#              0        1
+			res append (_[1] getReferenceName ())
+		end
+		if len(res) == 1
+			return F _ref (res[0])
+		else
+			return F _absref ("." join (res))
+		end
+	@end
+
+
+	# =========================================================================
+	# COMPOUND TYPES (LIST)
+	# =========================================================================
+
+	@method onArray match
+		let list  = process (match[1]) or []
+		let block = process (match[2]) or []
+		return F _list (list + block)
+	@end
+
+	# =========================================================================
+	# COMPOUND TYPES (MAP)
+	# =========================================================================
+
+	@method onMap match
+		var res  = F _dict ()
+		let head = process (match["head"]) or []
+		let tail = process (match["tail"]) or []
+		for _ in (head + tail)
+			if _
+				res setValue (_[0], _[1])
+			end
+		end
+		if len(tail) > 0
+			res addAnnotation "block"
+		else
+			res addAnnotation "line"
+		end
+		return res
+	@end
+
+	@method onEntryList match
+		let res = [process(match[0])]
+		for _ in process(match[1])
+			# We have _ = [COMMA, <model.KeyValue>]
+			#              0       1
+			res append (_[1])
+		end
+		return res
+	@end
+
+	@method onEntryBlock match
+		var res  = []
+		for _ in  process (match[1])
+			# We have _ = [EOL, CheckIndent, KeyValueList]
+			#              0    1            2
+			res += _[2]
+		end
+		return res
+	@end
+
+	@method onEntry match
+		return process (match[0])
+	@end
+
+	@method onKeyValue match
+		return [process(match[0]), process (match[2])]
+	@end
+
+	@method onImplicitKey match
+		let name = process(match[0])
+		return [name, F resolve (F _ref (name getActualValue()))]
+	@end
+
+	@method onKey match
+		let res = process (match[0])
+		if isinstance(res, interfaces IElement)
+			return res
+		else
+			# We have res = ( EXPRESSION )
+			#               0 1          2
+			return res[1]
+		end
+	@end
+
+	# =========================================================================
+	# LITERALS
+	# =========================================================================
+
+	@method onString match
+		let raw     = process (match[0])[0]
+		# FIXME: Proper string decoding
+		let decoded = eval (raw)
+		return F _string (decoded)
+	@end
+
+	@method onNUMBER match
+		let raw     = process(match)[0]
+		# FIXME: Proper number decoding
+		let decoded = eval (raw)
+		return F _number (decoded)
+	@end
+
+	@method onTIME match
+		let t = process(match)[0]
+		var v = 0
+		if  t endswith("ms")
+			v = float(t[0:-2])
+		elif t endswith("s")
+			v = float(t[0:-1]) * 1000
+		elif t endswith("m")
+			v = float(t[0:-1]) * 1000 * 60
+		elif t endswith("h")
+			v = float(t[0:-1]) * 1000 * 60 * 60
+		elif t endswith("d")
+			v = float(t[0:-1]) * 1000 * 60 * 60 * 24
+		elif t endswith("w")
+			v = float(t[0:-1]) * 1000 * 60 * 60 * 24 * 7
+		else
+			raise (new Exception ("Does not recognizes time format {0}" format (t)))
+		end
+		return F _number(v)
+	@end
+
+	@method onNumber match
+		return process (match) [0]
+	@end
+
+	@method onSYMBOLIC match
+		var raw_symbol     = process (match) [0]
+		if raw_symbol == "Undefined"
+			return F _symbol (raw_symbol)
+		elif raw_symbol == "None"
+			return F _symbol (raw_symbol)
+		elif raw_symbol == "Nothing"
+			return F _symbol (raw_symbol)
+		elif raw_symbol == "Timeout"
+			return F _symbol (raw_symbol)
+		else
+			raise new Exception("Unknown symbol:" + raw_symbol())
+		end
+	@end
+
+	@method onNAME match
+		let name = process(match)[2]
+		return F _ref (name)
+	@end
+
+	@method onKEY match
+		return F _string (process(match)[0])
+	@end
+
+	# =========================================================================
+	# COMMENTS & DOCUMENTATION
+	# =========================================================================
+
+	@method onDocumentation match
+		let lines = []
+		for l in process (match[0])
+			lines append (l[1][0][1:])
+		end
+		return F doc ("\n" join (lines))
+	@end
+
+	@method onCOMMENT match
+		return F comment (process(match)[1:0])
+	@end
+
+	@method onComment match
+		return process(match["text"])
+	@end
+
+	# =========================================================================
+	# AST
+	# =========================================================================
+	# The following methods deal with AST elements that we need to prune
+	# as they're not relevant to the semantic.
+
+	# @method onRepeat element, data, context
+	# | Converts the given repeat to None, the result (if the repeat is optional),
+	# | or an array (zero or more)
+	# 	var result = filterNull (on (data))
+	# 	if result
+	# 		if element isOptional ()
+	# 			return result[0]
+	# 		else
+	# 			return result
+	# 		end
+	# 	else
+	# 		return None
+	# 	end
+	# @end
+
+	@method onCheckIndent match
+		# We bypass check indent, as it does not contain any valuable or
+		# interesting result
+		return None
+	@end
+
+	@method onEOL match
+		# We bypass check indent, as it does not contain any valuable or
+		# interesting result
+		return None
+	@end
+
+@end
+
+# EOF - vim: ts=4 sw=4 noet

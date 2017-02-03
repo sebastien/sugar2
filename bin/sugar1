@@ -1,0 +1,8 @@
+#!/usr/bin/env python2
+from sugar2.command import  run
+import sys
+sys.setrecursionlimit(2500)
+program = run(sys.argv[1:], version=1)
+if len(program.modules) == 0:
+	sys.exit(-1)
+# EOF - vim: ts=4 sw=4 noet syn=python

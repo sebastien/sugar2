@@ -8,7 +8,7 @@
 # Last modification : 2016-11-18
 # -----------------------------------------------------------------------------
 
-@module  sugar2.writer
+@module  sugar2.v2.writer
 @version 0.9
 @import  libparsing
 @import  interfaces           from lambdafactory
@@ -494,8 +494,8 @@
 	@end
 
 	@method onBlockClosure match
-		let params = process (match[1])
-		let code   = process (match[2])
+		let params = process (match["params"])
+		let code   = process (match["body"])
 		var res    = F createClosure (params)
 		_addCode( res, code)
 		return res

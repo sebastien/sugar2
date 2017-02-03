@@ -10,32 +10,50 @@
 
 @module sugar2.parser
 @import libparsing
-@import LambdaFactoryBuilder from sugar2.writer
 
 @class Parser
 
+	@property version
 	@property command
 	@property logger
 	@property grammar
+	@property builderClass
 
 	@constructor command, version=2
+		self version = version
 		self grammar = createGrammar (version)
 		self command = command
 		self logger  = command environment report
 	@end
 
-	@method createGrammar version
+	@method createGrammar version=self version
 		if version == 1
 			@embed Python
-			|import sugar2.grammar.v1.program
-			|return sugar2.grammar.v1.program.createProgramGrammar()
+			|import sugar2.v1.program
+			|return sugar2.v1.program.createProgramGrammar()
 			@end
 		else
 			@embed Python
-			|import sugar2.grammar.v2.program
-			|return sugar2.grammar.v2.program.createProgramGrammar()
+			|import sugar2.v2.program
+			|return sugar2.v2.program.createProgramGrammar()
 			@end
 		end
+	@end
+
+	@method createBuilder path, version=self version
+		var builder = None
+		if version == 1
+			@embed Python
+			|import sugar2.v1.writer
+			|builder = sugar2.v1.writer.LambdaFactoryBuilder
+			@end
+		else
+			@embed Python
+			|import sugar2.v2.writer
+			|builder = sugar2.v2.writer.LambdaFactoryBuilder
+			@end
+		end
+		return builder(grammar, path)
 	@end
 
 	@method parseString text, moduleName, path
@@ -43,7 +61,7 @@
 		# we need to udpate that part.
 		var result    = grammar parseString (text)
 		# FIXME: Why is this tied to a path?
-		var builder   = new LambdaFactoryBuilder (grammar, path)
+		var builder   = createBuilder (path)
 		# @embed Python
 		# |import ipdb;ipdb.set_trace()
 		# @end
