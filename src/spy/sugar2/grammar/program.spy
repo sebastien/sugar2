@@ -173,6 +173,7 @@
 	g word      ("DOT",              ".")
 	g word      ("COLON",            ":")
 	g word      ("SEMICOLON",        ";")
+	g word      ("UNDERSCORE",       "_")
 	g word      ("PIPE",             "|")
 	g word      ("EQUALS",           "=")
 	g word      ("TILDE",            "~")
@@ -193,6 +194,8 @@
 	g word      ("_try",             "try")
 	g word      ("_catch",           "catch")
 	g word      ("_finally",         "finally")
+	g word      ("_match",           "match")
+	g word      ("_type",            "type?")
 	g word      ("oabstract",        "@abstract")
 	g word      ("oimport",          "@import")
 	g word      ("otarget",          "@target")
@@ -290,6 +293,12 @@
 	g rule      ("Chain",            g agroup (s ELLIPSIS, s COLON) _as "type", s ChainLine oneOrMore () _as "lines")
 	g rule      ("IterationSuffix",  s ITERATOR _as "op", s Expression _as "rvalue")
 	g rule      ("ConditionSuffix",  g agroup (s _if, s _else) _as "type", s SPACE, s Expression _as "value")
+	g rule      ("TypeSuffix",       s _type, s TypeValue _as "type")
+
+	g rule      ("MatchSuffixBranch", s EOL, s CheckIndent, g agroup (s _else, s UNDERSCORE, s Suffixes oneOrMore ()) _as "condition", s EOL, s Indent, s CheckIndent, s Expression _as "body", s Dedent)
+	g rule      ("MatchSuffixBody",   s Indent, s MatchSuffixBranch zeroOrMore () _as "branches", s Dedent)
+	g rule      ("MatchSuffix" ,      s _match, g agroup (s MatchSuffixBody) _as "branches")
+
 	g group     ("Prefixes"
 		s Literal
 		g rule  ("Exception",        s THROW_OPERATOR, s Expression _as "expression")
@@ -299,10 +308,12 @@
 		s Parentheses
 	)
 	s Suffixes   set (
+		s TypeSuffix
 		s Chain
 		s IterationSuffix
 		s ConditionSuffix
 		s ComputationInfix
+		s MatchSuffix
 		s Decomposition
 		s Access
 		s Slice
@@ -351,16 +362,22 @@
 	g rule      ("CatchBlock",      s BlockStart, s _catch, s NameType optional () _as "param", g agroup (s BlockBody) _as "body")
 	g rule      ("ForBlock",        s BlockStart, s _for,   s ParameterList _as "params", s _in, s Expression _as "expr", g agroup (s BlockBody) _as "body")
 
+	g rule      ("MatchBranch",     s BlockStart, g agroup (s STAR, s UNDERSCORE, s Suffixes oneOrMore ()) _as "condition", s BlockBody _as "body")
+	g rule      ("MatchBody",       s EOL, s Indent, s MatchBranch zeroOrMore () _as "branches", s Dedent)
+	g rule      ("MatchBlock" ,     s BlockStart, s _match,  s Expression _as "expression", g agroup (s MatchBody) _as "branches")
+
 
 	# TODO: This should be moved to expressions
 	#g rule      ("ConditionalLine",  s IfLine _as "if", s ElifLine zeroOrMore () _as "elif", s ElseLine optional () _as "else")
+	# FIXME: Is BlockStart required here?
 	g rule      ("ConditionalBlock", s BlockStart, s IfBlock    _as "if",    s ElifBlock zeroOrMore () _as "elif", s ElseBlock optional () _as "else", s BlockEnd)
 	g group     ("Conditional",      s ConditionalBlock)
 
-	g rule      ("Try",              s BlockStart, s TryBlock   _as "try",   s CatchBlock optional  () _as "catch", s FinallyBlock optional () _as "finally", s BlockEnd)
-	g rule      ("Repetition",       s BlockStart, s WhileBlock _as "while", s BlockEnd)
-	g rule      ("Iteration",        s BlockStart, s ForBlock   _as "for",   s BlockEnd)
-	s Block set (                    s Conditional, s Repetition, s Iteration, s Try)
+	g rule      ("Try",              s BlockStart, s TryBlock     _as "try",   s CatchBlock optional  () _as "catch", s FinallyBlock optional () _as "finally", s BlockEnd)
+	g rule      ("Repetition",       s BlockStart, s WhileBlock   _as "while", s BlockEnd)
+	g rule      ("Iteration",        s BlockStart, s ForBlock     _as "for",   s BlockEnd)
+	g rule      ("Selection",        s BlockStart, s MatchBlock   _as "match", s BlockEnd)
+	s Block set (                    s Conditional, s Repetition, s Iteration, s Selection, s Try)
 	s Code  set (                    s Comment, s Block, s Line)
 
 	# Program
@@ -411,7 +428,7 @@
 	g rule  ("TargetAnnotation",      s otarget,   s NAME    _as "name",    g arule (s COLON, s VERSION) optional (), s EOL)
 	g rule  ("ModuleAnnotation",      s omodule,   s FQName  _as "name",    s EOL)
 	g rule  ("VersionAnnotation",     s oversion,  s VERSION _as "version", s EOL)
-	g rule  ("FeatureAnnotation",     s ofeature,  s NAME    _as "name",    g arule ( s EQUALS, s VALUE _as "value") optional () _as "value", s EOL)
+	g rule  ("FeatureAnnotation",     s ofeature,  s NAME    _as "name",    s VALUE optional () _as "value", s EOL)
 
 	g rule  ("ImportAlias",           s _as,       s NAME)
 	g rule  ("ImportSymbol",          s FQNAME,    s ImportAlias optional ())

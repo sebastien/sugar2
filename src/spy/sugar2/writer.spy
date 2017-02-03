@@ -670,6 +670,10 @@
 		return process (match["while"])
 	@end
 
+	@method onSelection match
+		return process (match["match"])
+	@end
+
 	@method onTry match
 		return F intercept (process(match["try"]), process(match["catch"]), process(match["finally"]))
 	@end
@@ -689,6 +693,58 @@
 		var block     = F createBlock ()
 		_addCode (block, body)
 		return F repeat (condition, block)
+	@end
+
+	# === MATCH BLOCK =========================================================
+
+	@method onMatchBlock match
+		let expr     = process(match["expression"])
+		let branches = process(match["branches"])[0]
+		let res      = F select ()
+		res setImplicitValue (expr)
+		#addAnnotation "if-expression"
+		for branch in branches
+			res addRule (F matchExpression (branch[0], branch[1]))
+			if branch[2]
+				branch[2] setElement (res)
+			end
+		end
+		return res
+	@end
+
+	@method onMatchBody match
+		return process (match["branches"])
+	@end
+
+	@method onMatchBranch match
+		var condition = process (match["condition"])[0]
+		var ref       = F _implicitref ()
+		if   condition == "_"
+			condition = ref
+		elif condition == "*"
+			condition = F _ref "True"
+			ref = None
+		else
+			condition = _applySuffixes (ref, condition)
+		end
+		var block = F createBlock ()
+		_addCode (block, process (match["body"]))
+		return [condition, block, ref]
+	@end
+
+	# === MATCH SUFFIX ====================================================
+
+	@method onMatchSuffix match
+		let branches = process(match["branches"])[0]
+		return [match name, branches]
+	@end
+
+	@method onMatchSuffixBody match
+		return process (match["branches"])
+	@end
+
+	@method onMatchSuffixBranch match
+		return onMatchBranch (match)
 	@end
 
 	@method onTryBlock match
@@ -863,6 +919,17 @@
 					else
 						raise new Exception("Unknown condition type: {0}" format(t))
 					end
+				elif name == "MatchSuffix"
+					# NOTE: This is similar code to onMatchBlock
+					let res = F select () addAnnotation "if-expression"
+					res setImplicitValue (value)
+					for branch in args[1]
+						res addRule (F matchExpression (branch[0], branch[1]))
+						if branch[2]
+							branch[2] setElement (res)
+						end
+					end
+					value = res
 				elif name == "Chain"
 					# FIXME: This does not work value is not expected to be a list
 					# TODO: Should be an automatic variable
@@ -891,6 +958,8 @@
 						end
 						value = res
 					end
+				elif name == "TypeSuffix"
+					return F typeof (value, args[1])
 				else
 					raise new Exception ("sugar2.writer._applySuffixes: Suffix not supported yet: " + str(name) + " in " + str(args))
 				end
@@ -1352,6 +1421,11 @@
 		return [match name, t, v]
 	@end
 
+	@method onTypeSuffix match
+		let t = process(match["type"])
+		return [match name, t]
+	@end
+
 	@method onIterationSuffix match
 		let op     = libparsing ensure_str (process(match["op"])[0])
 		let rvalue = process(match["rvalue"])
@@ -1575,6 +1649,28 @@
 			#               0 1          2
 			return res[1]
 		end
+	@end
+
+
+	# =========================================================================
+	# TYPES
+	# =========================================================================
+
+	@method onTypeValue match
+		return process (match[0])
+	@end
+
+	@method onTypeExpression match
+		let prefix   = process (match [0])[0]
+		let suffixes = process (match [1])
+		# TODO: Merge in suffixes
+		return prefix
+	@end
+
+	@method onTypeReference match
+		let name   = process (match["name"])[0]
+		let params = process (match["parameters"])
+		return F type (name, params)
 	@end
 
 	# =========================================================================

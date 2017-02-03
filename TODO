@@ -319,43 +319,35 @@ New features
 
 [ ] Pattern matching::
 
-	as a keyword
+	Pattern matching allows to match any value/expression according to
+	predicates. It is similar to an else/if syntax but supports two special cases:
+
+	`_` to evaluate to the matched value, and `else` to match the rest.
 
 	```
 	match getResult()
-		<string>
+		type? String
 			"A string"
-		<number> and _ > 10	
+		type? Number and _ > 10
 			"A number"
-		<number> and _ < 0	
+		type? Number > and _ < 0
 			"A negative number"
-		*
+		else
 			"Rest"
-	end
 	```
 
 	as a specific chain type
 
 	```
-	expression |
-		predicate
-			block
-		predicate → line
-		<type>
+	expression match
+		type? String
+			expression
+		type? Number
+			expression
 	```
 
 	alternate syntax:
 
-	```
-	match value as f
-		case 1.0
-			code
-		case f like (_, _, _)
-			code
-		else
-			code
-	end
-	```
 
 0.0 Declaration/Invocation
 
@@ -549,6 +541,15 @@ New features
 	error (__scope_name__ + ":" __line__ + " error‥")
 	```
 
+[ ] Type identification::
+
+	A new operator `type?` allows to test for type identification. It is
+	a more generic version of `typeof` and `instanceof` in JavaScript
+	and is able to expand to the full semantics of the type system.
+
+	```
+	value type? Number
+	```
 
 [ ] Macros::
 
