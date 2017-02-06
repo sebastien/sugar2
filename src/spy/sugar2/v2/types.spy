@@ -17,6 +17,7 @@
 
 	# === TYPE REFERENCE ===
 	g token ("TYPE_VAR", "_|[A-Z][A-Z0-9]*")
+	g token ("TYPE_KEY", "[\$_\-A-Za-z][_\-\w]*")
 	g rule  ("TypeParameter",  s LSB, listOf (g agroup (s TYPE_VAR, s FQNAME), s COMMA, g), s RSB)
 	g rule  ("TypeReference",  s FQNAME _as "name", s TypeParameter optional () _as "parameters")
 
@@ -39,7 +40,41 @@
 		listOf (s TypeExpression, s COMMA, g)
 		s RP
 	)
+
+	# === TYPE MAP ===
+
+	g rule ("TypeEntry"
+		s TYPE_KEY  _as "name"
+		s COLON
+		s TypeReference _as "value"
+	)
+
+	g rule ("TypeEntryList"
+		s TypeEntry
+		g arule (s COMMA, s TypeEntry  ) zeroOrMore ()
+		s COMMENT optional ()
+	)
+
+	g group ("TypeEntryLine", s TypeEntryList, s COMMENT)
+
+	g rule  ("TypeEntryBlock"
+		s Indent
+		g arule (s EOL,   s CheckIndent, s TypeEntryLine) oneOrMore () _as "content"
+		s Dedent
+	)
+
+	g rule  ("TypeMap"
+		s LB
+		s TypeEntryList   optional () _as "head"
+		s TypeEntryBlock  optional () _as "tail"
+		g arule (s EOL, s CheckIndent) optional ()
+		s RB
+	)
+
+	# === TYPE VALUE ===
+
 	s TypeValue set (
+		s TypeMap
 		s TypeParens
 		s TypeExpression
 	)
@@ -68,17 +103,26 @@
 		s TypeCode zeroOrMore ()
 		s Dedent
 	)
+
+	g rule ("Enum"
+		s CheckIndent
+		g aword "@enum"
+		s TypeReference _as "name"
+		s EQUALS
+		listOf ( s NAME, s PIPE, g) _as "symbols"
+		s EOL
+		s Documentation optional () _as "documentation"
+	)
+
 	g rule ("Type"
 		s CheckIndent
 		g aword "@type"
 		s TypeReference _as "name"
-		g arule (
-			g agroup (s EQUALS, s COLON)
-			s TypeValue
-		) optional () _as "value"
+		g arule (s COLON,  s TypeReference) optional () _as "parent"
+		g arule (s EQUALS, s TypeValue)     optional () _as "value"
 		s EOL
 		s Documentation optional () _as "documentation"
-		s TypeBody optional ()
+		s TypeBody optional () _as "body"
 	)
 @end
 

@@ -1656,6 +1656,66 @@
 	# TYPES
 	# =========================================================================
 
+	@method onEnum match
+		let name    = process (match["name"])
+		let symbols = _processList (process (match["symbols"]))
+		let res     = F enum (name getReferenceName ())
+		for s in symbols
+			res addSymbol (F symbol (s getReferenceName ()))
+		end
+		return res
+	@end
+
+	@method onType match
+		let name   = process(match["name"]) getName ()
+		let parent = access(process(match["parent"]), 1)
+		let value  = access(process(match["value"]), 1)
+		let doc    = process(match["documentation"])
+		let body   = process(match["body"])
+		let res    = F type (name, parent)
+		if parent
+			res addParent (parent)
+		end
+		for c in value
+			res addConstraint (c)
+		end
+		if doc
+			res setDocumentation (value)
+		end
+		return res
+	@end
+
+	@method onTypeEntryList match
+		return onEntryList (match)
+	@end
+
+	@method onTypeEntryLine match
+		return onEntryLine (match)
+	@end
+
+	@method onTypeEntryBlock match
+		return onEntryBlock (match)
+	@end
+
+	@method onTypeEntry match
+		return [
+			process (match["name"])
+			process (match["value"])
+		]
+	@end
+
+	@method onTypeMap match
+		var res  = []
+		let head = process (match["head"]) or []
+		let tail = process (match["tail"]) or []
+		for _ in (head + tail)
+			if _ and (not isinstance(_, interfaces IComment))
+				res append (F typeSlot (_[0], _[1]))
+			end
+		end
+		return res
+	@end
+
 	@method onTypeValue match
 		return process (match[0])
 	@end
@@ -1670,7 +1730,7 @@
 	@method onTypeReference match
 		let name   = process (match["name"])[0]
 		let params = process (match["parameters"])
-		return F type (name, params)
+		return F _typeref (name, params)
 	@end
 
 	# =========================================================================
@@ -1774,6 +1834,10 @@
 	@method onNAME match
 		let name = process(match)[2]
 		return F _ref (name)
+	@end
+
+	@method onTYPE_KEY match
+		return process(match)[0]
 	@end
 
 	@method onKEY match
