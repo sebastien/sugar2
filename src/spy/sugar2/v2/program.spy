@@ -130,7 +130,7 @@
 #
 # -----------------------------------------------------------------------------
 
-@function createProgramGrammar g=(new libparsing Grammar ("Sugar"))
+@function createProgramGrammar g=(new libparsing Grammar ("Sugar", False))
 	var s = g symbols
 	g token     ("SPACE",            "[ ]+")
 	g token     ("TABS",             "\t*")
@@ -163,6 +163,7 @@
 	g token     ("DOT_OR_SPACE",     "\.|[ \t]+")
 	g token     ("ITERATOR",         "::[\?=\<\>]?")
 	g token     ("ELLIPSIS",         "\.\.\.|‥")
+	g token     ("ARROW",            "\-\>|→")
 	# Punctuation
 	g word      ("LP",               "(")
 	g word      ("RP",               ")")
@@ -295,7 +296,9 @@
 	g rule      ("ConditionSuffix",  g agroup (s _if, s _else) _as "type", s SPACE, s Expression _as "value")
 	g rule      ("TypeSuffix",       s _type, s TypeValue _as "type")
 
-	g rule      ("MatchSuffixBranch", s EOL, s CheckIndent, g agroup (s _else, s UNDERSCORE, s Suffixes oneOrMore ()) _as "condition", s EOL, s Indent, s CheckIndent, s Expression _as "body", s Dedent)
+	g rule      ("MatchSuffixLine",   s ARROW, s Expression _as "body")
+	g rule      ("MatchSuffixBlock",  s EOL,   s Indent, s CheckIndent, s Expression _as "body", s Dedent)
+	g rule      ("MatchSuffixBranch", s EOL,   s CheckIndent, g agroup (s _else, s UNDERSCORE, s Suffixes oneOrMore ()) _as "condition", g agroup (s MatchSuffixLine, s MatchSuffixBlock) _as "body")
 	g rule      ("MatchSuffixBody",   s Indent, s MatchSuffixBranch zeroOrMore () _as "branches", s Dedent)
 	g rule      ("MatchSuffix" ,      s _match, g agroup (s MatchSuffixBody) _as "branches")
 

@@ -346,7 +346,13 @@ New features
 			expression
 	```
 
-	alternate syntax:
+	Note that the only gotcha is that if you're testing agains a member you
+	should make sure you use th following syntax
+
+	```
+	EXPR match
+		.A
+		.B
 
 
 0.0 Declaration/Invocation
@@ -627,6 +633,8 @@ New features
 	```
 
 [ ] @where
+[ ] @type
+[ ] @enum
 
 # EOF
 

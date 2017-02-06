@@ -743,6 +743,14 @@
 		return process (match["branches"])
 	@end
 
+	@method onMatchSuffixLine match
+		return process (match["body"])
+	@end
+
+	@method onMatchSuffixBlock match
+		return process (match["body"])
+	@end
+
 	@method onMatchSuffixBranch match
 		return onMatchBranch (match)
 	@end
