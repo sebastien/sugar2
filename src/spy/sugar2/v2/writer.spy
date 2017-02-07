@@ -401,17 +401,30 @@
 		return res
 	@end
 
-	# @method onCGroup element, data, context
-	# 	var data_name    = element resolve ("name",    data)
-	# 	var data_methods = element resolve ("methods", data) or []
-	# 	var methods      = []
-	# 	var group_annotation = F annotation ("as", on (data_name) getReferenceName ())
-	# 	for m in (on(data_methods) or [])
-	# 		m addAnnotation (group_annotation)
-	# 		methods append (m)
-	# 	end
-	# 	return methods
-	# @end
+	@method _onGroup match
+		let name = process(match["name"])
+		let doc  = process(match["doc"])
+		let body = process(match["body"])
+		for t in body
+			for e in t
+				let a = F annotation ("as", name)
+				e addAnnotation (a)
+			end
+		end
+		return body
+	@end
+
+	@method onModuleGroup match
+		return _onGroup (match)
+	@end
+
+	@method onInstanceGroup match
+		return _onGroup (match)
+	@end
+
+	@method onClassGroup match
+		return _onGroup (match)
+	@end
 
 	@method _createCallable factory, match, hasBody=True
 		let name_type  = process (match["name"])

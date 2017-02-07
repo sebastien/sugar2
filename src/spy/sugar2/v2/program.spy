@@ -412,16 +412,16 @@
 	# Class Methods
 	g rule  ("ClassGroup")
 	g group ("ClassMethods", s ClassMethod, s AbstractClassMethod, s Method, s AbstractMethod, s ClassGroup, s Comment)
-	s ClassGroup set (s CheckIndent, s ogroup, s NAME _as "name",  s EOL, s Documentation optional (), s Indent, s ClassMethods zeroOrMore () _as "methods", s Dedent)
+	s ClassGroup set (s CheckIndent, s ogroup, s NAME _as "name",  s EOL, s Documentation optional () _as "doc", s Indent, s ClassMethods zeroOrMore () _as "body", s Dedent)
 
 	# Instance Methods
 	g rule  ("InstanceGroup")
 	g group ("InstanceMethods", s Method, s AbstractMethod, s InstanceGroup, s Comment)
-	s InstanceGroup set (s CheckIndent, s ogroup, s NAME _as "name",  s EOL, s Documentation optional (), s Indent, s InstanceMethods zeroOrMore () _as "methods", s Dedent)
+	s InstanceGroup set (s CheckIndent, s ogroup, s NAME _as "name",  s EOL, s Documentation optional () _as "doc", s Indent, s InstanceMethods zeroOrMore () _as "body", s Dedent)
 
 	# Module group
 	g rule  ("ModuleGroup")
-	s ModuleGroup set (s CheckIndent, s ogroup, s NAME _as "name",  s EOL, s Documentation optional (), s Indent, s Function zeroOrMore () _as "methods", s Dedent)
+	s ModuleGroup set (s CheckIndent, s ogroup, s NAME _as "name",  s EOL, s Documentation optional () _as "doc", s Indent, g agroup (s Function) zeroOrMore () _as "body", s Dedent)
 
 	construct (g, "Class",     s oclass,     g agroup (s ClassAttribute, s Attribute, s Constructor, s ClassMethods))
 	construct (g, "Trait",     s otrait,     g agroup (s Attribute,     s Constructor, s InstanceMethods))
