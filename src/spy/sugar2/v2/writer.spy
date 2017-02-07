@@ -517,7 +517,7 @@
 	@end
 
 	@method onImportAlias match
-		return process (match[1])
+		return process (match[1]) getReferenceName ()
 	@end
 
 	@method onImport match
@@ -717,19 +717,27 @@
 	@end
 
 	@method onMatchBranch match
+		var res = _onMatchBranchHelper (match)
+		var block = F createBlock ()
+		_addCode (block, process (match["body"]))
+		res[1] = block
+		return res
+	@end
+
+	@method _onMatchBranchHelper match
 		var condition = process (match["condition"])[0]
 		var ref       = F _implicitref ()
 		if   condition == "_"
 			condition = ref
 		elif condition == "else"
-			condition = F _ref "True"
+			condition = F _ref "true"
 			ref = None
 		else
 			condition = _applySuffixes (ref, condition)
 		end
 		var block = F createBlock ()
 		_addCode (block, process (match["body"]))
-		return [condition, block, ref]
+		return [condition, None, ref]
 	@end
 
 	# === MATCH SUFFIX ====================================================
@@ -752,7 +760,10 @@
 	@end
 
 	@method onMatchSuffixBranch match
-		return onMatchBranch (match)
+		var res = _onMatchBranchHelper (match)
+		# We expect only one Expression
+		res[1] = process(match["body"][0][0])
+		return res
 	@end
 
 	@method onTryBlock match
@@ -967,7 +978,7 @@
 						value = res
 					end
 				elif name == "TypeSuffix"
-					return F typeof (value, args[1])
+					value = F typeof (value, args[1])
 				else
 					raise new Exception ("sugar2.writer._applySuffixes: Suffix not supported yet: " + str(name) + " in " + str(args))
 				end
@@ -1677,7 +1688,7 @@
 	@method onType match
 		let name   = process(match["name"]) getName ()
 		let parent = access(process(match["parent"]), 1)
-		let value  = access(process(match["value"]), 1)
+		let value  = access(process(match["value"]), 1) or []
 		let doc    = process(match["documentation"])
 		let body   = process(match["body"])
 		let res    = F type (name, parent)
