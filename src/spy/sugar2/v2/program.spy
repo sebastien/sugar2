@@ -62,7 +62,8 @@
 			s Decorator zeroOrMore   () _as "decorators"
 			s Documentation optional () _as "documentation"
 			s Body _as "body"
-			s OWhere zeroOrMore () _as "where"
+			s OWhere   zeroOrMore () _as "where"
+			s OExample zeroOrMore () _as "examples"
 		)
 	else
 		return g rule (name
@@ -80,6 +81,7 @@
 			s Documentation optional () _as "documentation"
 			s Body _as "body"
 			s OWhere zeroOrMore () _as "where"
+			s OExample zeroOrMore () _as "examples"
 		)
 	end
 @end
@@ -218,6 +220,7 @@
 	g word      ("oembed",           "@embed")
 	g word      ("owhen",            "@when")
 	g word      ("owhere",           "@where")
+	g word      ("oexample",         "@example")
 
 	# Indentation
 	g procedure ("Indent",           doIndent)
@@ -386,7 +389,8 @@
 	# Program
 	g rule      ("Body",             s Indent, s Code zeroOrMore () _as "code", s Dedent)
 	g rule      ("OWhen",            s CheckIndent, s owhen, s Expression _as "expression", s EOL)
-	g rule      ("OWhere",           s CheckIndent, s owhere, s NAME optional () _as "name", s EOL, s Body _as "body")
+	g rule      ("OWhere",           s CheckIndent, s owhere,   s NAME optional () _as "name", s EOL, s Body _as "body")
+	g rule      ("OExample",         s CheckIndent, s oexample, s NAME optional () _as "name", s EOL, s Body _as "body", g arule (s Indent, s OWhere, s Dedent) zeroOrMore () _as "where")
 	g rule      ("CustomDecorator",  s CheckIndent, s EXCL, s FQName _as "name", s Expression optional () _as "arguments", s EOL)
 	g group     ("Decorator",        s OWhen, s CustomDecorator)
 	s ClosureStatement set (s Statements)

@@ -263,7 +263,7 @@ New features
 		c ()
 	```
 
-	is equivalen to
+	is equivalent to
 
 	``` 
 	a () b () c ()
@@ -633,6 +633,7 @@ New features
 	```
 
 [ ] @where
+[ ] @example
 [ ] @type
 [ ] @enum
 

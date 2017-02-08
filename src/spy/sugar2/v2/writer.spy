@@ -977,6 +977,7 @@
 						var alloc = value
 						var ref   = None
 						if not isinstance(alloc, interfaces IAllocation)
+							# TODO: Use implicits
 							var name  = "_c" + str(varcounter) + "_" ; varcounter += 1
 							var slot  = F _slot (name)
 							var alloc = F allocate (slot, value)
@@ -1325,7 +1326,7 @@
 
 	@method onChain match
 	| Returns [("Chain", [ref:Reference])]
-		let type  = process(match["type"])
+		let type  = process(match["type"])[0]
 		let lines = process(match["lines"])
 		return [match name, type, lines]
 	@end
@@ -1861,6 +1862,10 @@
 		else
 			raise new Exception("Unknown symbol:" + raw_symbol())
 		end
+	@end
+
+	@method onELLIPSIS match
+		return "..."
 	@end
 
 	@method onNAME match
