@@ -335,12 +335,12 @@
 	@end
 
 	@method onModuleAnnotation match
-		var ref = process(match[1])
+		var ref = process(match["name"])
 		return F annotation ("module", ref getReferenceName ())
 	@end
 
 	@method onVersionAnnotation match
-		let version = process(match[1])[0]
+		let version = process(match["version"])[0]
 		return F annotation ("version", version)
 	@end
 
@@ -354,8 +354,8 @@
 		let inherits    = process (match["inherits"])
 		var res         = creator (name, inherits)
 		let is_abstract = match[0]
-		let doc         = process(match[5])
-		let body        = process(match[7])
+		let doc         = process(match["documentation"])
+		let body        = process(match["body"])
 		res setDocumentation (doc)
 		res setAbstract      (is_abstract and True)
 		_bind (res, body)
@@ -534,9 +534,9 @@
 	@end
 
 	@method onImport match
-		let name   = process (match[1])
-		let names  = process (match[2])
-		let origin = process (match[3])
+		let name   = process (match["name"])
+		let names  = process (match["names"])
+		let origin = process (match["origin"])
 		var symbols = []
 		@embed Python
 		|names   = [_[1] for _ in names]

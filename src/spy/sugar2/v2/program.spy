@@ -62,8 +62,7 @@
 			s Decorator zeroOrMore   () _as "decorators"
 			s Documentation optional () _as "documentation"
 			s Body _as "body"
-			s OWhere   zeroOrMore () _as "where"
-			s OExample zeroOrMore () _as "examples"
+			s ConstructSuffixes zeroOrMore () _as "suffixes"
 		)
 	else
 		return g rule (name
@@ -80,8 +79,7 @@
 			s Decorator zeroOrMore   () _as "decorators"
 			s Documentation optional () _as "documentation"
 			s Body _as "body"
-			s OWhere zeroOrMore () _as "where"
-			s OExample zeroOrMore () _as "examples"
+			s ConstructSuffixes zeroOrMore () _as "suffixes"
 		)
 	end
 @end
@@ -113,6 +111,7 @@
 @function construct grammar, name, tag, contents
 	var g = grammar ; var s = grammar symbols
 	return g rule  (name
+		s CheckIndent
 		s oabstract optional ()
 		tag
 		s NAME _as "name"
@@ -122,6 +121,7 @@
 		s Indent
 		contents zeroOrMore () _as "body"
 		s Dedent
+		s ConstructSuffixes zeroOrMore () _as "suffixes"
 	)
 @end
 
@@ -390,8 +390,10 @@
 	g rule      ("Body",             s Indent, s Code zeroOrMore () _as "code", s Dedent)
 	g rule      ("OWhen",            s CheckIndent, s owhen, s Expression _as "expression", s EOL)
 	g rule      ("OWhere",           s CheckIndent, s owhere,   s NAME optional () _as "name", s EOL, s Body _as "body")
-	g rule      ("OExample",         s CheckIndent, s oexample, s NAME optional () _as "name", s EOL, s Body _as "body", g arule (s Indent, s OWhere, s Dedent) zeroOrMore () _as "where")
+	g group     ("OExampleBody")
+	g rule      ("OExample",         s CheckIndent, s oexample, s NAME optional () _as "name", s EOL, g arule (s Indent, s OExampleBody _as "module", s Dedent) _as "body")
 	g rule      ("CustomDecorator",  s CheckIndent, s EXCL, s FQName _as "name", s Expression optional () _as "arguments", s EOL)
+	g group     ("ConstructSuffixes", s OWhere, s OExample)
 	g group     ("Decorator",        s OWhen, s CustomDecorator)
 	s ClosureStatement set (s Statements)
 	s ClosureBody      set (s BlockBody)
@@ -427,27 +429,28 @@
 	g rule  ("ModuleGroup")
 	s ModuleGroup set (s CheckIndent, s ogroup, s NAME _as "name",  s EOL, s Documentation optional () _as "doc", s Indent, g agroup (s Function) zeroOrMore () _as "body", s Dedent)
 
-	construct (g, "Class",     s oclass,     g agroup (s ClassAttribute, s Attribute, s Constructor, s ClassMethods))
-	construct (g, "Trait",     s otrait,     g agroup (s Attribute,     s Constructor, s InstanceMethods))
-	construct (g, "Singleton", s osingleton, g agroup (s Attribute,     s Constructor, s InstanceMethods))
+	construct (g, "Class",      s oclass,     g agroup (s ClassAttribute, s Attribute, s Constructor, s ClassMethods))
+	construct (g, "Trait",      s otrait,     g agroup (s Attribute,     s Constructor, s InstanceMethods))
+	construct (g, "Singleton",  s osingleton, g agroup (s Attribute,     s Constructor, s InstanceMethods))
 
 	# Annotations (toplevel)
-	g rule  ("TargetAnnotation",      s otarget,   s NAME    _as "name",    g arule (s COLON, s VERSION) optional (), s EOL)
-	g rule  ("ModuleAnnotation",      s omodule,   s FQName  _as "name",    s EOL)
-	g rule  ("VersionAnnotation",     s oversion,  s VERSION _as "version", s EOL)
-	g rule  ("FeatureAnnotation",     s ofeature,  s NAME    _as "name",    s VALUE optional () _as "value", s EOL)
+	g rule  ("TargetAnnotation",      s CheckIndent, s otarget,   s NAME    _as "name",    g arule (s COLON, s VERSION) optional (), s EOL)
+	g rule  ("ModuleAnnotation",      s CheckIndent, s omodule,   s FQName  _as "name",    s EOL)
+	g rule  ("VersionAnnotation",     s CheckIndent, s oversion,  s VERSION _as "version", s EOL)
+	g rule  ("FeatureAnnotation",     s CheckIndent, s ofeature,  s NAME    _as "name",    s VALUE optional () _as "value", s EOL)
 
 	g rule  ("ImportAlias",           s _as,       s NAME)
 	g rule  ("ImportSymbol",          s FQNAME,    s ImportAlias optional ())
 	g rule  ("ImportOrigin",          s _from,     s FQNAME)
 	g rule  ("Import"
+		s CheckIndent
 		s oimport
-		s ImportSymbol
+		s ImportSymbol  _as "name"
 		g arule (
 			s COMMA
 			s ImportSymbol
-		) zeroOrMore ()
-		s ImportOrigin optional ()
+		) zeroOrMore () _as "names"
+		s ImportOrigin optional () _as "origin"
 		s EOL
 	)
 	g rule ("ModuleDeclaration"
@@ -461,7 +464,8 @@
 		s Import             zeroOrMore () _as "imports"
 	)
 	g group     ("Structure",          s EmptyLines, s Comment, s ModuleAttribute, s Type, s Enum, s ModuleGroup, s Function, s Class, s Trait, s Singleton)
-	g rule      ("Module",             s ModuleDeclaration,  s Structure zeroOrMore (), s Code zeroOrMore ())
+	g rule      ("Module",             s ModuleDeclaration,  s Structure zeroOrMore (), s Code zeroOrMore (), s OWhere zeroOrMore ())
+	s OExampleBody set (s Module)
 
 	g skip      = g agroup (s SPACE)
 
