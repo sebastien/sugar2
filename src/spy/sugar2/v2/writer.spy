@@ -177,6 +177,10 @@
 				_bind (scope, _)
 			end
 			return scope
+		elif isinstance(referanceable, interfaces IAccessor)
+			scope setAccessor (referanceable getName (), referanceable)
+		elif isinstance(referanceable, interfaces IMutator)
+			scope setMutator (referanceable getName (), referanceable)
 		elif isinstance(referanceable, interfaces IReferencable)
 			scope setSlot (referanceable getName (), referanceable)
 			return scope
@@ -456,6 +460,14 @@
 
 	@method onAbstractClassMethod match
 		return _createCallable (F createClassMethod, match, False)
+	@end
+
+	@method onGetter match
+		return _createCallable (F createAccessor, match)
+	@end
+
+	@method onSetter match
+		return _createCallable (F createMutator, match)
 	@end
 
 	@method onMethod match
@@ -1181,8 +1193,7 @@
 			# the operator to it
 			let p1 = getOperatorPriority (operator)
 			let p2 = getPriority (lrvalue)
-			# NOTE: It seems that unary operators should always have the prevalence
-			if True or p1 >= p2
+			if p1 >= p2
 				let b = lrvalue getLeftOperand () detach ()
 				# We do direct simplification of numbers, saving a computation
 				if operator == "-" and isinstance (b, interfaces INumber)

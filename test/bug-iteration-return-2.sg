@@ -1,0 +1,14 @@
+@feature sugar 2
+@feature iterate
+
+@function f
+	# With -Diterate, all the iteration but the second one should
+	# return a regular value. Without -Diterate, they should
+	# all be a regular return.
+	0..10 ::  {return _}
+	0..(10 * 10) :: {return _}
+	0..10 ::= {return _}
+	0..10 ::? {return _}
+	0..10 ::> {return _}
+
+# EOF

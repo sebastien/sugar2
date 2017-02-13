@@ -11,7 +11,7 @@
 @module  sugar2
 @version 0.9.1
 @target  Python
-@import  sys
+@import  os, sys, io, tempfile
 @import  Command  from lambdafactory.main
 @import  Parser   from sugar2.parser
 
@@ -38,14 +38,26 @@
 
 @end
 
-@function run arguments, version=2
+@function run arguments, version=2, output=sys stdout
 	var command = new SugarCommand ("sugar", version)
-	var program = command run (arguments or ["--help"])
+	var program = command run (arguments or ["--help"], output)
 	if not program
 		return None
 	else
 		return program
 	end
+@end
+
+@function process text, version=2
+	@embed Python
+	|s = io.BytesIO ()
+	|p = tempfile.mktemp(suffix=".sg")
+	|with open(p,"w") as f: f.write(text)
+	@end
+	run (["-cles", p], version, s)
+	os unlink (p)
+	s seek 0
+	return s read ()
 @end
 
 @embed Python

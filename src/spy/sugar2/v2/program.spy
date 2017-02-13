@@ -211,6 +211,8 @@
 	g word      ("otrait",           "@trait")
 	g word      ("osingleton",       "@singleton")
 	g word      ("oproperty",        "@property")
+	g word      ("ogetter",          "@getter")
+	g word      ("osetter",          "@setter")
 	g word      ("oshared",          "@shared")
 	g word      ("ooperation",       "@operation")
 	g word      ("oconstructor",     "@constructor")
@@ -300,8 +302,8 @@
 	g rule      ("TypeSuffix",       s _type, s TypeValue _as "type")
 
 	g rule      ("MatchSuffixLine",   s ARROW, s Expression _as "body")
-	g rule      ("MatchSuffixBlock",  s EOL,   s Indent, s CheckIndent, s Expression _as "body", s Dedent)
-	g rule      ("MatchSuffixBranch", s EOL,   s CheckIndent, g agroup (s _else, s UNDERSCORE, s Suffixes oneOrMore ()) _as "condition", g agroup (s MatchSuffixLine, s MatchSuffixBlock) _as "body")
+	g rule      ("MatchSuffixBlock",  s EOL,   s Comment zeroOrMore (), s Indent, s CheckIndent, s Expression _as "body", s COMMENT optional (), s Dedent)
+	g rule      ("MatchSuffixBranch", s EOL,   s Comment zeroOrMore (), s CheckIndent, g agroup (s _else, s UNDERSCORE, s Suffixes oneOrMore (), s COMMENT optional ()) _as "condition", g agroup (s MatchSuffixLine, s MatchSuffixBlock) _as "body")
 	g rule      ("MatchSuffixBody",   s Indent, s MatchSuffixBranch zeroOrMore () _as "branches", s Dedent)
 	g rule      ("MatchSuffix" ,      s _match, g agroup (s MatchSuffixBody) _as "branches")
 
@@ -368,9 +370,9 @@
 	g rule      ("CatchBlock",      s BlockStart, s _catch, s NameType optional () _as "param", g agroup (s BlockBody) _as "body")
 	g rule      ("ForBlock",        s BlockStart, s _for,   s ParameterList _as "params", s _in, s Expression _as "expr", g agroup (s BlockBody) _as "body")
 
-	g rule      ("MatchBranch",     s BlockStart, g agroup (s _else, s UNDERSCORE, s Suffixes oneOrMore ()) _as "condition", s BlockBody _as "body")
-	g rule      ("MatchBody",       s EOL, s Indent, s MatchBranch zeroOrMore () _as "branches", s Dedent)
-	g rule      ("MatchBlock" ,     s BlockStart, s _match,  s Expression _as "expression", g agroup (s MatchBody) _as "branches")
+	g rule      ("MatchBranch",     s BlockStart, g agroup (s _else, s UNDERSCORE, s Suffixes oneOrMore (), s COMMENT optional ()) _as "condition", s BlockBody _as "body")
+	g rule      ("MatchBody",       s EOL, s Comment zeroOrMore (), s Indent, s MatchBranch zeroOrMore () _as "branches", s Dedent)
+	g rule      ("MatchBlock" ,     s BlockStart, s _match,  s Expression _as "expression", s COMMENT optional (), g agroup (s MatchBody) _as "branches")
 
 
 	# TODO: This should be moved to expressions
@@ -400,6 +402,9 @@
 	declaration      (g, "ClassAttribute",    s oshared)
 	declaration      (g, "ModuleAttribute",   s oshared)
 	declaration      (g, "Attribute",         s oproperty)
+	# FIXME: Should take 0 argument
+	function         (g, "Getter",            s ogetter)
+	function         (g, "Setter",            s osetter)
 	# abstractFunction (g, "AbstractFunction",  s ofunction)
 	abstractFunction (g, "AbstractMethod",    s omethod)
 	abstractFunction (g, "AbstractClassMethod", s ooperation)
@@ -429,9 +434,9 @@
 	g rule  ("ModuleGroup")
 	s ModuleGroup set (s CheckIndent, s ogroup, s NAME _as "name",  s EOL, s Documentation optional () _as "doc", s Indent, g agroup (s Function) zeroOrMore () _as "body", s Dedent)
 
-	construct (g, "Class",      s oclass,     g agroup (s ClassAttribute, s Attribute, s Constructor, s ClassMethods))
-	construct (g, "Trait",      s otrait,     g agroup (s Attribute,     s Constructor, s InstanceMethods))
-	construct (g, "Singleton",  s osingleton, g agroup (s Attribute,     s Constructor, s InstanceMethods))
+	construct (g, "Class",      s oclass,     g agroup (s ClassAttribute, s Attribute, s Getter, s Setter, s Constructor, s ClassMethods))
+	construct (g, "Trait",      s otrait,     g agroup (s Attribute,     s Getter, s Setter, s Constructor, s InstanceMethods))
+	construct (g, "Singleton",  s osingleton, g agroup (s Attribute,     s Getter, s Setter, s Constructor, s InstanceMethods))
 
 	# Annotations (toplevel)
 	g rule  ("TargetAnnotation",      s CheckIndent, s otarget,   s NAME    _as "name",    g arule (s COLON, s VERSION) optional (), s EOL)
