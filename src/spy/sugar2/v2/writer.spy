@@ -978,31 +978,14 @@
 					# FIXME: This does not work value is not expected to be a list
 					# TODO: Should be an automatic variable
 					var res  = value
-					var t    = args[1]
-					if t != ":"
-						for g in args[2] or []
-							value = _applySuffixes (value, g)
-						end
-						return value
-					else
-						# This is a chain where the first result is kept (`:`)
-						var alloc = value
-						var ref   = None
-						if not isinstance(alloc, interfaces IAllocation)
-							# TODO: Use implicits
-							var name  = "_c" + str(varcounter) + "_" ; varcounter += 1
-							var slot  = F _slot (name)
-							var alloc = F allocate (slot, value)
-							ref       = F _ref  (name)
-						else
-							ref   = alloc getSlot ()
-						end
-						var res   = [alloc]
-						for g in args[2] or []
-							res append (_applySuffixes (ref copy (), g))
-						end
-						value = res
+					var op   = args[1]
+					var rest = args[2]
+					let chain = F chain (op, value)
+					for _ in rest
+						let branch = _applySuffixes (F _implicitref (chain), _)
+						chain addGroup (branch)
 					end
+					value = chain
 				elif name == "TypeSuffix"
 					value = F typeof (value, args[1])
 				else
@@ -1325,12 +1308,14 @@
 
 	@method onChainLine match
 		let suffixes = []
-		for _ in process(match[3])
+		for _ in process(match["content"])
 			_ = _[0]
-			if len(_) == 1 and isinstance(_[0], interfaces IReference)
-				_ = ["Decomposition", _]
+			if not isinstance(_, interfaces IComment)
+				if len(_) == 1 and isinstance(_[0], interfaces IReference)
+					_ = ["Decomposition", _]
+				end
+				suffixes append (_)
 			end
-			suffixes append (_)
 		end
 		return suffixes
 	@end

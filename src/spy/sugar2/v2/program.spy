@@ -295,7 +295,7 @@
 	g rule      ("InfixInvocation",  s TILDE, s NAME _as "name", s Expression _as "rvalue")
 	g rule      ("Parentheses",      s LP,    s Expression, s RP)
 	g group     "Suffixes"
-	g rule      ("ChainLine",        s EOL, s Indent, s CheckIndent, g agroup (s COMMENT, s Reference, s Suffixes) oneOrMore (), s Dedent)
+	g rule      ("ChainLine",        s EOL, s Indent, s CheckIndent, g agroup (s COMMENT, s Reference, s Suffixes) oneOrMore () _as "content", s Dedent)
 	g rule      ("Chain",            g agroup (s ELLIPSIS, s COLON) _as "type", s ChainLine oneOrMore () _as "lines")
 	g rule      ("IterationSuffix",  s ITERATOR _as "op", s Expression _as "rvalue")
 	g rule      ("ConditionSuffix",  g agroup (s _if, s _else) _as "type", s SPACE, s Expression _as "value")
