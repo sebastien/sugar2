@@ -469,7 +469,7 @@
 		s Import             zeroOrMore () _as "imports"
 	)
 	g group     ("Structure",          s EmptyLines, s Comment, s ModuleAttribute, s Type, s Enum, s ModuleGroup, s Function, s Class, s Trait, s Singleton)
-	g rule      ("Module",             s ModuleDeclaration,  s Structure zeroOrMore (), s Code zeroOrMore (), s OWhere zeroOrMore ())
+	g rule      ("Module",             s ModuleDeclaration,  s Structure zeroOrMore () _as "structure", s Code zeroOrMore () _as "code", s OWhere zeroOrMore () _as "where")
 	s OExampleBody set (s Module)
 
 	g skip      = g agroup (s SPACE)

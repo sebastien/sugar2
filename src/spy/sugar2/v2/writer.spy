@@ -325,16 +325,18 @@
 			module addAnnotation (version)
 		end
 
-		let structure   = process (match[1])
-		let code        = process (match[2])
-
+		let structure   = process (match["structure"])
+		let code        = process (match["code"])
+		let where       = process (match["where"])
 
 		# We create the init function
 		var init_function  = F createInitializer ()
 		_addCode (init_function, code)
 		_bind (module, structure)
 		_bind (module, init_function)
-
+		for _ in where
+			module addAnnotation (_)
+		end
 		return module
 	@end
 
@@ -360,8 +362,12 @@
 		let is_abstract = match[0]
 		let doc         = process(match["documentation"])
 		let body        = process(match["body"])
+		let suffixes    = process(match["suffixes"])
 		res setDocumentation (doc)
 		res setAbstract      (is_abstract and True)
+		for _ in access (suffixes, 0) or []
+			res addAnnotation (_)
+		end
 		_bind (res, body)
 		return res
 	@end
@@ -436,6 +442,7 @@
 		let doc        = process (match["documentation"])
 		let body       = hasBody and process (match["body"]) or None
 		let dec        = process (match["decorators"])
+		let suffixes   = process (match["suffixes"])
 		var fun        = None
 		if name_type is True
 			fun    = factory (params)
@@ -450,6 +457,9 @@
 			_addCode (fun, body)
 		else
 			fun setAbstract (True)
+		end
+		for _ in access(suffixes, 0) or []
+			fun addAnnotation (_)
 		end
 		return fun
 	@end
@@ -1263,6 +1273,22 @@
 
 	@method onOWhen match
 		return F annotation ("when", process (match ["expression"]))
+	@end
+
+	@method onOWhere match
+		let p = F createBlock ()
+		let n = process (match ["name"])
+		let b = process (match ["body"])
+		_addCode (p, b)
+		return F annotation ("where", p)
+	@end
+
+	@method onOExample match
+		let p = F createBlock ()
+		let n = process (match ["name"])
+		let b = process (match ["body"])[1]
+		# NOTE: The body is going to be a module
+		return F annotation ("example", b)
 	@end
 
 	@method onCustomDecorator match

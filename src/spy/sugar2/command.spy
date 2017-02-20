@@ -48,13 +48,14 @@
 	end
 @end
 
-@function process text, version=2
+@function process text, version=2, options=[]
 	@embed Python
 	|s = io.BytesIO ()
 	|p = tempfile.mktemp(suffix=".sg")
 	|with open(p,"w") as f: f.write(text)
 	@end
-	run (["-cles", p], version, s)
+	options = options + ["-cles", p]
+	run (options, version, s)
 	os unlink (p)
 	s seek 0
 	return s read ()
