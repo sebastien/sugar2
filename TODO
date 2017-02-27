@@ -613,6 +613,37 @@ New features
 	map (e, extractor)
 	```
 
+[X] Events::
+
+	Events can now be declared as class properties using the @event
+	keyword:
+
+	```
+	@event success
+	| Documentation
+	```
+
+
+
+	Events can then be triggered using the `!` operator
+
+	```
+	success !
+	success ! (arguments)
+	```
+
+	It is possible to bind to an event using the `!+` operator
+
+	```
+	value success !+ callback
+	```
+
+	and unbind using the `!-` operator:
+
+	```
+	value success !- callback
+	```
+
 
 [X] Streamlined mappings::
 

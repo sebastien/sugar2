@@ -147,7 +147,7 @@
 	g token     ("FQNAME",           "(\\\?)([\$_A-Za-z][\._\w]*)")
 	g token     ("KEY",              "[\$_\-A-Za-z][_\-\w]*")
 	# TODO: Add "not in"
-	g token     ("INFIX_OPERATOR",   "([\-\+\*\/\%]|\<=|\>=|\<\<?|\>\>?|==|\!=|\.\.|‥|\|\||&&|\||not\s+in\s+|in\s+|and\s+|or\s+|is\s+not\s+|is\s+|\*\*)")
+	g token     ("INFIX_OPERATOR",   "([\-\+\*\/\%]|\<=|\>=|\<\<?|\>\>?|==|\!=|\.\.|‥|\|\||&&|\||not\s+in\s+|in\s+|and\s+|or\s+|is\s+not\s+|is\s+|\*\*|\!\+|\!\-)")
 	g token     ("PREFIX_OPERATOR",  "(not\s+|\-)")
 	g token     ("NEW_OPERATOR",     "new\s+")
 	g token     ("THROW_OPERATOR",   "(raise|throw)\s+")
@@ -181,7 +181,7 @@
 	g word      ("PIPE",             "|")
 	g word      ("EQUALS",           "=")
 	g word      ("TILDE",            "~")
-	g word      ("EXCL",             "!")
+	g word      ("BANG",             "!")
 	# g word      ("WILDCARD",         "*")
 	g condition ("NOTHING")
 	# Keywords
@@ -210,6 +210,7 @@
 	g word      ("oclass",           "@class")
 	g word      ("otrait",           "@trait")
 	g word      ("osingleton",       "@singleton")
+	g word      ("oevent",           "@event")
 	g word      ("oproperty",        "@property")
 	g word      ("ogetter",          "@getter")
 	g word      ("osetter",          "@setter")
@@ -299,6 +300,7 @@
 	g rule      ("Chain",            g agroup (s ELLIPSIS, s COLON) _as "type", s ChainLine oneOrMore () _as "lines")
 	g rule      ("IterationSuffix",  s ITERATOR _as "op", s Expression _as "rvalue")
 	g rule      ("ConditionSuffix",  g agroup (s _if, s _else) _as "type", s SPACE, s Expression _as "value")
+	g rule      ("TriggerSuffix",    s BANG, g agroup (s Literal, s ArgumentsEmpty) optional () _as "value")
 	g rule      ("TypeSuffix",       s _type, s TypeValue _as "type")
 
 	g rule      ("MatchSuffixLine",   s ARROW, s Expression _as "body")
@@ -321,6 +323,7 @@
 		s IterationSuffix
 		s ConditionSuffix
 		s ComputationInfix
+		s TriggerSuffix
 		s MatchSuffix
 		s Decomposition
 		s Access
@@ -391,10 +394,10 @@
 	# Program
 	g rule      ("Body",             s Indent, s Code zeroOrMore () _as "code", s Dedent)
 	g rule      ("OWhen",            s CheckIndent, s owhen, s Expression _as "expression", s EOL)
-	g rule      ("OWhere",           s CheckIndent, s owhere,   s NAME optional () _as "name", s EOL, s Body _as "body")
+	g rule      ("OWhere",           s CheckIndent, s owhere,   s NAME optional () _as "name", s EOL, s Documentation optional () _as "doc", s Body _as "body")
 	g group     ("OExampleBody")
-	g rule      ("OExample",         s CheckIndent, s oexample, s NAME optional () _as "name", s EOL, g arule (s Indent, s OExampleBody _as "module", s Dedent) _as "body")
-	g rule      ("CustomDecorator",  s CheckIndent, s EXCL, s FQName _as "name", s Expression optional () _as "arguments", s EOL)
+	g rule      ("OExample",         s CheckIndent, s oexample, s NAME optional () _as "name", s EOL, s Documentation optional () _as "doc", g arule (s Indent, s OExampleBody _as "module", s Dedent) _as "body")
+	g rule      ("CustomDecorator",  s CheckIndent, s BANG, s FQName _as "name", s Expression optional () _as "arguments", s EOL)
 	g group     ("ConstructSuffixes", s OWhere, s OExample)
 	g group     ("Decorator",        s OWhen, s CustomDecorator)
 	s ClosureStatement set (s Statements)
@@ -402,6 +405,7 @@
 	declaration      (g, "ClassAttribute",    s oshared)
 	declaration      (g, "ModuleAttribute",   s oshared)
 	declaration      (g, "Attribute",         s oproperty)
+	g rule ("Event", s CheckIndent, s oevent, s NameType _as "name", s EOL, s Documentation optional () _as "documentation")
 	# FIXME: Should take 0 argument
 	function         (g, "Getter",            s ogetter)
 	function         (g, "Setter",            s osetter)
@@ -434,9 +438,9 @@
 	g rule  ("ModuleGroup")
 	s ModuleGroup set (s CheckIndent, s ogroup, s NAME _as "name",  s EOL, s Documentation optional () _as "doc", s Indent, g agroup (s Function) zeroOrMore () _as "body", s Dedent)
 
-	construct (g, "Class",      s oclass,     g agroup (s ClassAttribute, s Attribute, s Getter, s Setter, s Constructor, s ClassMethods))
-	construct (g, "Trait",      s otrait,     g agroup (s Attribute,     s Getter, s Setter, s Constructor, s InstanceMethods))
-	construct (g, "Singleton",  s osingleton, g agroup (s Attribute,     s Getter, s Setter, s Constructor, s InstanceMethods))
+	construct (g, "Class",      s oclass,     g agroup (s ClassAttribute, s Attribute, s Event, s Getter, s Setter, s Constructor, s ClassMethods))
+	construct (g, "Trait",      s otrait,     g agroup (s Attribute, s Event,    s Getter, s Setter, s Constructor, s InstanceMethods))
+	construct (g, "Singleton",  s osingleton, g agroup (s Attribute, s Event,    s Getter, s Setter, s Constructor, s InstanceMethods))
 
 	# Annotations (toplevel)
 	g rule  ("TargetAnnotation",      s CheckIndent, s otarget,   s NAME    _as "name",    g arule (s COLON, s VERSION) optional (), s EOL)

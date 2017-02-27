@@ -55,6 +55,7 @@
 | ```
 
 	@shared OPERATORS = [
+		["!+", "!-"]
 		["."]
 		["or"]
 		["and"]
@@ -409,6 +410,18 @@
 		var res       = F _moduleattr (name_type[0] getReferenceName(), None, value)
 		res setDocumentation (doc)
 		return res
+	@end
+
+	@method onEvent match
+		var name   = process(match["name"])[0] getReferenceName ()
+		var doc    = process(match["documentation"])
+		let event  = F _event (name, None, F _string (name))
+		let method = F createMethod ("on" + name[0] upper () + name[1:])
+		if doc
+			method setDocumentation (F doc (doc))
+		end
+		method addAnnotation (F annotation ("event", name))
+		return [event, method]
 	@end
 
 	@method _onGroup match
@@ -996,6 +1009,8 @@
 						chain addGroup (branch)
 					end
 					value = chain
+				elif name == "!"
+					value = F trigger (value, args[1])
 				elif name == "TypeSuffix"
 					value = F typeof (value, args[1])
 				else
@@ -1279,7 +1294,11 @@
 		let p = F createBlock ()
 		let n = process (match ["name"])
 		let b = process (match ["body"])
+		let d = process (match ["doc"])
 		_addCode (p, b)
+		if d
+			p addAnnotation (d)
+		end
 		return F annotation ("where", p)
 	@end
 
@@ -1287,7 +1306,11 @@
 		let p = F createBlock ()
 		let n = process (match ["name"])
 		let b = process (match ["body"])[1]
+		let d = process (match ["doc"])
 		# NOTE: The body is going to be a module
+		if d
+			b addAnnotation (d)
+		end
 		return F annotation ("example", b)
 	@end
 
