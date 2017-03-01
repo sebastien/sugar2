@@ -651,6 +651,15 @@ New features
 	_ :: connector Project fold :: {_| (group[_ discipline [-1]] ?= []) push (_)}
 	```
 
+[ ] Ellipsis
+
+	```
+	let a = [1,2,3]
+	let b = (‥a)
+	let c = [1,2,3,‥a]
+	f (‥b)
+	```
+
 [ ] Design-by-contract Assert/pre/post/error::	
 
 	```

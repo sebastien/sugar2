@@ -255,7 +255,8 @@
 	g rule      ("ExpressionBlock",  s Indent,     g arule (s EOL,   s CheckIndent, s ExpressionLine) oneOrMore () _as "content", s Dedent)
 
 	g rule      ("NamedExpression",  g arule (s NAME, s COLON) optional () _as "name", s Expression _as "value")
-	g group     ("NamedEntry",       s Expression, s NamedExpression)
+	g rule      ("RestExpression",   s ELLIPSIS, s Expression _as "value")
+	g group     ("NamedEntry",       s Expression, s NamedExpression, s RestExpression)
 	g rule      ("NamedExpressionList",   s NamedEntry, g arule (s COMMA, s NamedEntry) zeroOrMore (), s COMMA optional () _as "comma", s COMMENT optional ())
 	g group     ("NamedExpressionLine",   s NamedExpressionList, s COMMENT)
 	g rule      ("NamedExpressionBlock",  s Indent,     g arule (s EOL,   s CheckIndent, s NamedExpressionLine) oneOrMore () _as "content", s Dedent)
@@ -292,7 +293,8 @@
 	g rule      ("ComputationInfix", s INFIX_OPERATOR, s Expression)
 	g rule      ("Access",           s LSB,            s Expression, s RSB)
 	g rule      ("Slice",            s LSB,            s Expression optional (), s COLON, s Expression optional (), s RSB)
-	g group     ("Invocation",       s Literal, s ArgumentsEmpty)
+	g group     ("Arguments",        s Literal, s ArgumentsEmpty)
+	g group     ("Invocation",       s Arguments)
 	g rule      ("InfixInvocation",  s TILDE, s NAME _as "name", s Expression _as "rvalue")
 	g rule      ("Parentheses",      s LP,    s Expression, s RP)
 	g group     "Suffixes"
@@ -300,7 +302,7 @@
 	g rule      ("Chain",            g agroup (s ELLIPSIS, s COLON) _as "type", s ChainLine oneOrMore () _as "lines")
 	g rule      ("IterationSuffix",  s ITERATOR _as "op", s Expression _as "rvalue")
 	g rule      ("ConditionSuffix",  g agroup (s _if, s _else) _as "type", s SPACE, s Expression _as "value")
-	g rule      ("TriggerSuffix",    s BANG, g agroup (s Literal, s ArgumentsEmpty) optional () _as "value")
+	g rule      ("Trigger",          s BANG, s Arguments optional () _as "value")
 	g rule      ("TypeSuffix",       s _type, s TypeValue _as "type")
 
 	g rule      ("MatchSuffixLine",   s ARROW, s Expression _as "body")
@@ -323,7 +325,7 @@
 		s IterationSuffix
 		s ConditionSuffix
 		s ComputationInfix
-		s TriggerSuffix
+		s Trigger
 		s MatchSuffix
 		s Decomposition
 		s Access
@@ -439,7 +441,7 @@
 	s ModuleGroup set (s CheckIndent, s ogroup, s NAME _as "name",  s EOL, s Documentation optional () _as "doc", s Indent, g agroup (s Function) zeroOrMore () _as "body", s Dedent)
 
 	construct (g, "Class",      s oclass,     g agroup (s ClassAttribute, s Attribute, s Event, s Getter, s Setter, s Constructor, s ClassMethods))
-	construct (g, "Trait",      s otrait,     g agroup (s Attribute, s Event,    s Getter, s Setter, s Constructor, s InstanceMethods))
+	construct (g, "Trait",      s otrait,     g agroup (s ClassAttribute, s Attribute, s Event, s Getter, s Setter, s Constructor, s ClassMethods))
 	construct (g, "Singleton",  s osingleton, g agroup (s Attribute, s Event,    s Getter, s Setter, s Constructor, s InstanceMethods))
 
 	# Annotations (toplevel)
