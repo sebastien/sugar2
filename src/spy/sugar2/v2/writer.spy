@@ -221,6 +221,8 @@
 			pass
 		elif isinstance(code, interfaces IValue)
 			element addOperation (F evaluate (code))
+		elif isinstance(code, interfaces IClosure)
+			element addOperation (F evaluate (code))
 		elif code
 			raise new Exception ("Code element type not supported: {0}" format (repr(code)))
 		end
@@ -926,8 +928,12 @@
 					# end
 					value = _applyComputationInfix (value, args[1], args[2])
 				elif name == "Decomposition"
-					for _ in args[1]
-						value = F resolve (_, value)
+					var f = F resolve
+					if args[1] == "."
+						f = F decompose
+					end
+					for _ in args[2]
+						value = f (_, value)
 					end
 				elif name == "Access"
 					value = F access (value, args[1])
@@ -1363,7 +1369,7 @@
 
 	@method onDecomposition match
 	| Returns [("Decomposition", [ref:Reference])]
-		return [match name, process(match[1])]
+		return [match name, process(match[0])[0], process(match[1])]
 	@end
 
 	@method onSlice match

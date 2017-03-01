@@ -547,14 +547,14 @@ New features
 	error (__scope_name__ + ":" __line__ + " error‥")
 	```
 
-[ ] Type identification::
+[X] Type identification::
 
-	A new operator `type?` allows to test for type identification. It is
+	A new operator `is?` allows to test for type identification. It is
 	a more generic version of `typeof` and `instanceof` in JavaScript
 	and is able to expand to the full semantics of the type system.
 
 	```
-	value type? Number
+	value is? Number
 	```
 
 [ ] Macros::
@@ -651,7 +651,7 @@ New features
 	_ :: connector Project fold :: {_| (group[_ discipline [-1]] ?= []) push (_)}
 	```
 
-[ ] Ellipsis
+[X] Ellipsis
 
 	```
 	let a = [1,2,3]
@@ -659,6 +659,22 @@ New features
 	let c = [1,2,3,‥a]
 	f (‥b)
 	```
+
+[X] Decomposition:
+
+	Values can be decomposed using the `.` operator. Decomposition is different
+	from the resolution ` ` as it will test if the decomposed value is a function
+	and make sure it is bound to the context.
+
+
+	```
+	let o = new SomeObject()
+	# f will not preserve `o` as the target for `someMethod` invocations
+	let f = o someMethod 
+	# f will ensure that `o` is the target in subsequent invocations
+	let c = o.someMethod
+	```
+
 
 [ ] Design-by-contract Assert/pre/post/error::	
 
