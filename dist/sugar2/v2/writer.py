@@ -34,7 +34,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	return code
 	@end
 	```"""
-	OPERATORS = [['.'], ['or'], ['and'], ['not'], ['>', '>=', '<', '<=', '!=', '==', 'is', 'is not', 'in', 'not in'], ['::', '::<', '::>', '::?', '::='], ['..', '\xe2\x80\xa5'], ['+', '-'], ['|', '&', '<<', '>>'], ['/', '*', '%', '//'], ['/=', '*=', '%=', '+=', '-=', '=']]
+	OPERATORS = [['!+', '!-'], ['.'], ['or'], ['and'], ['not'], ['>', '>=', '<', '<=', '!=', '==', 'is', 'is not', 'in', 'not in'], ['::', '::<', '::>', '::?', '::='], ['..', '\xe2\x80\xa5'], ['+', '-'], ['|', '&', '<<', '>>'], ['/', '*', '%', '//'], ['/=', '*=', '%=', '+=', '-=', '=']]
 	OPERATORS_NORMALIZED = {'||':'|', '&&':'&', '|':'.'}
 	def __init__ (self, grammar, path=None):
 		self.module = None
@@ -115,6 +115,10 @@ class LambdaFactoryBuilder(libparsing.Processor):
 			for _ in referanceable:
 				self._bind(scope, _)
 			return scope
+		elif isinstance(referanceable, interfaces.IAccessor):
+			scope.setAccessor(referanceable.getName(), referanceable)
+		elif isinstance(referanceable, interfaces.IMutator):
+			scope.setMutator(referanceable.getName(), referanceable)
 		elif isinstance(referanceable, interfaces.IReferencable):
 			scope.setSlot(referanceable.getName(), referanceable)
 			return scope
@@ -145,6 +149,8 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		elif isinstance(code, interfaces.IComment):
 			pass
 		elif isinstance(code, interfaces.IValue):
+			element.addOperation(F.evaluate(code))
+		elif isinstance(code, interfaces.IClosure):
 			element.addOperation(F.evaluate(code))
 		elif code:
 			raise Exception('Code element type not supported: {0}'.format(repr(code)))
@@ -218,20 +224,23 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		version=declarations['version']
 		if version:
 			module.addAnnotation(version)
-		structure=self.process(match[1])
-		code=self.process(match[2])
+		structure=self.process(match['structure'])
+		code=self.process(match['code'])
+		where=self.process(match['where'])
 		init_function=F.createInitializer()
 		self._addCode(init_function, code)
 		self._bind(module, structure)
 		self._bind(module, init_function)
+		for _ in where:
+			module.addAnnotation(_)
 		return module
 	
 	def onModuleAnnotation(self, match):
-		ref=self.process(match[1])
+		ref=self.process(match['name'])
 		return F.annotation('module', ref.getReferenceName())
 	
 	def onVersionAnnotation(self, match):
-		version=self.process(match[1])[0]
+		version=self.process(match['version'])[0]
 		return F.annotation('version', version)
 	
 	def onParents(self, match):
@@ -242,10 +251,13 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		inherits=self.process(match['inherits'])
 		res=creator(name, inherits)
 		is_abstract=match[0]
-		doc=self.process(match[5])
-		body=self.process(match[7])
+		doc=self.process(match['documentation'])
+		body=self.process(match['body'])
+		suffixes=self.process(match['suffixes'])
 		res.setDocumentation(doc)
 		res.setAbstract((is_abstract and True))
+		for _ in (self.access(suffixes, 0) or []):
+			res.addAnnotation(_)
 		self._bind(res, body)
 		return res
 	
@@ -282,6 +294,35 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		res.setDocumentation(doc)
 		return res
 	
+	def onEvent(self, match):
+		name=self.process(match['name'])[0].getReferenceName()
+		doc=self.process(match['documentation'])
+		event=F._event(name, None, F._string(name))
+		method=F.createMethod((('on' + name[0].upper()) + name[1:]))
+		if doc:
+			method.setDocumentation(F.doc(doc))
+		method.addAnnotation(F.annotation('event', name))
+		return [event, method]
+	
+	def _onGroup(self, match):
+		name=self.process(match['name'])
+		doc=self.process(match['doc'])
+		body=self.process(match['body'])
+		for t in body:
+			for e in t:
+				a=F.annotation('as', name)
+				e.addAnnotation(a)
+		return body
+	
+	def onModuleGroup(self, match):
+		return self._onGroup(match)
+	
+	def onInstanceGroup(self, match):
+		return self._onGroup(match)
+	
+	def onClassGroup(self, match):
+		return self._onGroup(match)
+	
 	def _createCallable(self, factory, match, hasBody=None):
 		if hasBody is None: hasBody = True
 		name_type=self.process(match['name'])
@@ -289,6 +330,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		doc=self.process(match['documentation'])
 		body=((hasBody and self.process(match['body'])) or None)
 		dec=self.process(match['decorators'])
+		suffixes=self.process(match['suffixes'])
 		fun=None
 		if (name_type is True):
 			fun = factory(params)
@@ -301,6 +343,8 @@ class LambdaFactoryBuilder(libparsing.Processor):
 			self._addCode(fun, body)
 		elif True:
 			fun.setAbstract(True)
+		for _ in (self.access(suffixes, 0) or []):
+			fun.addAnnotation(_)
 		return fun
 	
 	def onClassMethod(self, match):
@@ -308,6 +352,12 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	
 	def onAbstractClassMethod(self, match):
 		return self._createCallable(F.createClassMethod, match, False)
+	
+	def onGetter(self, match):
+		return self._createCallable(F.createAccessor, match)
+	
+	def onSetter(self, match):
+		return self._createCallable(F.createMutator, match)
 	
 	def onMethod(self, match):
 		return self._createCallable(F.createMethod, match)
@@ -360,22 +410,24 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		return self.process(match[1]).getReferenceName()
 	
 	def onImport(self, match):
-		name=self.process(match[1])
-		names=self.process(match[2])
-		origin=self.process(match[3])
+		name=self.process(match['name'])
+		names=self.process(match['names'])
+		origin=self.process(match['origin'])
 		symbols=[]
 		names   = [_[1] for _ in names]
-		symbols = [_[0] for _ in [name] + (names or [])]
+		if not origin:
+			symbols = [F.importModule(_[0], _[1]) for _ in [name] + (names or [])]
+		else:
+			symbols = [F.importSymbol(_[0], origin, _[1]) for _ in [name] + (names or [])]
 		
-		if (not origin):
-			if (len(names) == 0):
+		if (len(names) == 0):
+			if (not origin):
 				return F.importModule(name[0], name[1])
 			elif True:
-				assert((not origin))
-				return F.importModules(symbols)
-		elif True:
-			if (len(names) == 0):
 				return F.importSymbol(name[0], origin, name[1])
+		elif True:
+			if (not origin):
+				return F.importModules(symbols)
 			elif True:
 				return F.importSymbols(symbols, origin)
 	
@@ -594,8 +646,11 @@ class LambdaFactoryBuilder(libparsing.Processor):
 				elif (name == 'ComputationInfix'):
 					value = self._applyComputationInfix(value, args[1], args[2])
 				elif (name == 'Decomposition'):
-					for _ in args[1]:
-						value = F.resolve(_, value)
+					f=F.resolve
+					if (args[1] == '.'):
+						f = F.decompose
+					for _ in args[2]:
+						value = f(_, value)
 				elif (name == 'Access'):
 					value = F.access(value, args[1])
 				elif (name == 'Slice'):
@@ -652,26 +707,15 @@ class LambdaFactoryBuilder(libparsing.Processor):
 					value = res
 				elif (name == 'Chain'):
 					res=value
-					t=args[1]
-					if (t != ':'):
-						for g in (args[2] or []):
-							value = self._applySuffixes(value, g)
-						return value
-					elif True:
-						alloc=value
-						ref=None
-						if (not isinstance(alloc, interfaces.IAllocation)):
-							name=(('_c' + str(self.varcounter)) + '_')
-							self.varcounter = (self.varcounter + 1)
-							slot=F._slot(name)
-							alloc=F.allocate(slot, value)
-							ref = F._ref(name)
-						elif True:
-							ref = alloc.getSlot()
-						res=[alloc]
-						for g in (args[2] or []):
-							res.append(self._applySuffixes(ref.copy(), g))
-						value = res
+					op=args[1]
+					rest=args[2]
+					chain=F.chain(op, value)
+					for _ in rest:
+						branch=self._applySuffixes(F._implicitref(chain), _)
+						chain.addGroup(branch)
+					value = chain
+				elif (name == 'Trigger'):
+					value = F.trigger_args(value, args[1])
 				elif (name == 'TypeSuffix'):
 					value = F.typeof(value, args[1])
 				elif True:
@@ -759,6 +803,9 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	def onNamedExpression(self, match):
 		return self.process(match['value'])
 	
+	def onRestExpression(self, match):
+		return self.process(match['value']).addAnnotation('ellipsis')
+	
 	def onNamedEntry(self, match):
 		return self.process(match[0])
 	
@@ -796,7 +843,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		elif lrvalue:
 			p1=self.getOperatorPriority(operator)
 			p2=self.getPriority(lrvalue)
-			if (True or (p1 >= p2)):
+			if (p1 >= p2):
 				b=lrvalue.getLeftOperand().detach()
 				if ((operator == '-') and isinstance(b, interfaces.INumber)):
 					b.setActualValue((b.getActualValue() * -1))
@@ -824,8 +871,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		return F.instanciate(name, *(params or []))
 		
 	
-	def onInvocation(self, match):
-		"""Returns ("Invocation", [args])"""
+	def onArguments(self, match):
 		value=self.process(match[0])
 		args=[]
 		if isinstance(value, interfaces.ITuple):
@@ -834,6 +880,16 @@ class LambdaFactoryBuilder(libparsing.Processor):
 			for _ in self._ensureList(value):
 				if isinstance(_, interfaces.IElement):
 					args.append(_)
+		return args
+	
+	def onTrigger(self, match):
+		"""Returns ("Invocation", [args])"""
+		args=self.process(match['value'])
+		return [match.name, args]
+	
+	def onInvocation(self, match):
+		"""Returns ("Invocation", [args])"""
+		args=self.process(match[0])
 		return [match.name, args]
 	
 	def onInfixInvocation(self, match):
@@ -857,6 +913,25 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	
 	def onOWhen(self, match):
 		return F.annotation('when', self.process(match['expression']))
+	
+	def onOWhere(self, match):
+		p=F.createBlock()
+		n=self.process(match['name'])
+		b=self.process(match['body'])
+		d=self.process(match['doc'])
+		self._addCode(p, b)
+		if d:
+			p.addAnnotation(d)
+		return F.annotation('where', p)
+	
+	def onOExample(self, match):
+		p=F.createBlock()
+		n=self.process(match['name'])
+		b=self.process(match['body'])[1]
+		d=self.process(match['doc'])
+		if d:
+			b.addAnnotation(d)
+		return F.annotation('example', b)
 	
 	def onCustomDecorator(self, match):
 		"""Supports the transformation of decorator directive into invocations
@@ -885,7 +960,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	
 	def onDecomposition(self, match):
 		"""Returns [("Decomposition", [ref:Reference])]"""
-		return [match.name, self.process(match[1])]
+		return [match.name, self.process(match[0])[0], self.process(match[1])]
 	
 	def onSlice(self, match):
 		start_index=self.process(match[1])
@@ -894,16 +969,17 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	
 	def onChainLine(self, match):
 		suffixes=[]
-		for _ in self.process(match[3]):
+		for _ in self.process(match['content']):
 			_ = _[0]
-			if ((len(_) == 1) and isinstance(_[0], interfaces.IReference)):
-				_ = ['Decomposition', _]
-			suffixes.append(_)
+			if (not isinstance(_, interfaces.IComment)):
+				if ((len(_) == 1) and isinstance(_[0], interfaces.IReference)):
+					_ = ['Decomposition', _]
+				suffixes.append(_)
 		return suffixes
 	
 	def onChain(self, match):
 		"""Returns [("Chain", [ref:Reference])]"""
-		type=self.process(match['type'])
+		type=self.process(match['type'])[0]
 		lines=self.process(match['lines'])
 		return [match.name, type, lines]
 	
@@ -1265,6 +1341,9 @@ class LambdaFactoryBuilder(libparsing.Processor):
 			return F._symbol(raw_symbol)
 		elif True:
 			raise Exception(('Unknown symbol:' + raw_symbol()))
+	
+	def onELLIPSIS(self, match):
+		return '...'
 	
 	def onNAME(self, match):
 		name=self.process(match)[2]

@@ -105,6 +105,7 @@
 		) _as "parameters"
 		s Decorator zeroOrMore   () _as "decorators"
 		s Documentation optional () _as "documentation"
+		s ConstructSuffixes zeroOrMore () _as "suffixes"
 	)
 @end
 
