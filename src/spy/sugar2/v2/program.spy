@@ -309,7 +309,7 @@
 	g rule      ("MatchSuffixLine",   s ARROW, s Expression _as "body")
 	g rule      ("MatchSuffixBlock",  s EOL,   s Comment zeroOrMore (), s Indent, s CheckIndent, s Expression _as "body", s COMMENT optional (), s Dedent)
 	g rule      ("MatchSuffixBranch", s EOL,   s Comment zeroOrMore (), s CheckIndent, g agroup (s _else, s UNDERSCORE, s Suffixes oneOrMore (), s COMMENT optional ()) _as "condition", g agroup (s MatchSuffixLine, s MatchSuffixBlock) _as "body")
-	g rule      ("MatchSuffixBody",   s Indent, s MatchSuffixBranch zeroOrMore () _as "branches", s Dedent)
+	g rule      ("MatchSuffixBody",   s Indent, s MatchSuffixBranch oneOrMore () _as "branches", s Dedent)
 	g rule      ("MatchSuffix" ,      s _match, g agroup (s MatchSuffixBody) _as "branches")
 
 	g group     ("Prefixes"

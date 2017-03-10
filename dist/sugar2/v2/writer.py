@@ -973,7 +973,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 			_ = _[0]
 			if (not isinstance(_, interfaces.IComment)):
 				if ((len(_) == 1) and isinstance(_[0], interfaces.IReference)):
-					_ = ['Decomposition', _]
+					_ = ['Decomposition', ' ', _]
 				suffixes.append(_)
 		return suffixes
 	

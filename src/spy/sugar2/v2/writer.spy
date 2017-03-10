@@ -1384,7 +1384,7 @@
 			_ = _[0]
 			if not isinstance(_, interfaces IComment)
 				if len(_) == 1 and isinstance(_[0], interfaces IReference)
-					_ = ["Decomposition", _]
+					_ = ["Decomposition", " ", _]
 				end
 				suffixes append (_)
 			end

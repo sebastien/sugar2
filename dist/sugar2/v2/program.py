@@ -195,7 +195,7 @@ def createProgramGrammar (g=None):
 	g.rule('MatchSuffixLine', s.ARROW, s.Expression._as('body'))
 	g.rule('MatchSuffixBlock', s.EOL, s.Comment.zeroOrMore(), s.Indent, s.CheckIndent, s.Expression._as('body'), s.COMMENT.optional(), s.Dedent)
 	g.rule('MatchSuffixBranch', s.EOL, s.Comment.zeroOrMore(), s.CheckIndent, g.agroup(s._else, s.UNDERSCORE, s.Suffixes.oneOrMore(), s.COMMENT.optional())._as('condition'), g.agroup(s.MatchSuffixLine, s.MatchSuffixBlock)._as('body'))
-	g.rule('MatchSuffixBody', s.Indent, s.MatchSuffixBranch.zeroOrMore()._as('branches'), s.Dedent)
+	g.rule('MatchSuffixBody', s.Indent, s.MatchSuffixBranch.oneOrMore()._as('branches'), s.Dedent)
 	g.rule('MatchSuffix', s._match, g.agroup(s.MatchSuffixBody)._as('branches'))
 	g.group('Prefixes', s.Literal, g.rule('Exception', s.THROW_OPERATOR, s.Expression._as('expression')), g.rule('Instanciation', s.NEW_OPERATOR, g.agroup(s.FQName, s.Parentheses)._as('target'), s.Invocation._as('params')), g.rule('ComputationPrefix', s.PREFIX_OPERATOR, s.Expression), s.NAME, s.Parentheses)
 	s.Suffixes.set(s.TypeSuffix, s.Chain, s.IterationSuffix, s.ConditionSuffix, s.ComputationInfix, s.Trigger, s.MatchSuffix, s.Decomposition, s.Access, s.Slice, s.Invocation, s.InfixInvocation)

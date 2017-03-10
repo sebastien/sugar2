@@ -2,14 +2,16 @@ Sugar Programming Language
 ==========================
 
 Sugar is a *transpiler* that targets JavaScript and Python, it is intended
-to be a syntax sugar overlay on top of the target language/platform, and as
+to be a *syntax sugar overlay* on top of the target language/platform, and as
 such does not provide a cross-platform abstraction layer.
 
-The language itself is designed to help developers focus on software
-architecture, to minimize discrepencies in code presentation and ease the
-development of software engineering tools. In essence, Sugar is meant
-to provide a consistent, tool and human-friendly syntax that minimize errors
-and maximizes expressivity.
+The language is designed with the following priorities in mind:
+
+- Favor decomposition and reuse using OOP constructs
+- Encourage functional-style programming for data processing
+- Minimize discrepancies in code presentation between developers
+- Provide a foundation for building software/code engineering tools
+- Remove superflous syntax
 
 Here's an example of Sugar code:
 
@@ -23,78 +25,31 @@ Here's an example of Sugar code:
 
 	@method greet name:String
 		print (message + name)
-	@end
 
-@end
 ```
 
-this gets translated to the following JavaScript, using the [extend](http://github.com/sebastien/extend) library.
+It's good to note the following decisions were made regarding the syntax:
 
-```javascript
-// 8< ---[hello.js]---
-var hello=(typeof(extend)!='undefined' && extend && extend.module && extend.module("hello")) || hello || {};
-(function(hello){
-var self=hello, __module__=hello
-hello.Hello = extend.Class({
-	// A simple object-oriented hello world
-	name:'hello.Hello', parent:undefined,
-	properties:{
-		message:undefined
-	},
-	initialize:function(){
-		var self=this;
-		if (typeof(self.message)=='undefined') {self.message = "hello, ";};
-	},
-	methods:{
-		greet:function(name){
-			var self=this;
-			extend.print((self.message + name));
-		}
-	}
-})
-hello.init = 	function(){
-		var self=hello;
-		new __module__.Hello().greet("world")
-	}
-if (typeof(__module__.init)!="undefined") {__module__.init();}
-})(hello);
-```
+- Indentation is with *tabs only*. It makes it easier for people to adjust
+  the indentation size in their editor and makes tools parsing Sugar code
+  easier.
 
-and the following Python (no dependency)
+- Structural elements are prefixed by `@`, like `@module`, `@class`, etc‥, which makes it easy to parse
+  the structure without having to worry about the whole language (ie. fast ctags) while
+  also preventing names/keyword clashes.
 
-```python
-#8< ---[hello.py]---
-#!/usr/bin/env python
-import sys
-__module__ = sys.modules[__name__]
-__module_name__ = 'hello'
-class Hello:
-	"""A simple object-oriented hello world"""
-	def __init__( self, *args, **kwargs ):
-		"""Constructor wrapper to intialize class attributes"""
-		self.message = 'hello, '
-	def greet(self, name):
-		print ((self.message + name))
-	
-
-def __module_init__():
-	Hello().greet('world')
-__module_init__()
-```
-
-The syntax has the following characteristics
-
-- Tab-based indentation
-- Optional parentheses for first argument (`f 10`)
-- Space to denote decomposition (`a b` instead of `a.b`)
-- Structural elements prefixed by `@`, like `@module`, `@class`, etc‥
-- Explicit `end` for constructs
-- Collections operators ('::' to iterate, '::=' to map, '::?' to filter)
+- Space is used to denote decomposition (`a b` instead of `a.b`)
 
 Sugar requires Python (2 or 3) and a C compiler to compile its parser (implemented
 using [libparsing](https://github.com/sebastien/libparsing) and using
 [λfactory](https://github.com/sebastien/lambdafactory) as a backend). Sugar also works
 on PyPy.
+
+Sugar currently comes with 3 backends:
+
+- JavaScript
+- ECMAScript
+- Python
 
 Installing
 ==========
@@ -102,7 +57,6 @@ Installing
 ```shell
 pip install --user sugar2
 ```
-
 
 Usage
 =====
@@ -175,6 +129,11 @@ Chaining
 :	```
  	```
 
+Continuing
+
+:	```
+ 	```
+
 Iterating
 
 :	```
@@ -189,6 +148,12 @@ Filtering
 
 :	```
  	```
+
+Folding
+
+:	```
+ 	```
+
 
 Invocation
 
@@ -208,7 +173,13 @@ If/else (conditionals)
 :	```
  	```
 
-While (loops)
+For loops
+
+:	```
+ 	```
+
+While loops
+
 
 :	```
  	```
@@ -228,6 +199,13 @@ Continue
 :	```
 	```
 
+Pattern matching
+
+:	```
+ 	```
+
+
+
 Documentation
 -------------
 
@@ -237,6 +215,15 @@ Comments
 	```
 
 Docstrings
+
+:	```
+	```
+
+Examples
+
+:	```
+	```
+Unit testing
 
 :	```
 	```
@@ -269,7 +256,35 @@ Classes
 :	```
 	```
 
+Traits
+
+:	```
+	```
+
+Singletons
+
+:	```
+	```
+
 Guards
+
+:	```
+	```
+
+Decorators
+
+:	```
+	``
+
+Types
+---------
+
+Enumeration
+
+:	```
+ 	```
+
+Types
 
 :	```
 	```
