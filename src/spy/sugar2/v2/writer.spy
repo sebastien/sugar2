@@ -420,7 +420,7 @@
 		let event  = F _event (name, None, F _string (name))
 		let method = F createMethod ("on" + name[0] upper () + name[1:])
 		if doc
-			method setDocumentation (F doc (doc))
+			method setDocumentation (doc)
 		end
 		method addAnnotation (F annotation ("event", name))
 		return [event, method]

@@ -300,7 +300,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		event=F._event(name, None, F._string(name))
 		method=F.createMethod((('on' + name[0].upper()) + name[1:]))
 		if doc:
-			method.setDocumentation(F.doc(doc))
+			method.setDocumentation(doc)
 		method.addAnnotation(F.annotation('event', name))
 		return [event, method]
 	
