@@ -55,7 +55,6 @@
 | ```
 
 	@shared OPERATORS = [
-		["!+", "!-"]
 		["."]
 		["or"]
 		["and"]
@@ -255,7 +254,7 @@
 			return process
 		end
 		if len(process operations) == 0
-	 		return process
+			return process
 		end
 		let last_operation = process operations[-1]
 		let ret            = None
@@ -1017,8 +1016,17 @@
 						chain addGroup (branch)
 					end
 					value = chain
-				elif name == "Trigger"
-					value = F trigger_args (value, args[1])
+				elif name == "EventOperation"
+					var op    = args[1]
+					var name  = args[2]
+					var param = args[3]
+					if op == "!"
+						value = F triggerEvent (value, name, param)
+					elif op == "!+"
+						value = F bindEvent (value, name, param)
+					elif op == "!-"
+						value = F unbindEvent (value, name, param)
+					end
 				elif name == "TypeSuffix"
 					value = F typeof (value, args[1])
 				else
@@ -1273,10 +1281,9 @@
 		return args
 	@end
 
-	@method onTrigger match
+	@method onEventOperation match, operator, name, value
 	| Returns ("Invocation", [args])
-		let args = process (match["value"])
-		return [match name, args]
+		return [match name, operator[0], name, value]
 	@end
 
 	@method onInvocation match

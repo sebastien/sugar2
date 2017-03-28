@@ -624,24 +624,29 @@ New features
 	```
 
 
-
-	Events can then be triggered using the `!` operator
+	Events can then be triggered using the `!` operator which works like
 
 	```
-	success !
-	success ! (arguments)
+	TARGET !  EVENT (ARGUMENTS)     # Triggers EVENT on TARGET with ARGUMENTS
+	TARGET !+ EVENT (CALLBACK)      # Binds CALLBACK from EVENT on TARGET
+	TARGET !- EVENT (CALLBACK)      # Unbinds CALLBACK from EVENT on TARGET
+	```
+
+	```
+	self ! Add  (element)
+	self ! "add" (element)
 	```
 
 	It is possible to bind to an event using the `!+` operator
 
 	```
-	value success !+ callback
+	self !+ Success (callback)
 	```
 
 	and unbind using the `!-` operator:
 
 	```
-	value success !- callback
+	self !- Success (callback)
 	```
 
 

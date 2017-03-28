@@ -148,11 +148,12 @@
 	g token     ("FQNAME",           "(\\\?)([\$_A-Za-z][\._\w]*)")
 	g token     ("KEY",              "[\$_\-A-Za-z][_\-\w]*")
 	# TODO: Add "not in"
-	g token     ("INFIX_OPERATOR",   "([\-\+\*\/\%]|\<=|\>=|\<\<?|\>\>?|==|\!=|\.\.|‥|\|\||&&|\||not\s+in\s+|in\s+|and\s+|or\s+|is\s+not\s+|is\s+|\*\*|\!\+|\!\-)")
+	g token     ("INFIX_OPERATOR",   "([\-\+\*\/\%]|\<=|\>=|\<\<?|\>\>?|==|\!=|\.\.|‥|\|\||&&|\||not\s+in\s+|in\s+|and\s+|or\s+|is\s+not\s+|is\s+|\*\*)")
 	g token     ("PREFIX_OPERATOR",  "(not\s+|\-)")
 	g token     ("NEW_OPERATOR",     "new\s+")
 	g token     ("THROW_OPERATOR",   "(raise|throw)\s+")
 	g token     ("ASSIGN_OPERATOR",  "[\?\*\+\-\/\%]?=")
+	g token     ("EVENT_OPERATOR",   "\![\+\-]?")
 	g token     ("SYMBOLIC",         "None|Undefined|Nothing|Timeout")
 	g token     ("STRING_SQ",        "'(\\\\'|[^'\\n])*'")
 	g token     ("STRING_DQ",        "\"(\\\\\"|[^\"\\n])*\"")
@@ -303,7 +304,7 @@
 	g rule      ("Chain",            g agroup (s ELLIPSIS, s COLON) _as "type", s ChainLine oneOrMore () _as "lines")
 	g rule      ("IterationSuffix",  s ITERATOR _as "op", s Expression _as "rvalue")
 	g rule      ("ConditionSuffix",  g agroup (s _if, s _else) _as "type", s SPACE, s Expression _as "value")
-	g rule      ("Trigger",          s BANG, s Arguments optional () _as "value")
+	g rule      ("EventOperation",   s EVENT_OPERATOR _as "operator", g agroup (s Reference, s String) _as "name", s Arguments optional () _as "value")
 	g rule      ("TypeSuffix",       s _type, s TypeValue _as "type")
 
 	g rule      ("MatchSuffixLine",   s ARROW, s Expression _as "body")
@@ -317,6 +318,7 @@
 		g rule  ("Exception",        s THROW_OPERATOR, s Expression _as "expression")
 		g rule  ("Instanciation",    s NEW_OPERATOR,   g agroup (s FQName, s Parentheses) _as "target", s Invocation _as "params")
 		g rule  ("ComputationPrefix",s PREFIX_OPERATOR, s Expression)
+		s EventOperation
 		s NAME
 		s Parentheses
 	)
@@ -326,7 +328,7 @@
 		s IterationSuffix
 		s ConditionSuffix
 		s ComputationInfix
-		s Trigger
+		s EventOperation
 		s MatchSuffix
 		s Decomposition
 		s Access
