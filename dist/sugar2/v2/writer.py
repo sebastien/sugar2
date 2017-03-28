@@ -34,7 +34,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	return code
 	@end
 	```"""
-	OPERATORS = [['!+', '!-'], ['.'], ['or'], ['and'], ['not'], ['>', '>=', '<', '<=', '!=', '==', 'is', 'is not', 'in', 'not in'], ['::', '::<', '::>', '::?', '::='], ['..', '\xe2\x80\xa5'], ['+', '-'], ['|', '&', '<<', '>>'], ['/', '*', '%', '//'], ['/=', '*=', '%=', '+=', '-=', '=']]
+	OPERATORS = [['.'], ['or'], ['and'], ['not'], ['>', '>=', '<', '<=', '!=', '==', 'is', 'is not', 'in', 'not in'], ['::', '::<', '::>', '::?', '::='], ['..', '\xe2\x80\xa5'], ['+', '-'], ['|', '&', '<<', '>>'], ['/', '*', '%', '//'], ['/=', '*=', '%=', '+=', '-=', '=']]
 	OPERATORS_NORMALIZED = {'||':'|', '&&':'&', '|':'.'}
 	def __init__ (self, grammar, path=None):
 		self.module = None
@@ -714,8 +714,16 @@ class LambdaFactoryBuilder(libparsing.Processor):
 						branch=self._applySuffixes(F._implicitref(chain), _)
 						chain.addGroup(branch)
 					value = chain
-				elif (name == 'Trigger'):
-					value = F.trigger_args(value, args[1])
+				elif (name == 'EventOperation'):
+					op=args[1]
+					name=args[2]
+					param=args[3]
+					if (op == '!'):
+						value = F.triggerEvent(value, name, param)
+					elif (op == '!+'):
+						value = F.bindEvent(value, name, param)
+					elif (op == '!-'):
+						value = F.unbindEvent(value, name, param)
 				elif (name == 'TypeSuffix'):
 					value = F.typeof(value, args[1])
 				elif True:
@@ -882,10 +890,9 @@ class LambdaFactoryBuilder(libparsing.Processor):
 					args.append(_)
 		return args
 	
-	def onTrigger(self, match):
+	def onEventOperation(self, match, operator, name, value):
 		"""Returns ("Invocation", [args])"""
-		args=self.process(match['value'])
-		return [match.name, args]
+		return [match.name, operator[0], name, value]
 	
 	def onInvocation(self, match):
 		"""Returns ("Invocation", [args])"""
