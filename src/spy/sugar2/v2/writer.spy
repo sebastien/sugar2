@@ -416,7 +416,13 @@
 	@method onEvent match
 		var name   = process(match["name"])[0] getReferenceName ()
 		var doc    = process(match["documentation"])
-		let event  = F _event (name, None, F _string (name))
+		var value  = process(match["value"])
+		if value
+			value = value[1]
+		else
+			value = F _string (name)
+		end
+		let event  = F _event (name, None, value)
 		let method = F createMethod ("on" + name[0] upper () + name[1:])
 		if doc
 			method setDocumentation (doc)

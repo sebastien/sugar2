@@ -248,7 +248,7 @@ def createProgramGrammar (g=None):
 	declaration(g, 'ClassAttribute', s.oshared)
 	declaration(g, 'ModuleAttribute', s.oshared)
 	declaration(g, 'Attribute', s.oproperty)
-	g.rule('Event', s.CheckIndent, s.oevent, s.NameType._as('name'), s.EOL, s.Documentation.optional()._as('documentation'))
+	g.rule('Event', s.CheckIndent, s.oevent, s.NameType._as('name'), g.arule(s.EQUALS, s.String).optional()._as('value'), s.EOL, s.Documentation.optional()._as('documentation'))
 	function(g, 'Getter', s.ogetter)
 	function(g, 'Setter', s.osetter)
 	abstractFunction(g, 'AbstractMethod', s.omethod)
