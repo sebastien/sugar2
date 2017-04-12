@@ -282,7 +282,7 @@
 				last_operation addAnnotation "last"
 				return process
 			elif isinstance(last_operation, interfaces IOperation)
-				process removeOperationAt(-1)
+				process removeOperationAt (-1)
 				ret = F returns (last_operation)
 			end
 		end
@@ -1102,7 +1102,7 @@
 			return F enumerate (lvalue, rvalue) addAnnotation ("operator", op) addAnnotation ("priority", getOperatorPriority (op))
 		elif op == "%" and isinstance(lvalue, interfaces IString)
 			# This is an interpolation
-			return F interpolate (lvalue, rvalue)addAnnotation ("operator", op) addAnnotation ("priority", getOperatorPriority (op))
+			return F interpolate (lvalue, rvalue) addAnnotation ("operator", op) addAnnotation ("priority", getOperatorPriority (op))
 		elif op == "."
 			var l = [rvalue]
 			if rvalue hasAnnotation "nested-invocation"
@@ -1551,7 +1551,7 @@
 				if len(closure operations) > 0
 					let lop = closure operations [-1]
 					if lop hasAnnotation "implicit"
-						closure removeOperationAt -1
+						closure removeOperationAt (-1)
 						closure addOperation (lop getOpArgument 0)
 					end
 				end

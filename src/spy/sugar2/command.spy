@@ -10,7 +10,6 @@
 # -----------------------------------------------------------------------------
 @module  sugar2
 @version 0.9.1
-@target  Python
 @import  os, sys, io, tempfile
 @import  Command  from lambdafactory.main
 @import  Parser   from sugar2.parser

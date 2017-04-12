@@ -214,7 +214,7 @@
 			return process
 		end
 		if len(process operations) == 0
-	 		return process
+			return process
 		end
 		let last_operation = process operations[-1]
 		let ret            = None
