@@ -140,7 +140,7 @@
 	g token     ("INFIX_OPERATOR",   "([\-\+\*\/\%]|\<=|\>=|\<\<?|\>\>?|==|\!=|\.\.|‥|\|\||&&|not\s+in\s+|in\s+|and\s+|or\s+|is\s+not\s+|is\s+|\*\*)")
 	g token     ("PREFIX_OPERATOR",  "(not\s+|\-)")
 	g token     ("NEW_OPERATOR",     "new\s+")
-	g token     ("THROW_OPERATOR",   "(raise|throw)\s+")
+	g token     ("THROW_OPERATOR",   "raise|throw")
 	g token     ("ASSIGN_OPERATOR",  "[\?\*\+\-\/\%]?=")
 	g token     ("SYMBOLIC",         "None|Undefined|Nothing|Timeout")
 	g token     ("STRING_SQ",        "'(\\\\'|[^'\\n])*'")
@@ -165,7 +165,7 @@
 	g word      ("SEMICOLON",        ";")
 	g word      ("PIPE",             "|")
 	g word      ("EQUALS",           "=")
-	# g word      ("WILDCARD",         "*")
+	g word      ("STAR",             "*")
 	g condition ("NOTHING")
 	# Keywords
 	g word      ("_var",             "var")
@@ -189,6 +189,7 @@
 	# g word      ("olicense",         "@license")
 	g word      ("ofunction",        "@function")
 	g word      ("oclass",           "@class")
+	g word      ("oprotocol",        "@protocol")
 	g word      ("oproperty",        "@property")
 	g word      ("oshared",          "@shared")
 	g word      ("ooperation",       "@operation")
@@ -264,7 +265,7 @@
 	g rule      ("IterationSuffix",  s ITERATOR _as "op", s Expression _as "rvalue")
 	g group     ("Prefixes"
 		s Literal
-		g rule  ("Exception",        s THROW_OPERATOR, s Expression _as "expression")
+		g rule  ("Exception",        s THROW_OPERATOR, s SPACE, s Expression _as "expression")
 		g rule  ("Instanciation",    s NEW_OPERATOR,   g agroup (s FQName, s Parentheses) _as "target", s Invocation _as "params")
 		g rule  ("ComputationPrefix",s PREFIX_OPERATOR, s Expression)
 		s ConditionalExpression
@@ -371,10 +372,21 @@
 		s Dedent
 		g aword "@end"
 	)
+	g rule  ("Interface"
+		s oprotocol
+		s NAME _as "name"
+		g arule (s COLON, listOf (s FQName, s COMMA, g)) optional () _as "inherits"
+		s EOL
+		s Documentation optional () _as "documentation"
+		s Indent
+		g agroup (s ClassAttribute, s Attribute, s ClassMethod, s AbstractMethod, s Constructor, s Methods) zeroOrMore () _as "body"
+		s Dedent
+		g aword "@end"
+	)
 	g rule  ("ModuleAnnotation",      s omodule,   s FQName, s EOL)
 	g rule  ("VersionAnnotation",     s oversion,  s VERSION, s EOL)
 	g rule  ("ImportAlias",           s _as,       s NAME)
-	g rule  ("ImportSymbol",          s FQNAME,    s ImportAlias optional ())
+	g rule  ("ImportSymbol",          g agroup (s FQNAME, s STAR),    s ImportAlias optional ())
 	g rule  ("ImportOrigin",          s _from,     s FQNAME)
 	g rule  ("Import"
 		s oimport
@@ -394,7 +406,7 @@
 		s Documentation      optional   () _as "documentation"
 		s Import             zeroOrMore () _as "imports"
 	)
-	g group     ("Structure",          s EmptyLines, s Comment, s ModuleAttribute, s Function, s Class)
+	g group     ("Structure",          s EmptyLines, s Comment, s ModuleAttribute, s Function, s Class, s Interface)
 	g rule      ("Module",             s ModuleDeclaration,  s Structure zeroOrMore (), s Code zeroOrMore ())
 
 	g skip      = g agroup (s SPACE)

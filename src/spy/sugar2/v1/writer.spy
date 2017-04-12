@@ -312,16 +312,46 @@
 
 	@method onClass match
 		# We start by binding the scope
-		var name      = process (match["name"])
+		var name      = process (match["name"]) getReferenceName ()
 		let inherits  = []
 		let parents   = []
 		for _ in access (process (match["inherits"]), 1) or []
-			if _ -> inherits append (_)
+			if isinstance(_, interfaces IReference)
+				inherits append (_)
+			else
+				for v in _
+					inherits append (v[0])
+				end
+			end
 		end
 		var res         = F createClass (name, inherits)
 		let is_abstract = match[0]
 		let doc         = process(match[5])
 		let body        = process(match[7])
+		res setDocumentation (doc)
+		res setAbstract      (is_abstract and True)
+		_bind (res, body)
+		return res
+	@end
+
+	@method onInterface match
+		# We start by binding the scope
+		var name      = process (match["name"]) getReferenceName ()
+		let inherits  = []
+		let parents   = []
+		for _ in access (process (match["inherits"]), 1) or []
+			if isinstance(_, interfaces IReference)
+				inherits append (_)
+			else
+				for v in _
+					inherits append (v[0])
+				end
+			end
+		end
+		var res         = F createInterface (name, inherits)
+		let is_abstract = match[0]
+		let doc         = process(match[4])
+		let body        = process(match[6])
 		res setDocumentation (doc)
 		res setAbstract      (is_abstract and True)
 		_bind (res, body)
@@ -467,7 +497,7 @@
 
 	@method onImportSymbol match
 		return [
-			process (match[0])[0]
+			process (match[0])[0][0]
 			process (match[1])
 		]
 	@end
@@ -477,7 +507,7 @@
 	@end
 
 	@method onImportAlias match
-		return process (match[1])
+		return process (match[1]) getReferenceName ()
 	@end
 
 	@method onImport match
@@ -487,7 +517,10 @@
 		var symbols = []
 		@embed Python
 		|names   = [_[1] for _ in names]
-		|symbols = [_[0] for _ in [name] + (names or [])]
+		|if not origin:
+		|	symbols = [F.importModule(_[0], _[1]) for _ in [name] + (names or [])]
+		|else:
+		|	symbols = [F.importSymbol(_[0], origin, _[1]) for _ in [name] + (names or [])]
 		@end
 		# FIXME: LF's import system should be rewritten
 		# TODO: Support 'as' for multiple symbols
@@ -902,7 +935,7 @@
 	@end
 
 	@method onException match
-		return F exception (process (match[1]))
+		return F exception (process (match["expression"]))
 	@end
 
 	@method onInstanciation match

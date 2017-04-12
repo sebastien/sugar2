@@ -1,6 +1,5 @@
 @class A
 
 	@shared image
-	@(fleximage source="tiles.png")
+	!memoize ("image")
 
-@end

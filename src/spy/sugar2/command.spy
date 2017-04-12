@@ -31,8 +31,8 @@
 	@method setupEnvironment
 		var python_plugin       = self environment loadLanguage("python")
 		var javascript_plugin   = self environment loadLanguage("javascript")
-		python_plugin       addRecognizedExtension("spy")
-		javascript_plugin   addRecognizedExtension("sjs")
+		python_plugin       addRecognizedExtension ("spy")
+		javascript_plugin   addRecognizedExtension ("sjs")
 		self environment addParser (new Parser(self, version), "sg spy sjs" split())
 	@end
 
