@@ -1135,7 +1135,7 @@
 				if len(closure operations) > 0
 					let lop = closure operations [-1]
 					if lop hasAnnotation "implicit"
-						closure removeOperationAt -1
+						closure removeOperationAt (-1)
 						closure addOperation (lop getOpArgument 0)
 					end
 				end

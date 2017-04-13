@@ -1061,7 +1061,7 @@
 	@method _applyComputationInfix value, op, rvalue
 		# NOTE: See onComputationPrefix for more info on computation prefixes
 		# We get the leftmost computation of the rvalue
-		let	lrvalue = _getLeftmostComputation (rvalue)
+		let lrvalue = _getLeftmostComputation (rvalue)
 		var result  = None
 		# This is the case for C == 0 if A else B. Selection should probably
 		# be a match expression with the binaryoperation interface
