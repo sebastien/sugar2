@@ -36,7 +36,7 @@ DIST_ALL        =$(DIST_PY) $(DIST_MODULES) $(DIST_HTML)
 
 # === TOOLS ===================================================================
 
-SUGAR           =sugar
+SUGAR           =sugar1
 PYTHON          =PYTHONPATH=$(SOURCES)/py:$(PYTHONPATH) && python3.5
 PANDOC          =pandoc
 

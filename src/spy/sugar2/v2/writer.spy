@@ -833,7 +833,12 @@
 	@method onCatchBlock match
 		var body      = process(match["body"])
 		var param     = process(match["param"])
-		var args      = [F _param(param[0] getReferenceName ())]
+		var args      = []
+		if param
+			args append (F _param (args[0] getReferenceName ()))
+		else
+			args append (F _param ("exception"))
+		end
 		var block     = F createClosure (args)
 		_addCode (block, body)
 		return block
