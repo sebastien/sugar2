@@ -212,16 +212,38 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		return F.annotation('version', version)
 	
 	def onClass(self, match):
-		name=self.process(match['name'])
+		name=self.process(match['name']).getReferenceName()
 		inherits=[]
 		parents=[]
 		for _ in (self.access(self.process(match['inherits']), 1) or []):
-			if _:
+			if isinstance(_, interfaces.IReference):
 				inherits.append(_)
+			elif True:
+				for v in _:
+					inherits.append(v[0])
 		res=F.createClass(name, inherits)
 		is_abstract=match[0]
 		doc=self.process(match[5])
 		body=self.process(match[7])
+		res.setDocumentation(doc)
+		res.setAbstract((is_abstract and True))
+		self._bind(res, body)
+		return res
+	
+	def onInterface(self, match):
+		name=self.process(match['name']).getReferenceName()
+		inherits=[]
+		parents=[]
+		for _ in (self.access(self.process(match['inherits']), 1) or []):
+			if isinstance(_, interfaces.IReference):
+				inherits.append(_)
+			elif True:
+				for v in _:
+					inherits.append(v[0])
+		res=F.createInterface(name, inherits)
+		is_abstract=match[0]
+		doc=self.process(match[4])
+		body=self.process(match[6])
 		res.setDocumentation(doc)
 		res.setAbstract((is_abstract and True))
 		self._bind(res, body)
@@ -325,13 +347,13 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		return res
 	
 	def onImportSymbol(self, match):
-		return [self.process(match[0])[0], self.process(match[1])]
+		return [self.process(match[0])[0][0], self.process(match[1])]
 	
 	def onImportOrigin(self, match):
 		return self.process(match[1])[0]
 	
 	def onImportAlias(self, match):
-		return self.process(match[1])
+		return self.process(match[1]).getReferenceName()
 	
 	def onImport(self, match):
 		name=self.process(match[1])
@@ -339,7 +361,10 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		origin=self.process(match[3])
 		symbols=[]
 		names   = [_[1] for _ in names]
-		symbols = [_[0] for _ in [name] + (names or [])]
+		if not origin:
+			symbols = [F.importModule(_[0], _[1]) for _ in [name] + (names or [])]
+		else:
+			symbols = [F.importSymbol(_[0], origin, _[1]) for _ in [name] + (names or [])]
 		
 		if (not origin):
 			if (len(names) == 0):
@@ -628,7 +653,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		return expr
 	
 	def onException(self, match):
-		return F.exception(self.process(match[1]))
+		return F.exception(self.process(match['expression']))
 	
 	def onInstanciation(self, match):
 		name=self.process(match['target'])[0]
