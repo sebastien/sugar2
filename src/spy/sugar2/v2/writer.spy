@@ -835,7 +835,7 @@
 		var param     = process(match["param"])
 		var args      = []
 		if param
-			args append (F _param (args[0] getReferenceName ()))
+			args append (F _param (param[0] getReferenceName ()))
 		else
 			args append (F _param ("exception"))
 		end
