@@ -32,8 +32,8 @@ def abstractFunction (grammar, name, prefix):
 
 
 def listOf (rule, separator, grammar):
-	"""Creates a new list of the given rule, separated by the given separator
-	in the given grammar"""
+	""" Creates a new list of the given rule, separated by the given separator
+	 in the given grammar"""
 	self=__module__
 	return grammar.arule(grammar.arule(rule, separator).zeroOrMore(), rule)
 

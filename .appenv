@@ -1,4 +1,4 @@
 appenv_name    sugar2
-appenv_declare SUGAR2        `dirname \`readlink -f $APPENV_FILE\``
-appenv_prepend PATH          $SUGAR2/bin 
-appenv_prepend PYTHONPATH    $SUGAR2/.build
+appenv_declare SUGAR2_HOME  `dirname \`readlink -f $APPENV_FILE\``
+appenv_prepend PATH          $SUGAR2_HOME/bin 
+appenv_prepend PYTHONPATH    $SUGAR2_HOME/.build

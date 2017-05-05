@@ -15,6 +15,7 @@
 @import  Factory              from lambdafactory.modelbase
 @import  lambdafactory.passes as passes
 @import  lambdafactory.resolution as resolution
+@import  math
 
 @shared F = new Factory ()
 
@@ -1904,10 +1905,12 @@
 		return F _number (decoded)
 	@end
 
-	@method onTIME match
+	@method onNUMBER_UNIT match
 		let t = process(match)[0]
 		var v = 0
-		if  t endswith("ms")
+		if  t endswith("deg")
+			v = float(t[0:-3]) * math PI
+		elif  t endswith("ms")
 			v = float(t[0:-2])
 		elif t endswith("s")
 			v = float(t[0:-1]) * 1000

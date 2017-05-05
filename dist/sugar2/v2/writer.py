@@ -7,6 +7,7 @@ from lambdafactory import interfaces
 from lambdafactory.modelbase import Factory
 import lambdafactory.passes as passes
 import lambdafactory.resolution as resolution
+import math
 __module_name__ = 'sugar2.v2.writer'
 __version__ = '0.9'
 F = Factory()
@@ -1319,10 +1320,12 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		decoded=eval(raw)
 		return F._number(decoded)
 	
-	def onTIME(self, match):
+	def onNUMBER_UNIT(self, match):
 		t=self.process(match)[0]
 		v=0
-		if t.endswith('ms'):
+		if t.endswith('deg'):
+			v = (float(t[0:-3]) * math.PI)
+		elif t.endswith('ms'):
 			v = float(t[0:-2])
 		elif t.endswith('s'):
 			v = (float(t[0:-1]) * 1000)

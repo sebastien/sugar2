@@ -11,29 +11,29 @@ __module_name__ = 'sugar2.v1.writer'
 __version__ = '0.9'
 F = Factory()
 class LambdaFactoryBuilder(libparsing.Processor):
-	"""Converts a parse tree into a Lambda Factory program model, which can then
-	be translated to one of Lambda Factory's target language.
+	""" Converts a parse tree into a Lambda Factory program model, which can then
+	 be translated to one of Lambda Factory's target language.
 	
-	Each `onXXX` should return a corresponding LambdaFactory model, or a list
-	of them. The basic structure for a `onXXX` (where `XXX` is the rule name) is
-	like that:
+	 Each `onXXX` should return a corresponding LambdaFactory model, or a list
+	 of them. The basic structure for a `onXXX` (where `XXX` is the rule name) is
+	 like that:
 	
-	```
-	@method on<RuleName> element, data, context
-	# element is the `parsing.Element` subclass
-	# data is the raw data returned by the element `process` method
-	# context is the `parsing.ParsingContext` instance
-	#
-	# Here, we retrieve the part of the data for the "code" rule. The
-	# code_data will contain one or more (element, data, context) triples.
-	var code_data = element resolve ("code", data)
-	# And we apply the rules for the specific elements, and retrieve a
-	# lambda factory object
-	var code      = on (code_data)
-	# We should then do something with the object...
-	return code
-	@end
-	```"""
+	 ```
+	 @method on<RuleName> element, data, context
+	     # element is the `parsing.Element` subclass
+	     # data is the raw data returned by the element `process` method
+	     # context is the `parsing.ParsingContext` instance
+	     #
+	     # Here, we retrieve the part of the data for the "code" rule. The
+	     # code_data will contain one or more (element, data, context) triples.
+	     var code_data = element resolve ("code", data)
+	     # And we apply the rules for the specific elements, and retrieve a
+	     # lambda factory object
+	     var code      = on (code_data)
+	     # We should then do something with the object...
+	     return code
+	 @end
+	 ```"""
 	OPERATORS = [['or'], ['and'], ['not'], ['>', '>=', '<', '<=', '!=', '==', 'is', 'is not', 'in', 'not in'], ['::', '::<', '::>', '::?', '::='], ['..', '\xe2\x80\xa5'], ['+', '-'], ['|', '&', '<<', '>>'], ['/', '*', '%', '//'], ['/=', '*=', '%=', '+=', '-=', '=']]
 	OPERATORS_NORMALIZED = {'||':'|', '&&':'&'}
 	def __init__ (self, grammar, path=None):
@@ -73,7 +73,6 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		operator = operator.replace("\t"," ").replace("\n"," ")
 		operator = " ".join((_.strip() for _ in operator.split() if _.strip()))
 		operator = self.OPERATORS_NORMALIZED.get(operator) or operator
-		
 		return operator
 	
 	def getOperatorPriority(self, operator):
@@ -86,8 +85,8 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		raise Exception(((('getOperatorPriority: Unknown operator ' + repr(operator)) + ', must be one of ') + repr(self.__class__.OPERATORS)))
 	
 	def _var(self, name=None, context=None):
-		"""Lists the variables defined in the given context or gets the
-		variable with the given name."""
+		""" Lists the variables defined in the given context or gets the
+		 variable with the given name."""
 		if name is None: name = None
 		if context is None: context = self.context
 		if (not name):
@@ -96,7 +95,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 			return context.getVariables().get(name)
 	
 	def _bind(self, scope, referanceable):
-		"""Assigns the given referenceable to the current scope"""
+		""" Assigns the given referenceable to the current scope"""
 		if (isinstance(referanceable, list) or isinstance(referanceable, tuple)):
 			for _ in referanceable:
 				self._bind(scope, _)
@@ -108,12 +107,11 @@ class LambdaFactoryBuilder(libparsing.Processor):
 			return scope
 	
 	def filterNull(self, result):
-		"""Returns only the elements of result that have a value"""
+		""" Returns only the elements of result that have a value"""
 		return [_ for _ in result if _]
-		
 	
 	def _tryGet(self, list, index, default):
-		"""Tries to get the `index`th element of `list` or returns `default`"""
+		""" Tries to get the `index`th element of `list` or returns `default`"""
 		if (list and (len(list) > index)):
 			return list[index]
 		elif True:
@@ -143,7 +141,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 			return value
 	
 	def _ensureReturns(self, process):
-		"""Ensures that the given process returns a value at the end"""
+		""" Ensures that the given process returns a value at the end"""
 		if (((not isinstance(process, interfaces.IProcess)) or (not process.operations)) or (len(process.operations) == 0)):
 			return process
 		if (len(process.operations) == 0):
@@ -280,7 +278,6 @@ class LambdaFactoryBuilder(libparsing.Processor):
 			match["parameters"]
 		except KeyError:
 			import ipdb;ipdb.set_trace()
-		
 		params=self.access(self.access(self.process(match['parameters']), 0), 0)
 		doc=self.process(match['documentation'])
 		body=((hasBody and self.process(match['body'])) or None)
@@ -365,7 +362,6 @@ class LambdaFactoryBuilder(libparsing.Processor):
 			symbols = [F.importModule(_[0], _[1]) for _ in [name] + (names or [])]
 		else:
 			symbols = [F.importSymbol(_[0], origin, _[1]) for _ in [name] + (names or [])]
-		
 		if (not origin):
 			if (len(names) == 0):
 				return F.importModule(name[0], name[1])
@@ -398,8 +394,8 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		return res
 	
 	def onStatement(self, match):
-		"""Returns an `Element` or a list of `[Element]`. Typically these elements
-		would be Comments, Blocks or Operations."""
+		""" Returns an `Element` or a list of `[Element]`. Typically these elements
+		 would be Comments, Blocks or Operations."""
 		return self.process(match[0])
 	
 	def onConditionalExpression(self, match):
@@ -535,9 +531,9 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		return current
 	
 	def _reorderComputation(self, value):
-		"""Reorders a sequence of computations according to operators priorities.
-		This method is called by `onExpression` and applied from right
-		to left."""
+		""" Reorders a sequence of computations according to operators priorities.
+		 This method is called by `onExpression` and applied from right
+		 to left."""
 		if (((not isinstance(value, interfaces.IComputation)) or value.hasAnnotation('parens')) or value.hasAnnotation('reordered')):
 			return value
 		op1=value.getOperator()
@@ -564,7 +560,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 				return value
 	
 	def _applySuffixes(self, value, suffixes):
-		"""Applies the suffixes to the current value, modifying it"""
+		""" Applies the suffixes to the current value, modifying it"""
 		if suffixes:
 			for args in suffixes:
 				name=args[0]
@@ -616,7 +612,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		return value
 	
 	def onExpressionList(self, match):
-		"""Returns a list of expressions [model.Expression]"""
+		""" Returns a list of expressions [model.Expression]"""
 		head=self.process(match[0])
 		tail=self.process(match[1])
 		res=[head]
@@ -625,7 +621,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		return res
 	
 	def onExpressionBlock(self, match):
-		"""Returns a list of expressions [model.Expression]"""
+		""" Returns a list of expressions [model.Expression]"""
 		lines=self.process(match[1])
 		res=[]
 		for _ in lines:
@@ -660,10 +656,9 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		params=self.process(match['params'])[1]
 		if not (isinstance(params, list) or isinstance(params, tuple)): params = (params,)
 		return F.instanciate(name, *(params or []))
-		
 	
 	def onInvocation(self, match):
-		"""Returns ("Invocation", [args])"""
+		""" Returns ("Invocation", [args])"""
 		value=self.process(match[0])
 		args=[]
 		for _ in self._ensureList(value):
@@ -672,11 +667,11 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		return [match.name, args]
 	
 	def onComputationInfix(self, match):
-		"""Returns ("ComputationInfix", OPERATOR:String, Expression)"""
+		""" Returns ("ComputationInfix", OPERATOR:String, Expression)"""
 		return [match.name, self.normalizeOperator(self.process(match[0])[0]), self.process(match[1])]
 	
 	def onAccess(self, match):
-		"""Returns [("Access", INDEX:Element)]"""
+		""" Returns [("Access", INDEX:Element)]"""
 		return [match.name, self.process(match[1])]
 	
 	def onReference(self, match):
@@ -689,7 +684,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		return F.annotation('when', self.process(match['expression']))
 	
 	def onDecomposition(self, match):
-		"""Returns [("Decomposition", [ref:Reference])]"""
+		""" Returns [("Decomposition", [ref:Reference])]"""
 		return [match.name, self.process(match[1])]
 	
 	def onSlice(self, match):
@@ -707,14 +702,14 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		return suffixes
 	
 	def onChain(self, match):
-		"""Returns [("Decomposition", [ref:Reference])]"""
+		""" Returns [("Decomposition", [ref:Reference])]"""
 		lines=self.process(match[1])
 		return [match.name, lines]
 	
 	def onAllocation(self, match):
-		"""Returns a list of operations. If there's only one operation,
-		then it is a single allocation, otherwise it will be a mutliple
-		allocation with an automatic variable name."""
+		""" Returns a list of operations. If there's only one operation,
+		 then it is a single allocation, otherwise it will be a mutliple
+		 allocation with an automatic variable name."""
 		res=None
 		symbols=self.process(match[2])
 		rest=self.process(match[3])
@@ -832,7 +827,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		return self.filterNull((line + body))
 	
 	def onSymbolList(self, match):
-		"""Returns `[model.Reference]`"""
+		""" Returns `[model.Reference]`"""
 		head=self.process(match[0])
 		tail=(self.process(match[1]) or [])
 		more=self.process(match[2])
@@ -843,11 +838,11 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		return res
 	
 	def onNameType(self, match):
-		"""Returns a couple (name, type) where type might be None."""
+		""" Returns a couple (name, type) where type might be None."""
 		return [self.process(match[0]), self.process(match[1])]
 	
 	def onFQName(self, match):
-		"""A fully qualified name that will return an absolute reference"""
+		""" A fully qualified name that will return an absolute reference"""
 		head=self.process(match[0])
 		tail=self.process(match[1])
 		res=[head.getReferenceName()]

@@ -1,6 +1,6 @@
 #8< ---[sugar2/grammar/helpers.py]---
 #!/usr/bin/env python
-"""A collection of helper functions used by the grammar submodules"""
+""" A collection of helper functions used by the grammar submodules"""
 import sys
 __module__ = sys.modules[__name__]
 import sys
@@ -32,7 +32,6 @@ def doCheckIndent (element, context, min=None):
 		if context[i] == b"\t":
 			tabs += 1
 	return tabs == indent
-	
 
 
 def doCheckMinIndent (element, context):
@@ -66,8 +65,8 @@ def doBlockLastIsLine (element, context):
 
 
 def listOf (rule, separator, grammar):
-	"""Creates a new list of the given rule, separated by the given separator
-	in the given grammar"""
+	""" Creates a new list of the given rule, separated by the given separator
+	 in the given grammar"""
 	self=__module__
 	return grammar.arule(grammar.arule(rule, separator).zeroOrMore(), rule)
 

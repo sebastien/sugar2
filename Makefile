@@ -66,7 +66,6 @@ MAKEFILE_DIR    := $(notdir $(patsubst %/,%,$(dir $(MAKEFILE_PATH))))
 #
 # -----------------------------------------------------------------------------
 
-
 build: $(BUILD_ALL) ## Builds all the project assets
 
 dist: $(DIST_ALL) ## Updates the distribution of the project
@@ -104,7 +103,7 @@ $(BUILD_PATH)/%.py: $(SOURCES_PATH)/py/%.py
 $(BUILD_PATH)/%.py: $(SOURCES_PATH)/spy/%.spy
 	@echo "$(GREEN)📝  $@ [SPY]$(RESET)"
 	@mkdir -p `dirname $@`
-	@$(SUGAR) -L$(SOURCES_PATH)/spy -clpy $< > $@
+	$(SUGAR) -L$(SOURCES_PATH)/spy -clpy $< > $@
 	@cp --attributes-only --preserve=mode $< $@
 
 $(BUILD_PATH)%/__init__.py: $(SOURCES_PATH)/spy/%

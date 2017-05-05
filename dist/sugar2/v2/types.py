@@ -5,8 +5,8 @@ __module__ = sys.modules[__name__]
 from sugar2.helpers import listOf
 __module_name__ = 'sugar2.v2.types'
 def injectTypes (g):
-	"""Injects a rule with the given `name` into the grammar `g` that parses
-	type expressions."""
+	""" Injects a rule with the given `name` into the grammar `g` that parses
+	 type expressions."""
 	self=__module__
 	s=g.symbols
 	g.token('TYPE_VAR', '_|[A-Z][A-Z0-9]*')

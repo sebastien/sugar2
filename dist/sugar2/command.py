@@ -41,7 +41,6 @@ def process (text, version=None, options=None):
 	s = io.BytesIO ()
 	p = tempfile.mktemp(suffix=".sg")
 	with open(p,"w") as f: f.write(text)
-	
 	options = (options + ['-cles', p])
 	run(options, version, s)
 	os.unlink(p)
@@ -56,5 +55,4 @@ def __module_init__():
 		import sys
 		if not run(sys.argv[1:]).modules:
 			sys.exit(-1)
-	
 __module_init__()

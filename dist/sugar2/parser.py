@@ -22,11 +22,9 @@ class Parser:
 		if (version == 1):
 			import sugar2.v1.program
 			return sugar2.v1.program.createProgramGrammar()
-			
 		elif True:
 			import sugar2.v2.program
 			return sugar2.v2.program.createProgramGrammar()
-			
 	
 	def createBuilder(self, path, version=None):
 		if version is None: version = self.version
@@ -34,11 +32,9 @@ class Parser:
 		if (version == 1):
 			import sugar2.v1.writer
 			builder = sugar2.v1.writer.LambdaFactoryBuilder
-			
 		elif True:
 			import sugar2.v2.writer
 			builder = sugar2.v2.writer.LambdaFactoryBuilder
-			
 		return builder(self.grammar, path)
 	
 	def parseString(self, text, moduleName, path):
