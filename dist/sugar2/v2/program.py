@@ -105,7 +105,7 @@ def createProgramGrammar (g=None):
 	g.word('_catch', 'catch')
 	g.word('_finally', 'finally')
 	g.word('_match', 'match')
-	g.word('_type', 'isa')
+	g.word('_type', 'is?')
 	g.word('oabstract', '@abstract')
 	g.word('oimport', '@import')
 	g.word('otarget', '@target')
