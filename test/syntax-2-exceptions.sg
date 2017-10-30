@@ -1,0 +1,20 @@
+raise new MyException()
+
+try
+	f()
+
+try
+	f()
+finally
+	print "FINALLY"
+
+
+try
+	f()
+catch e
+	print ("Exception has happened", e)
+	a = 1
+finally
+	print ("There was an exception:", a)
+
+# EOF

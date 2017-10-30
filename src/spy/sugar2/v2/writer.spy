@@ -1036,6 +1036,8 @@
 						value = F triggerEvent (value, name, param)
 					elif op == "!+"
 						value = F bindEvent (value, name, param)
+					elif op == "!!"
+						value = F bindEventOnce (value, name, param)
 					elif op == "!-"
 						value = F unbindEvent (value, name, param)
 					end
@@ -1851,19 +1853,66 @@
 	# LITERALS
 	# =========================================================================
 
-	@method onStringLine match
-		# FIXME: Proper decoding
-		let text = process (match["text"])[0]
-		return text
+	@method onStringLine match, indent, text
+		return indent + text[0]
 	@end
 
-	@method onStringMulti match
-		let s = process(match[0])
-		let l = process(match[1])
-		let e = process(match[2])[1]
-		if s -> l insert (0, s)
-		if e -> l append (e)
-		return "\\n" join (l)
+	@method onStringMulti match, start, lines, end
+		if start
+			insert (0, s)
+		end
+		var r = []
+		let p = _getCommonStringPrefix (lines)
+		if p
+			let i = len(p)
+			for l in lines
+				r append (l[i:])
+			end
+		else
+			r = r + lines
+		end
+		if end
+			r append (end)
+		end
+		return "\\n" join (r)
+	@end
+
+
+	@method onStringMultiEnd match, end
+		return end
+	@end
+
+	@method _getCommonStringPrefix stringList
+	| Returns the shortest prefix common to all the strings in the
+	| given list. This is used by mutli-line strings to prune the leading
+	| spaces.
+		var prefix = None
+		var j      = 100
+		for l in stringList
+			if l
+				var i = 0
+				var k = len(l)
+				while i < k and i < j and l[i] in "\t "
+					i += 1
+				end
+				var p = l[:i]
+				if prefix is None
+					prefix = l[:i]
+					j = min(i,j)
+				else
+					var i = 0
+					var k = min(len(prefix),len(p))
+					while i < k and prefix[i] == p[i]
+						i += 1
+					end
+					if i != k
+						prefix = p[:k]
+					end
+					j = min(k,j)
+				end
+			end
+		end
+		return prefix
 	@end
 
 	@method onSTRING_SQ match
@@ -2005,10 +2054,10 @@
 	# 	end
 	# @end
 
-	@method onCheckIndent match
+	@method onCheckIndent match, tabs
 		# We bypass check indent, as it does not contain any valuable or
 		# interesting result
-		return None
+		return tabs[0]
 	@end
 
 	@method onEOL match

@@ -153,7 +153,7 @@
 	g token     ("NEW_OPERATOR",     "new\s+")
 	g token     ("THROW_OPERATOR",   "(raise|throw)\s+")
 	g token     ("ASSIGN_OPERATOR",  "[\?\*\+\-\/\%]?=")
-	g token     ("EVENT_OPERATOR",   "\![\+\-]?")
+	g token     ("EVENT_OPERATOR",   "\![!\+\-]?")
 	g token     ("SYMBOLIC",         "None|Undefined|Nothing|Timeout")
 	g token     ("STRING_SQ",        "'(\\\\'|[^'\\n])*'")
 	g token     ("STRING_DQ",        "\"(\\\\\"|[^\"\\n])*\"")
@@ -239,9 +239,9 @@
 	g rule      ("Documentation",    s DocumentationLine oneOrMore ())
 
 	# Basic types
-	g rule      ("StringLine",      s CheckIndent, s STRING_MQ_LINE _as "text", s EOL)
-	g rule      ("StringMultiEnd",  s CheckIndent, s STRING_MQ_END)
-	g rule      ("StringMulti",      s STRING_MQ_START, s StringLine zeroOrMore () _as "lines" , s StringMultiEnd )
+	g rule      ("StringLine",      s CheckIndent _as "indent", s STRING_MQ_LINE _as "text", s EOL)
+	g rule      ("StringMultiEnd",  s CheckIndent, s STRING_MQ_END _as "end")
+	g rule      ("StringMulti",      s STRING_MQ_START _as "start", s StringLine zeroOrMore () _as "lines" , s StringMultiEnd _as "end")
 	g group     ("String",           s STRING_MQ, s StringMulti, s STRING_SQ, s STRING_DQ)
 	g rule      ("Expression")
 	g group     ("Number",           s NUMBER_UNIT, s NUMBER)

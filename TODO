@@ -5,6 +5,7 @@
 Tools
 =====
 
+- deprecate @event
 - `ctags-like` wrapper
 - syntax highlighting for many editors
 
