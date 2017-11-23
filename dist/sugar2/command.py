@@ -1,5 +1,6 @@
 #8< ---[sugar2.py]---
 #!/usr/bin/env python
+# encoding: utf-8
 import sys
 __module__ = sys.modules[__name__]
 import os, sys, io, tempfile
@@ -15,19 +16,19 @@ class SugarCommand(Command):
 		Command.__init__(self,name)
 	
 	def setupEnvironment(self):
-		python_plugin=self.environment.loadLanguage('python')
-		javascript_plugin=self.environment.loadLanguage('javascript')
-		python_plugin.addRecognizedExtension('spy')
-		javascript_plugin.addRecognizedExtension('sjs')
-		self.environment.addParser(Parser(self, self.version), 'sg spy sjs'.split())
+		python_plugin=self.environment.loadLanguage(u'python')
+		javascript_plugin=self.environment.loadLanguage(u'javascript')
+		python_plugin.addRecognizedExtension(u'spy')
+		javascript_plugin.addRecognizedExtension(u'sjs')
+		self.environment.addParser(Parser(self, self.version), u'sg spy sjs'.split())
 	
 
 def run (arguments, version=None, output=None):
 	self=__module__
 	if version is None: version = 2
 	if output is None: output = sys.stdout
-	command=SugarCommand('sugar', version)
-	program=command.run((arguments or ['--help']), output)
+	command=SugarCommand(u'sugar', version)
+	program=command.run((arguments or [u'--help']), output)
 	if (not program):
 		return None
 	elif True:
@@ -41,7 +42,7 @@ def process (text, version=None, options=None):
 	s = io.BytesIO ()
 	p = tempfile.mktemp(suffix=".sg")
 	with open(p,"w") as f: f.write(text)
-	options = (options + ['-cles', p])
+	options = (options + [u'-cles', p])
 	run(options, version, s)
 	os.unlink(p)
 	s.seek(0)

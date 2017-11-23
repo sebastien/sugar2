@@ -1335,7 +1335,7 @@
 	@method onNUMBER match
 		let raw     = process(match)[0]
 		# FIXME: Proper number decoding
-		let decoded = eval ("u" + raw)
+		let decoded = eval (raw)
 		return F _number (decoded)
 	@end
 

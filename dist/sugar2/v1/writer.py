@@ -1,5 +1,6 @@
 #8< ---[sugar2/v1/writer.py]---
 #!/usr/bin/env python
+# encoding: utf-8
 import sys
 __module__ = sys.modules[__name__]
 import libparsing
@@ -34,8 +35,8 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	     return code
 	 @end
 	 ```"""
-	OPERATORS = [['or'], ['and'], ['not'], ['>', '>=', '<', '<=', '!=', '==', 'is', 'is not', 'in', 'not in'], ['::', '::<', '::>', '::?', '::='], ['..', '\xe2\x80\xa5'], ['+', '-'], ['|', '&', '<<', '>>'], ['/', '*', '%', '//'], ['/=', '*=', '%=', '+=', '-=', '=']]
-	OPERATORS_NORMALIZED = {'||':'|', '&&':'&'}
+	OPERATORS = [[u'or'], [u'and'], [u'not'], [u'>', u'>=', u'<', u'<=', u'!=', u'==', u'is', u'is not', u'in', u'not in'], [u'::', u'::<', u'::>', u'::?', u'::='], [u'..', u'\u2025'], [u'+', u'-'], [u'|', u'&', u'<<', u'>>'], [u'/', u'*', u'%', u'//'], [u'/=', u'*=', u'%=', u'+=', u'-=', u'=']]
+	OPERATORS_NORMALIZED = {'||':u'|', '&&':u'&'}
 	def __init__ (self, grammar, path=None):
 		self.module = None
 		self.path = None
@@ -65,9 +66,9 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	
 	def getDefaultModuleName(self):
 		if self.path:
-			return self.path.split('/')[-1].split('.')[0].replace('-', '_')
+			return self.path.split(u'/')[-1].split(u'.')[0].replace(u'-', u'_')
 		elif True:
-			return '__current__'
+			return u'__current__'
 	
 	def normalizeOperator(self, operator):
 		operator = operator.replace("\t"," ").replace("\n"," ")
@@ -82,7 +83,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 			if (operator in line):
 				return i
 			i = (i + 1)
-		raise Exception(((('getOperatorPriority: Unknown operator ' + repr(operator)) + ', must be one of ') + repr(self.__class__.OPERATORS)))
+		raise Exception((((u'getOperatorPriority: Unknown operator ' + repr(operator)) + u', must be one of ') + repr(self.__class__.OPERATORS)))
 	
 	def _var(self, name=None, context=None):
 		""" Lists the variables defined in the given context or gets the
@@ -131,7 +132,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		elif isinstance(code, interfaces.IValue):
 			element.addOperation(F.evaluate(code))
 		elif code:
-			raise Exception('Code element type not supported: {0}'.format(repr(code)))
+			raise Exception(u'Code element type not supported: {0}'.format(repr(code)))
 		return element
 	
 	def _ensureList(self, value):
@@ -168,29 +169,29 @@ class LambdaFactoryBuilder(libparsing.Processor):
 			elif isinstance(last_operation, interfaces.IAssignment):
 				return process
 			elif (isinstance(last_operation, interfaces.IRepetition) or isinstance(last_operation, interfaces.IIteration)):
-				last_operation.addAnnotation('last')
+				last_operation.addAnnotation(u'last')
 				return process
 			elif isinstance(last_operation, interfaces.IOperation):
 				process.removeOperationAt(-1)
 				ret = F.returns(last_operation)
 		if ret:
-			ret.addAnnotation('implicit')
+			ret.addAnnotation(u'implicit')
 			process.addOperation(ret)
 		return process
 	
 	def onModuleDeclaration(self, match):
-		return {'comments':self.process(match['comments']), 'module':self.process(match['module']), 'version':self.process(match['version']), 'documentation':self.process(match['documentation']), 'imports':self.process(match['imports'])}
+		return {'comments':self.process(match[u'comments']), 'module':self.process(match[u'module']), 'version':self.process(match[u'version']), 'documentation':self.process(match[u'documentation']), 'imports':self.process(match[u'imports'])}
 	
 	def onModule(self, match):
 		declarations=self.process(match[0])
-		name=declarations['module']
+		name=declarations[u'module']
 		module=F.createModule(((name and name.getContent()) or self.getDefaultModuleName()))
-		self._addCode(module, declarations['comments'])
-		for _ in declarations['imports']:
+		self._addCode(module, declarations[u'comments'])
+		for _ in declarations[u'imports']:
 			assert(isinstance(_, interfaces.IImportOperation))
 			module.addImportOperation(_)
-		module.setDocumentation(declarations['documentation'])
-		version=declarations['version']
+		module.setDocumentation(declarations[u'documentation'])
+		version=declarations[u'version']
 		if version:
 			module.addAnnotation(version)
 		structure=self.process(match[1])
@@ -203,17 +204,17 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	
 	def onModuleAnnotation(self, match):
 		ref=self.process(match[1])
-		return F.annotation('module', ref.getReferenceName())
+		return F.annotation(u'module', ref.getReferenceName())
 	
 	def onVersionAnnotation(self, match):
 		version=self.process(match[1])[0]
-		return F.annotation('version', version)
+		return F.annotation(u'version', version)
 	
 	def onClass(self, match):
-		name=self.process(match['name']).getReferenceName()
+		name=self.process(match[u'name']).getReferenceName()
 		inherits=[]
 		parents=[]
-		for _ in (self.access(self.process(match['inherits']), 1) or []):
+		for _ in (self.access(self.process(match[u'inherits']), 1) or []):
 			if isinstance(_, interfaces.IReference):
 				inherits.append(_)
 			elif True:
@@ -229,10 +230,10 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		return res
 	
 	def onInterface(self, match):
-		name=self.process(match['name']).getReferenceName()
+		name=self.process(match[u'name']).getReferenceName()
 		inherits=[]
 		parents=[]
-		for _ in (self.access(self.process(match['inherits']), 1) or []):
+		for _ in (self.access(self.process(match[u'inherits']), 1) or []):
 			if isinstance(_, interfaces.IReference):
 				inherits.append(_)
 			elif True:
@@ -248,17 +249,17 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		return res
 	
 	def onAttribute(self, match):
-		name=self.process(match['name'])
-		value=self.process(match['value'])
-		doc=self.process(match['documentation'])
+		name=self.process(match[u'name'])
+		value=self.process(match[u'value'])
+		doc=self.process(match[u'documentation'])
 		res=F._attr(name[0].getReferenceName(), None, (value and value[1]))
 		res.setDocumentation(doc)
 		return res
 	
 	def onClassAttribute(self, match):
-		name=self.process(match['name'])
-		value=self.process(match['value'])
-		doc=self.process(match['documentation'])
+		name=self.process(match[u'name'])
+		value=self.process(match[u'value'])
+		doc=self.process(match[u'documentation'])
 		res=F._classattr(name[0].getReferenceName(), None, (value and value[1]))
 		res.setDocumentation(doc)
 		return res
@@ -273,15 +274,15 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	
 	def _createCallable(self, factory, match, hasBody=None):
 		if hasBody is None: hasBody = True
-		name_type=self.process(match['name'])
+		name_type=self.process(match[u'name'])
 		try:
 			match["parameters"]
 		except KeyError:
 			import ipdb;ipdb.set_trace()
-		params=self.access(self.access(self.process(match['parameters']), 0), 0)
-		doc=self.process(match['documentation'])
-		body=((hasBody and self.process(match['body'])) or None)
-		dec=self.process(match['decorators'])
+		params=self.access(self.access(self.process(match[u'parameters']), 0), 0)
+		doc=self.process(match[u'documentation'])
+		body=((hasBody and self.process(match[u'body'])) or None)
+		dec=self.process(match[u'decorators'])
 		fun=None
 		if (name_type is True):
 			fun = factory(params)
@@ -399,32 +400,32 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		return self.process(match[0])
 	
 	def onConditionalExpression(self, match):
-		c=self.process(match['condition'])
-		t=self.process(match['true'])
-		f=self.process(match['false'])
+		c=self.process(match[u'condition'])
+		t=self.process(match[u'true'])
+		f=self.process(match[u'false'])
 		res=F.select()
 		res.addRule(F.matchExpression(c, t))
 		if f:
-			e=F.matchExpression(F._ref('True'), f)
-			e.addAnnotation('else')
+			e=F.matchExpression(F._ref(u'True'), f)
+			e.addAnnotation(u'else')
 			res.addRule(e)
-		res.addAnnotation('if-expression')
+		res.addAnnotation(u'if-expression')
 		return res
 	
 	def onConditionalLine(self, match):
 		return self.onConditionalBlock(match)
 	
 	def onConditionalBlock(self, match):
-		_if=self.process(match['if'])
-		_elifs=self.process(match['elif'])
-		_else=self.process(match['else'])
+		_if=self.process(match[u'if'])
+		_elifs=self.process(match[u'elif'])
+		_else=self.process(match[u'else'])
 		res=F.select()
 		res.addRule(F.matchProcess(_if[0], _if[1]))
 		for _ in _elifs:
 			res.addRule(F.matchProcess(_[0], _[1]))
 		if _else:
-			e=F.matchProcess(F._ref('True'), _else[0])
-			e.addAnnotation('else')
+			e=F.matchProcess(F._ref(u'True'), _else[0])
+			e.addAnnotation(u'else')
 			res.addRule(e)
 		return res
 	
@@ -433,8 +434,8 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	
 	def onIfBlock(self, match):
 		block=F.createBlock()
-		self._addCode(block, self.process(match['body']))
-		return [self.process(match['condition']), block]
+		self._addCode(block, self.process(match[u'body']))
+		return [self.process(match[u'condition']), block]
 	
 	def onIfLine(self, match):
 		return self.onIfBlock(match)
@@ -447,71 +448,71 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	
 	def onElseBlock(self, match):
 		block=F.createBlock()
-		self._addCode(block, self.process(match['body']))
+		self._addCode(block, self.process(match[u'body']))
 		return [block]
 	
 	def onElseLine(self, match):
 		return self.onElseBlock(match)
 	
 	def onIteration(self, match):
-		return self.process(match['for'])
+		return self.process(match[u'for'])
 	
 	def onRepetition(self, match):
-		return self.process(match['while'])
+		return self.process(match[u'while'])
 	
 	def onTry(self, match):
-		return F.intercept(self.process(match['try']), self.process(match['catch']), self.process(match['finally']))
+		return F.intercept(self.process(match[u'try']), self.process(match[u'catch']), self.process(match[u'finally']))
 	
 	def onForBlock(self, match):
-		params=self.process(match['params'])
-		expr=self.process(match['expr'])
-		body=self.process(match['body'])
+		params=self.process(match[u'params'])
+		expr=self.process(match[u'expr'])
+		body=self.process(match[u'body'])
 		block=F.createClosure(params)
 		self._addCode(block, body)
 		return F.iterate(expr, block)
 	
 	def onWhileBlock(self, match):
-		condition=self.process(match['condition'])
-		body=self.process(match['body'])
+		condition=self.process(match[u'condition'])
+		body=self.process(match[u'body'])
 		block=F.createBlock()
 		self._addCode(block, body)
 		return F.repeat(condition, block)
 	
 	def onTryBlock(self, match):
-		body=self.process(match['body'])
+		body=self.process(match[u'body'])
 		block=F.createBlock()
 		self._addCode(block, body)
 		return block
 	
 	def onCatchBlock(self, match):
-		body=self.process(match['body'])
-		param=self.process(match['param'])
+		body=self.process(match[u'body'])
+		param=self.process(match[u'param'])
 		args=[F._param(param[0].getReferenceName())]
 		block=F.createClosure(args)
 		self._addCode(block, body)
 		return block
 	
 	def onFinallyBlock(self, match):
-		body=self.process(match['body'])
+		body=self.process(match[u'body'])
 		block=F.createBlock()
 		self._addCode(block, body)
 		return block
 	
 	def onBlockBody(self, match):
-		return self.process(match['body'])
+		return self.process(match[u'body'])
 	
 	def onBlockLine(self, match):
-		return self.process(match['body'])
+		return self.process(match[u'body'])
 	
 	def onEmbed(self, match):
-		body=self.process(match['body'])
-		language=self.process(match['language'])
+		body=self.process(match[u'body'])
+		language=self.process(match[u'language'])
 		if language:
 			language = language.getName()
 		lines=[]
 		for line in body:
 			lines.append(line[1][0][1:])
-		return F.embed(language, '\n'.join(lines))
+		return F.embed(language, u'\n'.join(lines))
 	
 	def onExpression(self, match):
 		prefix=self.process(match[0])
@@ -524,7 +525,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		elif isinstance(prefix, interfaces.IReference):
 			current = F.resolve(prefix)
 		elif True:
-			raise Exception(('Prefix not supported yet: ' + str(prefix)))
+			raise Exception((u'Prefix not supported yet: ' + str(prefix)))
 		current = self._applySuffixes(current, suffixes)
 		if isinstance(current, interfaces.IBinaryOperation):
 			current = self._reorderComputation(current)
@@ -534,13 +535,13 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		""" Reorders a sequence of computations according to operators priorities.
 		 This method is called by `onExpression` and applied from right
 		 to left."""
-		if (((not isinstance(value, interfaces.IComputation)) or value.hasAnnotation('parens')) or value.hasAnnotation('reordered')):
+		if (((not isinstance(value, interfaces.IComputation)) or value.hasAnnotation(u'parens')) or value.hasAnnotation(u'reordered')):
 			return value
 		op1=value.getOperator()
 		a=value.getLeftOperand()
 		b=value.getRightOperand()
 		if value.isUnary():
-			if ((isinstance(a, interfaces.IComputation) and (not a.hasAnnotation('parens'))) and (not a.hasAnnotation('reordered'))):
+			if ((isinstance(a, interfaces.IComputation) and (not a.hasAnnotation(u'parens'))) and (not a.hasAnnotation(u'reordered'))):
 				op2=a.getOperator()
 				if (op1.getPriority() > op2.getPriority()):
 					c=a.getLeftOperand()
@@ -549,7 +550,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 			return value
 		elif True:
 			b=value.getRightOperand()
-			if ((isinstance(b, interfaces.IComputation) and (not b.hasAnnotation('parens'))) and (not b.hasAnnotation('reordered'))):
+			if ((isinstance(b, interfaces.IComputation) and (not b.hasAnnotation(u'parens'))) and (not b.hasAnnotation(u'reordered'))):
 				op2=b.getOperator()
 				if (op1.getPriority() >= op2.getPriority()):
 					c=b.getLeftOperand()
@@ -564,16 +565,16 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		if suffixes:
 			for args in suffixes:
 				name=args[0]
-				if (name == 'Invocation'):
+				if (name == u'Invocation'):
 					if ((type(args[1]) == list) or (type(args[1]) == tuple)):
 						value = F.invoke_args(value, args[1])
 					elif True:
 						value = F.invoke(value, args[1])
-				elif (name == 'ComputationInfix'):
+				elif (name == u'ComputationInfix'):
 					op=self.normalizeOperator(args[1])
-					if (op == '..'):
+					if (op == u'..'):
 						rvalue=args[2]
-						if (isinstance(rvalue, interfaces.IIteration) and (not rvalue.hasAnnotation('parens'))):
+						if (isinstance(rvalue, interfaces.IIteration) and (not rvalue.hasAnnotation(u'parens'))):
 							value = F.enumerate(value, rvalue.getLeftOperand().detach())
 							rvalue.setLeftOperand(value)
 							value = rvalue
@@ -581,22 +582,22 @@ class LambdaFactoryBuilder(libparsing.Processor):
 							value = F.enumerate(value, args[2])
 					elif True:
 						value = F.compute(F._op(op, self.getOperatorPriority(op)), value, args[2])
-				elif (name == 'Decomposition'):
+				elif (name == u'Decomposition'):
 					for _ in args[1]:
 						value = F.resolve(_, value)
-				elif (name == 'Access'):
+				elif (name == u'Access'):
 					value = F.access(value, args[1])
-				elif (name == 'Slice'):
+				elif (name == u'Slice'):
 					value = F.slice(value, args[1], args[2])
-				elif (name == 'IterationSuffix'):
+				elif (name == u'IterationSuffix'):
 					value = args[1](value, args[2])
-				elif (name == 'Chain'):
+				elif (name == u'Chain'):
 					if (type(value) is list):
 						ipdb.set_trace()
 					alloc=value
 					ref=None
 					if (not isinstance(alloc, interfaces.IAllocation)):
-						name=(('_c' + str(self.varcounter)) + '_')
+						name=((u'_c' + str(self.varcounter)) + u'_')
 						self.varcounter = (self.varcounter + 1)
 						slot=F._slot(name)
 						alloc=F.allocate(slot, value)
@@ -608,7 +609,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 						res.append(self._applySuffixes(ref.copy(), g))
 					value = res
 				elif True:
-					raise Exception(((('sugar2.writer._applySuffixes: Suffix not supported yet: ' + str(name)) + ' in ') + str(args)))
+					raise Exception((((u'sugar2.writer._applySuffixes: Suffix not supported yet: ' + str(name)) + u' in ') + str(args)))
 		return value
 	
 	def onExpressionList(self, match):
@@ -645,15 +646,15 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	def onParentheses(self, match):
 		expr=self.process(match[1])
 		expr = self._reorderComputation(expr)
-		expr.addAnnotation('parens')
+		expr.addAnnotation(u'parens')
 		return expr
 	
 	def onException(self, match):
-		return F.exception(self.process(match['expression']))
+		return F.exception(self.process(match[u'expression']))
 	
 	def onInstanciation(self, match):
-		name=self.process(match['target'])[0]
-		params=self.process(match['params'])[1]
+		name=self.process(match[u'target'])[0]
+		params=self.process(match[u'params'])[1]
 		if not (isinstance(params, list) or isinstance(params, tuple)): params = (params,)
 		return F.instanciate(name, *(params or []))
 	
@@ -681,7 +682,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		return slots
 	
 	def onOWhen(self, match):
-		return F.annotation('when', self.process(match['expression']))
+		return F.annotation(u'when', self.process(match[u'expression']))
 	
 	def onDecomposition(self, match):
 		""" Returns [("Decomposition", [ref:Reference])]"""
@@ -697,7 +698,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		for _ in self.process(match[3]):
 			_ = _[0]
 			if ((len(_) == 1) and isinstance(_[0], interfaces.IReference)):
-				_ = ['Decomposition', _]
+				_ = [u'Decomposition', _]
 			suffixes.append(_)
 		return suffixes
 	
@@ -739,21 +740,21 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		return res
 	
 	def onAssignment(self, match):
-		before=self.process(match['before'])
-		main=self.process(match['main'])
-		rest=self.process(match['rest'])
-		rvalue=self.process(match['op'])
+		before=self.process(match[u'before'])
+		main=self.process(match[u'main'])
+		rest=self.process(match[u'rest'])
+		rvalue=self.process(match[u'op'])
 		lvalue=main
 		op=libparsing.ensure_str(rvalue[0][0])
 		rvalue = rvalue[1]
-		if (op == '='):
+		if (op == u'='):
 			return F.assign(lvalue, rvalue)
-		elif (op == '?='):
-			predicate=F.compute(F._op('is'), lvalue, F._ref('Undefined'))
+		elif (op == u'?='):
+			predicate=F.compute(F._op(u'is'), lvalue, F._ref(u'Undefined'))
 			assignment=F.assign(lvalue.copy(), rvalue)
 			match=F.matchExpression(predicate, assignment)
 			res=F.select()
-			res.addAnnotation('assignment')
+			res.addAnnotation(u'assignment')
 			res.addRule(match)
 			return res
 		elif True:
@@ -770,27 +771,27 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		return self._applySuffixes(prefix, suffixes)
 	
 	def onIterationSuffix(self, match):
-		op=libparsing.ensure_str(self.process(match['op'])[0])
-		rvalue=self.process(match['rvalue'])
-		if (op == '::'):
+		op=libparsing.ensure_str(self.process(match[u'op'])[0])
+		rvalue=self.process(match[u'rvalue'])
+		if (op == u'::'):
 			if isinstance(rvalue, interfaces.IClosure):
 				closure=rvalue
 				if (len(closure.operations) > 0):
 					lop=closure.operations[-1]
-					if lop.hasAnnotation('implicit'):
+					if lop.hasAnnotation(u'implicit'):
 						closure.removeOperationAt(-1)
 						closure.addOperation(lop.getOpArgument(0))
 			return [match.name, F.iterate, rvalue, op]
-		elif (op == '::?'):
+		elif (op == u'::?'):
 			return [match.name, F.filter, rvalue, op]
-		elif (op == '::='):
+		elif (op == u'::='):
 			return [match.name, F.map, rvalue, op]
-		elif (op == '::>'):
+		elif (op == u'::>'):
 			return [match.name, F.reduce, rvalue, op]
-		elif (op == '::<'):
+		elif (op == u'::<'):
 			return [match.name, F.reduce, rvalue, op]
 		elif True:
-			raise ValueError('onIterationLine: Unsupported iteration operator: {0}'.format(op))
+			raise ValueError(u'onIterationLine: Unsupported iteration operator: {0}'.format(op))
 	
 	def onTermination(self, match):
 		return F.returns(self.process(match[1]))
@@ -822,8 +823,8 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		return []
 	
 	def onArgumentsMany(self, match):
-		line=(self.process(match['line']) or [])
-		body=(self.process(match['body']) or [])
+		line=(self.process(match[u'line']) or [])
+		body=(self.process(match[u'body']) or [])
 		return self.filterNull((line + body))
 	
 	def onSymbolList(self, match):
@@ -851,7 +852,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		if (len(res) == 1):
 			return F._ref(res[0])
 		elif True:
-			return F._absref('.'.join(res))
+			return F._absref(u'.'.join(res))
 	
 	def onArray(self, match):
 		list=(self.process(match[1]) or [])
@@ -860,15 +861,15 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	
 	def onMap(self, match):
 		res=F._dict()
-		head=(self.process(match['head']) or [])
-		tail=(self.process(match['tail']) or [])
+		head=(self.process(match[u'head']) or [])
+		tail=(self.process(match[u'tail']) or [])
 		for _ in (head + tail):
 			if _:
 				res.setValue(_[0], _[1])
 		if (len(tail) > 0):
-			res.addAnnotation('block')
+			res.addAnnotation(u'block')
 		elif True:
-			res.addAnnotation('line')
+			res.addAnnotation(u'line')
 		return res
 	
 	def onEntryList(self, match):
@@ -902,7 +903,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	
 	def onString(self, match):
 		raw=self.process(match[0])[0]
-		decoded=eval(raw)
+		decoded=eval((u'u' + raw))
 		return F._string(decoded)
 	
 	def onNUMBER(self, match):
@@ -913,20 +914,20 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	def onTIME(self, match):
 		t=self.process(match)[0]
 		v=0
-		if t.endswith('ms'):
+		if t.endswith(u'ms'):
 			v = float(t[0:-2])
-		elif t.endswith('s'):
+		elif t.endswith(u's'):
 			v = (float(t[0:-1]) * 1000)
-		elif t.endswith('m'):
+		elif t.endswith(u'm'):
 			v = ((float(t[0:-1]) * 1000) * 60)
-		elif t.endswith('h'):
+		elif t.endswith(u'h'):
 			v = (((float(t[0:-1]) * 1000) * 60) * 60)
-		elif t.endswith('d'):
+		elif t.endswith(u'd'):
 			v = ((((float(t[0:-1]) * 1000) * 60) * 60) * 24)
-		elif t.endswith('w'):
+		elif t.endswith(u'w'):
 			v = (((((float(t[0:-1]) * 1000) * 60) * 60) * 24) * 7)
 		elif True:
-			raise Exception('Does not recognizes time format {0}'.format(t))
+			raise Exception(u'Does not recognizes time format {0}'.format(t))
 		return F._number(v)
 	
 	def onNumber(self, match):
@@ -934,16 +935,16 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	
 	def onSYMBOLIC(self, match):
 		raw_symbol=self.process(match)[0]
-		if (raw_symbol == 'Undefined'):
+		if (raw_symbol == u'Undefined'):
 			return F._symbol(raw_symbol)
-		elif (raw_symbol == 'None'):
+		elif (raw_symbol == u'None'):
 			return F._symbol(raw_symbol)
-		elif (raw_symbol == 'Nothing'):
+		elif (raw_symbol == u'Nothing'):
 			return F._symbol(raw_symbol)
-		elif (raw_symbol == 'Timeout'):
+		elif (raw_symbol == u'Timeout'):
 			return F._symbol(raw_symbol)
 		elif True:
-			raise Exception(('Unknown symbol:' + raw_symbol()))
+			raise Exception((u'Unknown symbol:' + raw_symbol()))
 	
 	def onNAME(self, match):
 		name=self.process(match)[2]
@@ -956,13 +957,13 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		lines=[]
 		for l in self.process(match[0]):
 			lines.append(l[1][0][1:])
-		return F.doc('\n'.join(lines))
+		return F.doc(u'\n'.join(lines))
 	
 	def onCOMMENT(self, match):
 		return F.comment(self.process(match)[1:0])
 	
 	def onComment(self, match):
-		return self.process(match['text'])
+		return self.process(match[u'text'])
 	
 	def onCheckIndent(self, match):
 		return None

@@ -1,5 +1,6 @@
 #8< ---[sugar2/grammar/helpers.py]---
 #!/usr/bin/env python
+# encoding: utf-8
 """ A collection of helper functions used by the grammar submodules"""
 import sys
 __module__ = sys.modules[__name__]
@@ -7,14 +8,14 @@ import sys
 __module_name__ = 'sugar2.grammar.helpers'
 def doIndent (element, context):
 	self=__module__
-	indent=(context.get('indent') or 0)
-	context.set('indent', (indent + 1))
+	indent=(context.get(u'indent') or 0)
+	context.set(u'indent', (indent + 1))
 
 
 def doDedent (element, context):
 	self=__module__
-	indent=(context.get('indent') or 0)
-	context.set('indent', (indent - 1))
+	indent=(context.get(u'indent') or 0)
+	context.set(u'indent', (indent - 1))
 
 
 def doCheckIndent (element, context, min=None):
@@ -51,17 +52,17 @@ def doBlockEnd (element, context):
 
 def doBlockLastSetLine (element, context):
 	self=__module__
-	context.set('blockLast', 1)
+	context.set(u'blockLast', 1)
 
 
 def doBlockLastSetBody (element, context):
 	self=__module__
-	context.set('blockLast', 2)
+	context.set(u'blockLast', 2)
 
 
 def doBlockLastIsLine (element, context):
 	self=__module__
-	return (context.get('blockLast') == 1)
+	return (context.get(u'blockLast') == 1)
 
 
 def listOf (rule, separator, grammar):

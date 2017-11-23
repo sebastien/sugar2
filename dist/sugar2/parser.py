@@ -1,5 +1,6 @@
 #8< ---[sugar2/parser.py]---
 #!/usr/bin/env python
+# encoding: utf-8
 import sys
 __module__ = sys.modules[__name__]
 import libparsing
