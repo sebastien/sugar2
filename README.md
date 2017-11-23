@@ -91,24 +91,73 @@ Syntax
 Litterals
 ---------
 
+Symbols
+
+:
+	```
+	True                  # Boolean true
+	False                 # Boolean false
+	None                  # Nothing / nul
+	Undefined             # Undefined
+
+	NaN                   # Not a number
+	Infinity              # Infinity
+	```
+
 Numbers
 
 :	```
+	1                     # Natural number
+	1.0                   # Real number
+	10.5s                 # Time (supports ms, s, m, h, d, w)
+	90.5deg               # Degrees
 	```
 
 Strings
 
 :	```
+	"Hello, world"        # Double-quoted string (default)
+	'c'                   # Single-quoted string (chars and alternate notation)
+	"Here is a quote \""  # Escaping
 	```
 
 Lists:
 
 :	```
+	[]                    # Empty list
+	[0, 1, 2]             # List on one line
+	[                     # Multi-line strings have either `,` or `\n` as delimiter
+		0
+		1, 2              
+		3
+	]
+	```
+
+Tuples:
+
+:	Tuples are immutable lists
+
+	```
+	(,)                    # Empty tuple
+	(0, 1, 2)              # The rest is the same as lists
+	(                     
+		0
+		1, 2              
+		3
+	)
 	```
 
 Maps:
 
 :	```
+	{}                     # Empty map
+	{one:1, two:2}         # Inline map
+	{                      # Multiline map
+		one: 1
+		two: 2
+	}
+	{"o n e":1}            # Explicit string for map key
+	{(1 + 10):1} == {11:1} # Key expression
 	```
 
 Operations
@@ -117,18 +166,70 @@ Operations
 Variable declaration
 
 :	```
+	var name               # Variable declaration
+	var name = 10          # ‥ with assignment
+	var a, b = [10, 20]    # ‥ with decomposition
+ 	```
+
+	While `var` declares the slot as variable (mutable) the `let` keyword
+	declares the slot as *immutable* (it cannot be re-assigned later):
+
+	```
+	let a = 10
+	a     = 20             # ERROR → a is immutable
  	```
 
 Destructuring
 
-:	```
+:	Destructuring allows to quickly extract and assign components
+	within a composite value. Any unresolved value will be assigned
+	`Undefined`
+
+	```
+	a, b = [10, 20]               # a=10, b=20
+	a, b = [10]                   # a=10, b=Undefined
+	a, b | c = [10, 20, 30, 40]   # a=10, b=20, c=[30,40]
+	{a,b} = {a:10, b:20}          # a=10, b=20
+	{a,b} = {a:10}                # a=10, b=Undefined
  	```
 
 Chaining
 
-:	```
- 	```
+:	Chaining is a variant of line continuation where expressions
+	will all be applied on the same value.
 
+	```
+	a () :
+		b ()
+		c ()
+	```
+
+	is equivalent to
+
+	```
+	let _ = a ()
+	_ b ()
+	_ c ()
+	```
+	
+ 	chains can also be nested
+
+	```
+	a:
+		b ()
+		c () :
+			d ()
+	```
+	
+	which equals to
+
+	```
+	var _ = a
+	a b ()
+	_ = a c ()
+	_ d ()
+	```
+	
 Continuing
 
 :	```

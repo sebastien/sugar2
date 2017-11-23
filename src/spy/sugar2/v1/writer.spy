@@ -1328,14 +1328,14 @@
 	@method onString match
 		let raw     = process (match[0])[0]
 		# FIXME: Proper string decoding
-		let decoded = eval (raw)
+		let decoded = eval ("u" + raw)
 		return F _string (decoded)
 	@end
 
 	@method onNUMBER match
 		let raw     = process(match)[0]
 		# FIXME: Proper number decoding
-		let decoded = eval (raw)
+		let decoded = eval ("u" + raw)
 		return F _number (decoded)
 	@end
 

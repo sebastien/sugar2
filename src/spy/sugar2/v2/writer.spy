@@ -1434,6 +1434,7 @@
 		let rest    = process (match["rest"])
 		var value   = access (process (match[4]), 1)
 		var sel     = None
+		# TODO: Differentiate between let and var
 		if isinstance(value, list) and isinstance(value[0], interfaces IAllocation)
 			# We have a selection
 			sel   = value
@@ -1918,18 +1919,18 @@
 	@method onSTRING_SQ match
 		let raw     = process (match)[0]
 		# FIXME: Proper string decoding
-		return eval(raw)
+		return eval("u" + raw)
 	@end
 
 	@method onSTRING_DQ match
 		let raw     = process (match)[0]
 		# FIXME: Proper string decoding
-		return eval(raw)
+		return eval("u" + raw)
 	@end
 
 	@method onSTRING_MQ match
 		# FIXME: Proper string decoding
-		return eval(process(match)[0])
+		return eval("u" + process(match)[0])
 	@end
 
 	@method onSTRING_MQ_START match

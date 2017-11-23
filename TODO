@@ -591,7 +591,7 @@ New features
 	```
 
 
-[X] Bit-logic operator::
+[X] Bit wise operators::
 	
 	```
 	&&
