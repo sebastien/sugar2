@@ -49,7 +49,7 @@
 
 @function process text, version=2, options=[]
 	@embed Python
-	|s = io.BytesIO ()
+	|s = io.StringIO ()
 	|p = tempfile.mktemp(suffix=".sg")
 	|with open(p,"w") as f: f.write(text)
 	@end

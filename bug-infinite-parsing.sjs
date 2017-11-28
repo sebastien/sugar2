@@ -1,4 +1,4 @@
-# NOTE: The parsing never ends there
+# NOTE: The parsing never ends, or simply takes way too long here.
 let N = {
 	M : {
 		"K"  : {
