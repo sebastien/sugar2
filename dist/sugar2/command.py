@@ -14,14 +14,14 @@ class SugarCommand(Command):
 		if version is None: version = 2
 		self.version = version
 		Command.__init__(self,name)
-
+	
 	def setupEnvironment(self):
 		python_plugin=self.environment.loadLanguage(u'python')
 		javascript_plugin=self.environment.loadLanguage(u'javascript')
 		python_plugin.addRecognizedExtension(u'spy')
 		javascript_plugin.addRecognizedExtension(u'sjs')
 		self.environment.addParser(Parser(self, self.version), u'sg spy sjs'.split())
-
+	
 
 def run (arguments, version=None, output=None):
 	self=__module__
@@ -39,14 +39,14 @@ def process (text, version=None, options=None):
 	self=__module__
 	if version is None: version = 2
 	if options is None: options = []
-	s = io.StringIO ()
+	s = io.BytesIO ()
 	p = tempfile.mktemp(suffix=".sg")
-	with open(p,"w") as f: f.write(text)
+	with open(p,"wb") as f: f.write(text.encode("utf8"))
 	options = (options + [u'-cles', p])
 	run(options, version, s)
 	os.unlink(p)
 	s.seek(0)
-	return s.read()
+	return s.read().decode(u'utf-8')
 
 
 def __module_init__():

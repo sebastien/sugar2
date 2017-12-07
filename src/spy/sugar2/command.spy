@@ -49,15 +49,15 @@
 
 @function process text, version=2, options=[]
 	@embed Python
-	|s = io.StringIO ()
+	|s = io.BytesIO ()
 	|p = tempfile.mktemp(suffix=".sg")
-	|with open(p,"w") as f: f.write(text)
+	|with open(p,"wb") as f: f.write(text.encode("utf8"))
 	@end
 	options = options + ["-cles", p]
 	run (options, version, s)
 	os unlink (p)
 	s seek 0
-	return s read ()
+	return s read () decode "utf-8"
 @end
 
 @embed Python
