@@ -61,9 +61,19 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	
 	def process(self, match):
 		res=(lambda *a,**kw:libparsing.Processor.process(self,*a,**kw))(match)
-		if isinstance(res, interfaces.IElement):
-			pass
 		return res
+	
+	def setSourceLocation(self, element, match):
+		""" A helper that sets the location of the given element in the source"""
+		if ((match and (not isinstance(element, tuple))) and (not isinstance(element, list))):
+			if (match.countChildren() == 0):
+				element.setOffset(match.offset, (match.offset + match.length))
+			elif True:
+				start_match=match[0]
+				end_match=match[-1]
+				element.setOffset(start_match.offset, (end_match.offset + end_match.length))
+			element.setSourcePath(self.path)
+		return element
 	
 	def getDefaultModuleName(self):
 		if self.path:
@@ -233,6 +243,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		self._bind(module, init_function)
 		for _ in where:
 			module.addAnnotation(_)
+		self.setSourceLocation(module, match)
 		return module
 	
 	def onModuleAnnotation(self, match):
@@ -259,6 +270,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		for _ in (self.access(suffixes, 0) or []):
 			res.addAnnotation(_)
 		self._bind(res, body)
+		self.setSourceLocation(res, match)
 		return res
 	
 	def onClass(self, match):
@@ -276,6 +288,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		doc=self.process(match[u'documentation'])
 		res=F._attr(name[0].getReferenceName(), None, (value and value[1]))
 		res.setDocumentation(doc)
+		self.setSourceLocation(res, match)
 		return res
 	
 	def onClassAttribute(self, match):
@@ -284,7 +297,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		doc=self.process(match[u'documentation'])
 		res=F._classattr(name[0].getReferenceName(), None, (value and value[1]))
 		res.setDocumentation(doc)
-		return res
+		return self.setSourceLocation(res, match)
 	
 	def onModuleAttribute(self, match):
 		name_type=self.process(match[2])
@@ -292,7 +305,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		doc=self.process(match[5])
 		res=F._moduleattr(name_type[0].getReferenceName(), None, value)
 		res.setDocumentation(doc)
-		return res
+		return self.setSourceLocation(res, match)
 	
 	def onEvent(self, match):
 		name=self.process(match[u'name'])[0].getReferenceName()
@@ -317,7 +330,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 			for e in t:
 				a=F.annotation(u'as', name)
 				e.addAnnotation(a)
-		return body
+		return self.setSourceLocation(body, match)
 	
 	def onModuleGroup(self, match):
 		return self._onGroup(match)
@@ -350,7 +363,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 			fun.setAbstract(True)
 		for _ in (self.access(suffixes, 0) or []):
 			fun.addAnnotation(_)
-		return fun
+		return self.setSourceLocation(fun, match)
 	
 	def onClassMethod(self, match):
 		return self._createCallable(F.createClassMethod, match)
@@ -631,6 +644,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 			current = prefix
 		elif isinstance(prefix, interfaces.IReference):
 			current = F.resolve(prefix)
+			self.setSourceLocation(current, match)
 		elif True:
 			raise Exception((u'Prefix not supported yet: ' + str(prefix)))
 		return self._applySuffixes(current, suffixes)
@@ -938,7 +952,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		self._addCode(p, b)
 		if d:
 			p.addAnnotation(d)
-		return F.annotation(u'where', p)
+		return self.setSourceLocation(F.annotation(u'where', p), match)
 	
 	def onOExample(self, match):
 		p=F.createBlock()
@@ -947,7 +961,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		d=self.process(match[u'doc'])
 		if d:
 			b.addAnnotation(d)
-		return F.annotation(u'example', b)
+		return self.setSourceLocation(F.annotation(u'example', b), match)
 	
 	def onCustomDecorator(self, match):
 		""" Supports the transformation of decorator directive into invocations
@@ -1047,20 +1061,20 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		rvalue = rvalue[1]
 		if (op == u'='):
 			lvalue.addAnnotation(u'lvalue')
-			return F.assign(lvalue, rvalue)
+			return self.setSourceLocation(F.assign(lvalue, rvalue), match)
 		elif (op == u'?='):
 			predicate=F.compute(F._op(u'is'), lvalue, F._ref(u'Undefined'))
 			assignment=F.assign(lvalue.copy().addAnnotation(u'lvalue'), rvalue)
-			match=F.matchExpression(predicate, assignment)
+			match_expr=F.matchExpression(predicate, assignment)
 			res=F.select()
 			res.addAnnotation(u'assignment')
-			res.addRule(match)
+			res.addRule(match_expr)
 			return res
 		elif True:
 			res=None
 			sub_op=self.normalizeOperator(op[0])
 			c=self._createComputation(sub_op, lvalue, rvalue)
-			return F.assign(lvalue.copy().detach().addAnnotation(u'lvalue'), c)
+			return self.setSourceLocation(F.assign(lvalue.copy().detach().addAnnotation(u'lvalue'), c), match)
 	
 	def onAssignable(self, match):
 		suffixes=[]
@@ -1156,9 +1170,9 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		for _ in tail:
 			res.append(_[1].getReferenceName())
 		if (len(res) == 1):
-			return F._ref(res[0])
+			return self.setSourceLocation(F._ref(res[0]), match)
 		elif True:
-			return F._absref(u'.'.join(res))
+			return self.setSourceLocation(F._absref(u'.'.join(res)), match)
 	
 	def onArray(self, match):
 		list=(self.process(match[1]) or [])
@@ -1232,6 +1246,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		res=F.enum(name.getReferenceName())
 		for s in symbols:
 			res.addSymbol(F.symbol(s.getReferenceName()))
+		self.setSourceLocation(res, match)
 		return res
 	
 	def onType(self, match):
@@ -1247,6 +1262,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 			res.addConstraint(c)
 		if doc:
 			res.setDocumentation(value)
+		self.setSourceLocation(res, match)
 		return res
 	
 	def onTypeEntryList(self, match):
@@ -1410,10 +1426,10 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		lines=[]
 		for l in self.process(match[0]):
 			lines.append(l[1][0][1:])
-		return F.doc(u'\n'.join(lines))
+		return self.setSourceLocation(F.doc(u'\n'.join(lines)), match)
 	
 	def onCOMMENT(self, match):
-		return F.comment(self.process(match)[1:0])
+		return self.setSourceLocation(F.comment(self.process(match)[1:0]), match)
 	
 	def onComment(self, match):
 		return self.process(match[u'text'])

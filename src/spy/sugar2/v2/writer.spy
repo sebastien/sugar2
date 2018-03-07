@@ -103,14 +103,25 @@
 
 	@method process match
 		var res = super process (match)
-		if isinstance (res, interfaces IElement)
-			pass
-			# res setOffset (match start, parsingResult end)
-			# if self path
-			# 	res setSourcePath (self path)
-			# end
-		end
 		return res
+	@end
+
+	@method setSourceLocation element, match
+	| A helper that sets the location of the given element in the source
+		if match and not isinstance(element, tuple) and not isinstance(element, list)
+			if match countChildren () == 0
+				element setOffset (match offset, match offset + match length)
+			else
+				let start_match = match[0]
+				let end_match   = match[-1]
+				element setOffset (
+					start_match offset
+					end_match   offset + end_match length
+				)
+			end
+			element setSourcePath (self path)
+		end
+		return element
 	@end
 
 	@method getDefaultModuleName
@@ -340,6 +351,7 @@
 		for _ in where
 			module addAnnotation (_)
 		end
+		setSourceLocation (module, match)
 		return module
 	@end
 
@@ -372,6 +384,7 @@
 			res addAnnotation (_)
 		end
 		_bind (res, body)
+		setSourceLocation (res, match)
 		return res
 	@end
 
@@ -393,6 +406,7 @@
 		var doc   = process(match["documentation"])
 		var res   = F _attr (name[0] getReferenceName (), None, value and value[1])
 		res setDocumentation (doc)
+		setSourceLocation (res, match)
 		return res
 	@end
 
@@ -402,7 +416,7 @@
 		var doc   = process(match["documentation"])
 		var res   = F _classattr (name[0] getReferenceName (), None, value and value[1])
 		res setDocumentation (doc)
-		return res
+		return setSourceLocation (res, match)
 	@end
 
 	@method onModuleAttribute match
@@ -411,7 +425,7 @@
 		let doc       = process (match[5])
 		var res       = F _moduleattr (name_type[0] getReferenceName(), None, value)
 		res setDocumentation (doc)
-		return res
+		return setSourceLocation (res, match)
 	@end
 
 	@method onEvent match
@@ -442,7 +456,7 @@
 				e addAnnotation (a)
 			end
 		end
-		return body
+		return setSourceLocation (body, match)
 	@end
 
 	@method onModuleGroup match
@@ -482,7 +496,7 @@
 		for _ in access(suffixes, 0) or []
 			fun addAnnotation (_)
 		end
-		return fun
+		return setSourceLocation (fun, match)
 	@end
 
 	@method onClassMethod match
@@ -896,6 +910,8 @@
 			current  = prefix
 		elif isinstance(prefix, interfaces IReference)
 			current  = F resolve (prefix)
+			# TODO: We might want the correct extent
+			setSourceLocation (current, match)
 		else
 			# ipdb set_trace ()
 			raise Exception("Prefix not supported yet: " + str(prefix))
@@ -1343,7 +1359,7 @@
 		if d
 			p addAnnotation (d)
 		end
-		return F annotation ("where", p)
+		return setSourceLocation (F annotation ("where", p), match)
 	@end
 
 	@method onOExample match
@@ -1355,7 +1371,7 @@
 		if d
 			b addAnnotation (d)
 		end
-		return F annotation ("example", b)
+		return setSourceLocation (F annotation ("example", b), match)
 	@end
 
 	@method onCustomDecorator match
@@ -1490,17 +1506,17 @@
 		if op == "="
 			lvalue addAnnotation "lvalue"
 			# We have an regular assignment
-			return F assign (lvalue, rvalue)
+			return setSourceLocation (F assign (lvalue, rvalue), match)
 		elif op == "?="
 			# We have a conditional assignment
 			# In this case: A ?= B is the equivalent of
 			# if not (A) -> A = B
 			var predicate  = F compute (F _op "is", lvalue, F _ref "Undefined")
 			var assignment = F assign  (lvalue copy () addAnnotation "lvalue", rvalue)
-			var match      = F matchExpression (predicate, assignment)
+			var match_expr = F matchExpression (predicate, assignment)
 			var res        = F select ()
 			res addAnnotation ("assignment")
-			res addRule (match)
+			res addRule (match_expr)
 			return res
 		else
 			# FIXME: Right now the lvalue is copied, but it could be optimized by
@@ -1525,7 +1541,7 @@
 			# 	return res
 			# else
 			var c = _createComputation (sub_op, lvalue, rvalue)
-			return F assign (lvalue copy () detach () addAnnotation "lvalue", c)
+			return setSourceLocation (F assign (lvalue copy () detach () addAnnotation "lvalue", c), match)
 		end
 	@end
 
@@ -1661,9 +1677,9 @@
 			res append (_[1] getReferenceName ())
 		end
 		if len(res) == 1
-			return F _ref (res[0])
+			return setSourceLocation (F _ref (res[0]), match)
 		else
-			return F _absref ("." join (res))
+			return setSourceLocation (F _absref ("." join (res)), match)
 		end
 	@end
 
@@ -1780,6 +1796,7 @@
 		for s in symbols
 			res addSymbol (F symbol (s getReferenceName ()))
 		end
+		setSourceLocation (res, match)
 		return res
 	@end
 
@@ -1799,6 +1816,7 @@
 		if doc
 			res setDocumentation (value)
 		end
+		setSourceLocation (res, match)
 		return res
 	@end
 
@@ -2023,11 +2041,11 @@
 		for l in process (match[0])
 			lines append (l[1][0][1:])
 		end
-		return F doc ("\n" join (lines))
+		return setSourceLocation (F doc ("\n" join (lines)), match)
 	@end
 
 	@method onCOMMENT match
-		return F comment (process(match)[1:0])
+		return setSourceLocation (F comment (process(match)[1:0]), match)
 	@end
 
 	@method onComment match

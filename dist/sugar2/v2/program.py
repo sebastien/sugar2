@@ -21,23 +21,23 @@ def function (grammar, name, prefix, anonymous=None):
 	g=grammar
 	s=grammar.symbols
 	if anonymous:
-		return g.rule(name, s.CheckIndent, prefix._as(u'type'), s.NOTHING._as(u'name'), g.agroup(s.EOL, g.arule(s.ParameterList.optional(), s.EOL))._as(u'parameters'), s.Decorator.zeroOrMore()._as(u'decorators'), s.Documentation.optional()._as(u'documentation'), s.Body._as(u'body'), s.ConstructSuffixes.zeroOrMore()._as(u'suffixes'))
+		return g.rule(name, s.CheckIndent._as(u'indent'), prefix._as(u'type'), s.NOTHING._as(u'name'), g.agroup(s.EOL, g.arule(s.ParameterList.optional(), s.EOL))._as(u'parameters'), s.Decorator.zeroOrMore()._as(u'decorators'), s.Documentation.optional()._as(u'documentation'), s.Body._as(u'body'), s.ConstructSuffixes.zeroOrMore()._as(u'suffixes'))
 	elif True:
-		return g.rule(name, s.CheckIndent, prefix._as(u'type'), s.NameType._as(u'name'), g.agroup(s.EOL, g.arule(s.ParameterList.optional(), s.EOL))._as(u'parameters'), s.Decorator.zeroOrMore()._as(u'decorators'), s.Documentation.optional()._as(u'documentation'), s.Body._as(u'body'), s.ConstructSuffixes.zeroOrMore()._as(u'suffixes'))
+		return g.rule(name, s.CheckIndent._as(u'indent'), prefix._as(u'type'), s.NameType._as(u'name'), g.agroup(s.EOL, g.arule(s.ParameterList.optional(), s.EOL))._as(u'parameters'), s.Decorator.zeroOrMore()._as(u'decorators'), s.Documentation.optional()._as(u'documentation'), s.Body._as(u'body'), s.ConstructSuffixes.zeroOrMore()._as(u'suffixes'))
 
 
 def abstractFunction (grammar, name, prefix):
 	self=__module__
 	g=grammar
 	s=grammar.symbols
-	return g.rule(name, s.CheckIndent, s.oabstract, prefix._as(u'type'), s.NameType._as(u'name'), g.agroup(s.EOL, g.arule(s.ParameterList.optional(), s.EOL))._as(u'parameters'), s.Decorator.zeroOrMore()._as(u'decorators'), s.Documentation.optional()._as(u'documentation'), s.ConstructSuffixes.zeroOrMore()._as(u'suffixes'))
+	return g.rule(name, s.CheckIndent._as(u'indent'), s.oabstract, prefix._as(u'type'), s.NameType._as(u'name'), g.agroup(s.EOL, g.arule(s.ParameterList.optional(), s.EOL))._as(u'parameters'), s.Decorator.zeroOrMore()._as(u'decorators'), s.Documentation.optional()._as(u'documentation'), s.ConstructSuffixes.zeroOrMore()._as(u'suffixes'))
 
 
 def construct (grammar, name, tag, contents):
 	self=__module__
 	g=grammar
 	s=grammar.symbols
-	return g.rule(name, s.CheckIndent, s.oabstract.optional(), tag, s.NAME._as(u'name'), s.Parents.optional()._as(u'inherits'), s.EOL, s.Documentation.optional()._as(u'documentation'), s.Indent, contents.zeroOrMore()._as(u'body'), s.Dedent, s.ConstructSuffixes.zeroOrMore()._as(u'suffixes'))
+	return g.rule(name, s.CheckIndent._as(u'indent'), s.oabstract.optional(), tag, s.NAME._as(u'name'), s.Parents.optional()._as(u'inherits'), s.EOL, s.Documentation.optional()._as(u'documentation'), s.Indent, contents.zeroOrMore()._as(u'body'), s.Dedent, s.ConstructSuffixes.zeroOrMore()._as(u'suffixes'))
 
 
 def createProgramGrammar (g=None):

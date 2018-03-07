@@ -49,7 +49,7 @@
 	#s EmptyLine zeroOrMore ()
 	if anonymous
 		return g rule (name
-			s CheckIndent
+			s CheckIndent _as "indent"
 			prefix _as "type"
 			s NOTHING _as "name"
 			g agroup (
@@ -66,7 +66,7 @@
 		)
 	else
 		return g rule (name
-			s CheckIndent
+			s CheckIndent _as "indent"
 			prefix     _as "type"
 			s NameType _as "name"
 			g agroup (
@@ -92,7 +92,7 @@
 	# that will fail. By putting EOL first in the grammar, we'll ensure
 	# the we won't try parameters if we have an EOL
 	return g rule (name
-		s CheckIndent
+		s CheckIndent _as "indent"
 		s oabstract
 		prefix _as "type"
 		s NameType _as "name"
@@ -112,7 +112,7 @@
 @function construct grammar, name, tag, contents
 	var g = grammar ; var s = grammar symbols
 	return g rule  (name
-		s CheckIndent
+		s CheckIndent _as "indent"
 		s oabstract optional ()
 		tag
 		s NAME _as "name"
