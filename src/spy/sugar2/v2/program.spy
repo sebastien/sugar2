@@ -304,7 +304,7 @@
 	g rule      ("Chain",            g agroup (s ELLIPSIS, s COLON) _as "type", s ChainLine oneOrMore () _as "lines")
 	g rule      ("IterationSuffix",  s ITERATOR _as "op", s Expression _as "rvalue")
 	g rule      ("ConditionSuffix",  g agroup (s _if, s _else) _as "type", s SPACE, s Expression _as "value")
-	g rule      ("EventOperation",   s EVENT_OPERATOR _as "operator", g agroup (s Reference, s String) _as "name", s Arguments optional () _as "value")
+	g rule      ("EventOperation",   s EVENT_OPERATOR _as "operator", g agroup (s Reference, s String, s Parentheses) _as "name", s Arguments optional () _as "value")
 	g rule      ("TypeSuffix",       s _type, s TypeValue _as "type")
 
 	g rule      ("MatchSuffixLine",   s ARROW, s Expression _as "body")
