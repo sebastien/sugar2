@@ -192,7 +192,7 @@ def createProgramGrammar (g=None):
 	g.rule(u'Chain', g.agroup(s.ELLIPSIS, s.COLON)._as(u'type'), s.ChainLine.oneOrMore()._as(u'lines'))
 	g.rule(u'IterationSuffix', s.ITERATOR._as(u'op'), s.Expression._as(u'rvalue'))
 	g.rule(u'ConditionSuffix', g.agroup(s._if, s._else)._as(u'type'), s.SPACE, s.Expression._as(u'value'))
-	g.rule(u'EventOperation', s.EVENT_OPERATOR._as(u'operator'), g.agroup(s.Reference, s.String)._as(u'name'), s.Arguments.optional()._as(u'value'))
+	g.rule(u'EventOperation', s.EVENT_OPERATOR._as(u'operator'), g.agroup(s.Reference, s.String, s.Parentheses)._as(u'name'), s.Arguments.optional()._as(u'value'))
 	g.rule(u'TypeSuffix', s._type, s.TypeValue._as(u'type'))
 	g.rule(u'MatchSuffixLine', s.ARROW, s.Expression._as(u'body'))
 	g.rule(u'MatchSuffixBlock', s.EOL, s.Comment.zeroOrMore(), s.Indent, s.CheckIndent, s.Expression._as(u'body'), s.COMMENT.optional(), s.Dedent)
