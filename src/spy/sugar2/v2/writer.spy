@@ -577,17 +577,26 @@
 
 	@method onImportSymbol match
 		return [
-			process (match[0])[0]
+			process (match[0])
 			process (match[1])
 		]
 	@end
 
 	@method onImportOrigin match
-		return process (match[1])[0]
+		return process (match[1])
 	@end
 
 	@method onImportAlias match
 		return process (match[1]) getReferenceName ()
+	@end
+
+	@method onImportName match
+		let value = process(match[0])
+		if isinstance(value, interfaces IString)
+			return value getActualValue ()
+		else
+			return value[0]
+		end
 	@end
 
 	@method onImport match

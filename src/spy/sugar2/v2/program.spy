@@ -454,8 +454,9 @@
 	g rule  ("FeatureAnnotation",     s CheckIndent, s ofeature,  s NAME    _as "name",    s VALUE optional () _as "value", s EOL)
 
 	g rule  ("ImportAlias",           s _as,       s NAME)
-	g rule  ("ImportSymbol",          s FQNAME,    s ImportAlias optional ())
-	g rule  ("ImportOrigin",          s _from,     g agroup (s FQNAME, s String))
+	g group ("ImportName",            s FQNAME, s String)
+	g rule  ("ImportSymbol",          s ImportName,    s ImportAlias optional ())
+	g rule  ("ImportOrigin",          s _from, s ImportName  )
 	g rule  ("Import"
 		s CheckIndent
 		s oimport

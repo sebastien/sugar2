@@ -35,7 +35,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	     return code
 	 @end
 	 ```"""
-	OPERATORS = [[u'or'], [u'and'], [u'not'], [u'>', u'>=', u'<', u'<=', u'!=', u'==', u'is', u'is not', u'in', u'not in'], [u'::', u'::<', u'::>', u'::?', u'::='], [u'..', u'\u2025'], [u'+', u'-'], [u'|', u'&', u'<<', u'>>'], [u'/', u'*', u'%', u'//'], [u'/=', u'*=', u'%=', u'+=', u'-=', u'=']]
+	OPERATORS = [[u'or'], [u'and'], [u'not'], [u'>', u'>=', u'<', u'<=', u'!=', u'==', u'is', u'is not', u'in', u'not in'], [u'::', u'::<', u'::>', u'::?', u'::='], [u'..', u'‥'], [u'+', u'-'], [u'|', u'&', u'<<', u'>>'], [u'/', u'*', u'%', u'//'], [u'/=', u'*=', u'%=', u'+=', u'-=', u'=']]
 	OPERATORS_NORMALIZED = {'||':u'|', '&&':u'&'}
 	def __init__ (self, grammar, path=None):
 		self.module = None

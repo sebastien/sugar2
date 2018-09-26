@@ -36,7 +36,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 	     return code
 	 @end
 	 ```"""
-	OPERATORS = [[u'.'], [u'or'], [u'and'], [u'not'], [u'>', u'>=', u'<', u'<=', u'!=', u'==', u'is', u'is not', u'in', u'not in'], [u'::', u'::<', u'::>', u'::?', u'::='], [u'..', u'\u2025'], [u'+', u'-'], [u'|', u'&', u'<<', u'>>'], [u'/', u'*', u'%', u'//'], [u'/=', u'*=', u'%=', u'+=', u'-=', u'=']]
+	OPERATORS = [[u'.'], [u'or'], [u'and'], [u'not'], [u'>', u'>=', u'<', u'<=', u'!=', u'==', u'is', u'is not', u'in', u'not in'], [u'::', u'::<', u'::>', u'::?', u'::='], [u'..', u'‥'], [u'+', u'-'], [u'|', u'&', u'<<', u'>>'], [u'/', u'*', u'%', u'//'], [u'/=', u'*=', u'%=', u'+=', u'-=', u'=']]
 	OPERATORS_NORMALIZED = {'||':u'|', '&&':u'&', '|':u'.'}
 	def __init__ (self, grammar, path=None):
 		self.module = None
@@ -431,22 +431,30 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		name=self.process(match[u'name'])
 		names=self.process(match[u'names'])
 		origin=self.process(match[u'origin'])
+		origin_is_dynamic=isinstance(origin, interfaces.IString)
+		if origin_is_dynamic:
+			origin = origin.getActualValue()
 		symbols=[]
+		print (u'IMPORT ORIGIN', origin)
 		names   = [_[1] for _ in names]
 		if not origin:
 			symbols = [F.importModule(_[0], _[1]) for _ in [name] + (names or [])]
 		else:
 			symbols = [F.importSymbol(_[0], origin, _[1]) for _ in [name] + (names or [])]
+		result=None
 		if (len(names) == 0):
 			if (not origin):
-				return F.importModule(name[0], name[1])
+				result = F.importModule(name[0], name[1])
 			elif True:
-				return F.importSymbol(name[0], origin, name[1])
+				result = F.importSymbol(name[0], origin, name[1])
 		elif True:
 			if (not origin):
-				return F.importModules(symbols)
+				result = F.importModules(symbols)
 			elif True:
-				return F.importSymbols(symbols, origin)
+				result = F.importSymbols(symbols, origin)
+		if origin_is_dynamic:
+			result.addAnnotation(u'import-dynamic')
+		return result
 	
 	def onBody(self, match):
 		return self.process(match[1])

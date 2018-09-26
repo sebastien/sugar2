@@ -17,7 +17,7 @@ class Parser:
 		self.grammar = self.createGrammar(version)
 		self.command = command
 		self.logger = command.environment.report
-
+	
 	def createGrammar(self, version=None):
 		if version is None: version = self.version
 		if (version == 1):
@@ -26,7 +26,7 @@ class Parser:
 		elif True:
 			import sugar2.v2.program
 			return sugar2.v2.program.createProgramGrammar()
-
+	
 	def createBuilder(self, path, version=None):
 		if version is None: version = self.version
 		builder=None
@@ -37,7 +37,7 @@ class Parser:
 			import sugar2.v2.writer
 			builder = sugar2.v2.writer.LambdaFactoryBuilder
 		return builder(self.grammar, path)
-
+	
 	def parseString(self, text, moduleName, path):
 		result=self.grammar.parseString(text)
 		builder=self.createBuilder(path)
@@ -54,5 +54,5 @@ class Parser:
 		elif result.isSuccess():
 			module=builder.process(result.match)
 			return [text, module]
-
+	
 
