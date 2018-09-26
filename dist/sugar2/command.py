@@ -42,7 +42,7 @@ def process (text, version=None, options=None):
 	s = io.BytesIO ()
 	p = tempfile.mktemp(suffix=".sg")
 	with open(p,"wb") as f: f.write(text.encode("utf8"))
-	options = (options + [u'-cles', p])
+	options = (options + [p])
 	run(options, version, s)
 	os.unlink(p)
 	s.seek(0)

@@ -53,7 +53,7 @@
 	|p = tempfile.mktemp(suffix=".sg")
 	|with open(p,"wb") as f: f.write(text.encode("utf8"))
 	@end
-	options = options + ["-cles", p]
+	options = options + [p]
 	run (options, version, s)
 	os unlink (p)
 	s seek 0

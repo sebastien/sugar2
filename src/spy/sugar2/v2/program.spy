@@ -311,7 +311,7 @@
 	g rule      ("MatchSuffixBlock",  s EOL,   s Comment zeroOrMore (), s Indent, s CheckIndent, s Expression _as "body", s COMMENT optional (), s Dedent)
 	g rule      ("MatchSuffixBranch", s EOL,   s Comment zeroOrMore (), s CheckIndent, g agroup (s _else, s UNDERSCORE, s Suffixes oneOrMore (), s COMMENT optional ()) _as "condition", g agroup (s MatchSuffixLine, s MatchSuffixBlock) _as "body")
 	g rule      ("MatchSuffixBody",   s Indent, s MatchSuffixBranch oneOrMore () _as "branches", s Dedent)
-	g rule      ("MatchSuffix" ,      s _match, g agroup (s MatchSuffixBody) _as "branches")
+	g rule      ("MatchSuffix" ,      s _match, s SPACE, g agroup (s MatchSuffixBody) _as "branches")
 
 	g group     ("Prefixes"
 		s Literal
@@ -380,7 +380,7 @@
 
 	g rule      ("MatchBranch",     s BlockStart, g agroup (s _else, s UNDERSCORE, s Suffixes oneOrMore (), s COMMENT optional ()) _as "condition", s BlockBody _as "body")
 	g rule      ("MatchBody",       s EOL, s Comment zeroOrMore (), s Indent, s MatchBranch zeroOrMore () _as "branches", s Dedent)
-	g rule      ("MatchBlock" ,     s BlockStart, s _match,  s Expression _as "expression", s COMMENT optional (), g agroup (s MatchBody) _as "branches")
+	g rule      ("MatchBlock" ,     s BlockStart, s _match,  s SPACE, s Expression _as "expression", s COMMENT optional (), g agroup (s MatchBody) _as "branches")
 
 
 	# TODO: This should be moved to expressions
@@ -455,7 +455,7 @@
 
 	g rule  ("ImportAlias",           s _as,       s NAME)
 	g rule  ("ImportSymbol",          s FQNAME,    s ImportAlias optional ())
-	g rule  ("ImportOrigin",          s _from,     s FQNAME)
+	g rule  ("ImportOrigin",          s _from,     g agroup (s FQNAME, s String))
 	g rule  ("Import"
 		s CheckIndent
 		s oimport

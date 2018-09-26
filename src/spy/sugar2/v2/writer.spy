@@ -593,7 +593,13 @@
 	@method onImport match
 		let name   = process (match["name"])
 		let names  = process (match["names"])
-		let origin = process (match["origin"])
+		var origin = process (match["origin"])
+		# The @import XXX has XXX as string, so it's
+		# going to be non-canonical/dynamic.
+		var origin_is_dynamic = isinstance (origin, interfaces IString)
+		if origin_is_dynamic
+			origin = origin getActualValue ()
+		end
 		var symbols = []
 		@embed Python
 		|names   = [_[1] for _ in names]
@@ -602,21 +608,26 @@
 		|else:
 		|	symbols = [F.importSymbol(_[0], origin, _[1]) for _ in [name] + (names or [])]
 		@end
+		var result  = Undefined
 		# FIXME: LF's import system should be rewritten
 		# TODO: Support 'as' for multiple symbols
 		if len(names) == 0
 			if not origin
-				return F importModule (name[0], name[1])
+				result = F importModule (name[0], name[1])
 			else
-				return F importSymbol  (name[0], origin, name[1])
+				result = F importSymbol  (name[0], origin, name[1])
 			end
 		else
 			if not origin
-				return F importModules (symbols)
+				result = F importModules (symbols)
 			else
-				return F importSymbols (symbols, origin)
+				result = F importSymbols (symbols, origin)
 			end
 		end
+		if origin_is_dynamic
+			result addAnnotation "import-dynamic"
+		end
+		return result
 	@end
 
 	# =========================================================================
