@@ -419,13 +419,20 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		return res
 	
 	def onImportSymbol(self, match):
-		return [self.process(match[0])[0], self.process(match[1])]
+		return [self.process(match[0]), self.process(match[1])]
 	
 	def onImportOrigin(self, match):
-		return self.process(match[1])[0]
+		return self.process(match[1])
 	
 	def onImportAlias(self, match):
 		return self.process(match[1]).getReferenceName()
+	
+	def onImportName(self, match):
+		value=self.process(match[0])
+		if isinstance(value, interfaces.IString):
+			return value.getActualValue()
+		elif True:
+			return value[0]
 	
 	def onImport(self, match):
 		name=self.process(match[u'name'])
@@ -435,7 +442,6 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		if origin_is_dynamic:
 			origin = origin.getActualValue()
 		symbols=[]
-		print (u'IMPORT ORIGIN', origin)
 		names   = [_[1] for _ in names]
 		if not origin:
 			symbols = [F.importModule(_[0], _[1]) for _ in [name] + (names or [])]
