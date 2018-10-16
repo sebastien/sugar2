@@ -35,6 +35,17 @@ def run (arguments, version=None, output=None):
 		return program
 
 
+def parse (path, version=None, options=None):
+	self=__module__
+	if version is None: version = 2
+	if options is None: options = []
+	s=io.BytesIO()
+	options = (options + [path])
+	run(options, version, s)
+	s.seek(0)
+	return s.read().decode(u'utf-8')
+
+
 def process (text, version=None, options=None):
 	self=__module__
 	if version is None: version = 2

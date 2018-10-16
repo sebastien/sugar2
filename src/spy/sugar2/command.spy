@@ -47,6 +47,14 @@
 	end
 @end
 
+@function parse path, version=2, options=[]
+	let s   = io BytesIO ()
+	options = options + [path]
+	run (options, version, s)
+	s seek 0
+	return s read () decode "utf-8"
+@end
+
 @function process text, version=2, options=[]
 	@embed Python
 	|s = io.BytesIO ()

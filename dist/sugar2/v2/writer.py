@@ -76,10 +76,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		return element
 	
 	def getDefaultModuleName(self):
-		if self.path:
-			return self.path.split(u'/')[-1].split(u'.')[0].replace(u'-', u'_')
-		elif True:
-			return u'__current__'
+		return u'__current__'
 	
 	def normalizeOperator(self, operator):
 		operator = operator.replace("\t"," ").replace("\n"," ")

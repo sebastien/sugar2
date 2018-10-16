@@ -125,12 +125,7 @@
 	@end
 
 	@method getDefaultModuleName
-		# FIXME: This should be done within LambdaFactory, not here
-		if path
-			return path split "/" [-1] split "." [0] replace ("-", "_")
-		else
-			return "__current__"
-		end
+		return "__current__"
 	@end
 
 	@method normalizeOperator operator
