@@ -346,6 +346,8 @@
 		for _ in where
 			module addAnnotation (_)
 		end
+		setSourceLocation (init_function, match["code"])
+
 		setSourceLocation (module, match)
 		return module
 	@end

@@ -240,6 +240,7 @@ class LambdaFactoryBuilder(libparsing.Processor):
 		self._bind(module, init_function)
 		for _ in where:
 			module.addAnnotation(_)
+		self.setSourceLocation(init_function, match[u'code'])
 		self.setSourceLocation(module, match)
 		return module
 	
